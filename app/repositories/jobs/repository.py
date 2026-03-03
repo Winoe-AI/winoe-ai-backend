@@ -19,7 +19,7 @@ from app.repositories.jobs.models import (
 )
 
 MAX_JOB_PAYLOAD_BYTES = 64 * 1024
-MAX_JOB_ERROR_CHARS = 2_000
+MAX_JOB_ERROR_CHARS = 2_048
 
 
 def _runnable_filter(now, *, stale_before):
@@ -54,7 +54,8 @@ def _validate_payload_size(payload_json: dict[str, Any]) -> None:
 
 
 def sanitize_error(error_str: str) -> str:
-    return (error_str or "").strip()[:MAX_JOB_ERROR_CHARS]
+    normalized = " ".join((error_str or "").split())
+    return normalized[:MAX_JOB_ERROR_CHARS]
 
 
 async def get_by_id(db: AsyncSession, job_id: str) -> Job | None:
