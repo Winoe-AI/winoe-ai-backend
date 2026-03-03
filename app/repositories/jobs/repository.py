@@ -85,27 +85,33 @@ async def get_by_id_for_principal(
                 return recruiter_job
 
     if "candidate:access" in principal.permissions:
+        if principal.claims.get("email_verified") is not True:
+            return None
         email = _normalize_email(principal.email)
-        candidate_job = (
+        if not email:
+            return None
+
+        candidate_row = (
             await db.execute(
-                select(Job)
+                select(Job, CandidateSession)
                 .join(
                     CandidateSession,
                     CandidateSession.id == Job.candidate_session_id,
                 )
                 .where(Job.id == job_id)
-                .where(
-                    or_(
-                        CandidateSession.candidate_auth0_sub == principal.sub,
-                        func.lower(CandidateSession.invite_email) == email,
-                        func.lower(CandidateSession.candidate_email) == email,
-                        func.lower(CandidateSession.candidate_auth0_email) == email,
-                    )
-                )
             )
-        ).scalar_one_or_none()
-        if candidate_job is not None:
-            return candidate_job
+        ).first()
+        if candidate_row is None:
+            return None
+
+        candidate_job, candidate_session = candidate_row
+        if _normalize_email(candidate_session.invite_email) != email:
+            return None
+
+        claimed_sub = (candidate_session.candidate_auth0_sub or "").strip()
+        if claimed_sub and claimed_sub != principal.sub:
+            return None
+        return candidate_job
 
     return None
 

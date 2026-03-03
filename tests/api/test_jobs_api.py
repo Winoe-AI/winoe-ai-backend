@@ -122,3 +122,38 @@ async def test_get_job_status_candidate_ownership(async_client, async_session):
         headers={"Authorization": "Bearer candidate:not-owner@test.com"},
     )
     assert denied.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_job_status_candidate_sub_mismatch_returns_404(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(
+        async_session, email="jobs-candidate-sub-owner@test.com"
+    )
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="candidate-sub-owner@test.com",
+        candidate_auth0_sub="candidate-someone-else@test.com",
+    )
+    company = await async_session.get(Company, recruiter.company_id)
+    assert company is not None
+    job = await create_job(
+        async_session,
+        company=company,
+        status=JOB_STATUS_SUCCEEDED,
+        job_type="transcript_processing",
+        payload_json={"candidateSessionId": cs.id},
+        candidate_session=cs,
+    )
+    await async_session.commit()
+
+    denied = await async_client.get(
+        f"/api/jobs/{job.id}",
+        headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
+    )
+    assert denied.status_code == 404
+    body = denied.json()
+    assert body["errorCode"] == "JOB_NOT_FOUND"

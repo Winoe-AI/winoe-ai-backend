@@ -17,15 +17,22 @@ from tests.factories import (
 
 
 def _principal(
-    email: str, permissions: list[str], *, sub: str | None = None
+    email: str,
+    permissions: list[str],
+    *,
+    sub: str | None = None,
+    email_verified: bool | None = None,
 ) -> Principal:
+    claims: dict[str, object] = {}
+    if email_verified is not None:
+        claims["email_verified"] = email_verified
     return Principal(
         sub=sub or f"principal-{email}",
         email=email,
         name=email.split("@")[0],
         roles=[],
         permissions=permissions,
-        claims={},
+        claims=claims,
     )
 
 
@@ -145,8 +152,13 @@ async def test_get_by_id_for_principal_recruiter_and_candidate(async_session):
         "jobs-candidate-lookup@test.com",
         ["candidate:access"],
         sub="candidate-sub-1",
+        email_verified=True,
     )
-    unknown_principal = _principal("nobody@test.com", ["candidate:access"])
+    unknown_principal = _principal(
+        "nobody@test.com",
+        ["candidate:access"],
+        email_verified=True,
+    )
 
     recruiter_view = await jobs_repo.get_by_id_for_principal(
         async_session, job.id, recruiter_principal
@@ -160,3 +172,70 @@ async def test_get_by_id_for_principal_recruiter_and_candidate(async_session):
     assert recruiter_view is not None
     assert candidate_view is not None
     assert denied_view is None
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_for_principal_denies_candidate_when_claimed_by_other_sub(
+    async_session,
+):
+    recruiter = await create_recruiter(
+        async_session, email="jobs-owner-sub-check@test.com"
+    )
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="jobs-candidate-sub-check@test.com",
+        candidate_auth0_sub="candidate-sub-owner",
+    )
+    job = await jobs_repo.create_or_get_idempotent(
+        async_session,
+        job_type="transcript_processing",
+        idempotency_key="idem-sub-check",
+        payload_json={"candidateSessionId": cs.id},
+        company_id=recruiter.company_id,
+        candidate_session_id=cs.id,
+    )
+
+    wrong_sub_principal = _principal(
+        cs.invite_email,
+        ["candidate:access"],
+        sub="candidate-sub-attacker",
+        email_verified=True,
+    )
+    denied = await jobs_repo.get_by_id_for_principal(
+        async_session, job.id, wrong_sub_principal
+    )
+    assert denied is None
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_for_principal_denies_unverified_candidate(async_session):
+    recruiter = await create_recruiter(
+        async_session, email="jobs-owner-unverified@test.com"
+    )
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="jobs-candidate-unverified@test.com",
+    )
+    job = await jobs_repo.create_or_get_idempotent(
+        async_session,
+        job_type="transcript_processing",
+        idempotency_key="idem-unverified",
+        payload_json={"candidateSessionId": cs.id},
+        company_id=recruiter.company_id,
+        candidate_session_id=cs.id,
+    )
+
+    unverified_principal = _principal(
+        cs.invite_email,
+        ["candidate:access"],
+        sub="candidate-unverified",
+        email_verified=False,
+    )
+    denied = await jobs_repo.get_by_id_for_principal(
+        async_session, job.id, unverified_principal
+    )
+    assert denied is None
