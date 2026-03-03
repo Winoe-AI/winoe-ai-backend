@@ -40,6 +40,11 @@ def decode_credentials(
             "auth0_token_invalid",
             extra={"request_id": request_id, "reason": reason},
         )
+        if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Auth provider unavailable",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",

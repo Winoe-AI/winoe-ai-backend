@@ -52,6 +52,24 @@ async def test_protected_route_invalid_tokens_return_401(
 
 
 @pytest.mark.asyncio
+async def test_protected_route_jwks_outage_returns_503(
+    async_client, override_dependencies, monkeypatch
+):
+    def jwks_outage(_token: str):
+        raise auth0_module.Auth0Error("Auth provider unavailable", status_code=503)
+
+    monkeypatch.setattr(auth0_module, "decode_auth0_token", jwks_outage)
+    with override_dependencies({get_current_user: security_deps.get_current_user}):
+        res = await async_client.get(
+            "/api/simulations",
+            headers={"Authorization": "Bearer token-during-outage"},
+        )
+
+    assert res.status_code == 503
+    assert res.json() == {"detail": "Auth provider unavailable"}
+
+
+@pytest.mark.asyncio
 async def test_valid_candidate_token_without_recruiter_permission_returns_403_no_side_effect(
     async_client, async_session, override_dependencies, monkeypatch
 ):

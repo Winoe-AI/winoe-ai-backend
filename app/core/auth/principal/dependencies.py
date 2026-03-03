@@ -26,6 +26,15 @@ async def get_principal(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
+    token = (credentials.credentials or "").strip()
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
+    credentials = HTTPAuthorizationCredentials(
+        scheme=credentials.scheme, credentials=token
+    )
 
     request_id = (
         request.headers.get("x-request-id")
@@ -34,10 +43,7 @@ async def get_principal(
     ).strip() or None
 
     # Reject shorthand/dev bearer tokens outside test to prevent auth bypass.
-    if (
-        parse_dev_principal_token(credentials.credentials or "")
-        and env_name() != "test"
-    ):
+    if parse_dev_principal_token(token) and env_name() != "test":
         logger.warning(
             "auth_token_rejected",
             extra={

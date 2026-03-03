@@ -112,6 +112,17 @@ async def test_get_principal_auth0_error_does_not_crash(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_get_principal_missing_credentials_returns_401():
+    request = Request({"type": "http", "headers": []})
+
+    with pytest.raises(HTTPException) as excinfo:
+        await principal.get_principal(None, request)
+
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Not authenticated"
+
+
+@pytest.mark.asyncio
 async def test_get_principal_maps_jwks_failure(monkeypatch):
     def bad_decode(_token: str):
         raise auth0.Auth0Error("Auth provider unavailable", status_code=503)
@@ -121,8 +132,8 @@ async def test_get_principal_maps_jwks_failure(monkeypatch):
     request = Request({"type": "http", "headers": []})
     with pytest.raises(HTTPException) as excinfo:
         await principal.get_principal(credentials, request)
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"
+    assert excinfo.value.status_code == 503
+    assert excinfo.value.detail == "Auth provider unavailable"
 
 
 @pytest.mark.asyncio
@@ -141,6 +152,7 @@ async def test_get_principal_maps_kid_not_found(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_principal_blocks_dev_shorthand_outside_test(monkeypatch):
+    monkeypatch.setenv("TENON_ENV", "prod")
     monkeypatch.setattr(settings, "ENV", "prod")
     credentials = HTTPAuthorizationCredentials(
         scheme="Bearer", credentials="candidate:blocked@example.com"
