@@ -9,7 +9,10 @@ from app.core.settings import settings
 
 def env_name() -> str:
     """Normalized environment name (lowercase)."""
-    return str(getattr(settings, "ENV", os.getenv("ENV", "local"))).lower()
+    configured = getattr(settings, "ENV", None)
+    if configured:
+        return str(configured).lower()
+    return str(os.getenv("TENON_ENV") or os.getenv("ENV") or "local").lower()
 
 
 def is_local_or_test() -> bool:

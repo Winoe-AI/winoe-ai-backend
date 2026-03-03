@@ -19,6 +19,12 @@ def test_env_helpers_prod(monkeypatch):
     assert env.is_prod() is True
 
 
+def test_env_name_falls_back_to_tenon_env(monkeypatch):
+    monkeypatch.setattr(settings, "ENV", "")
+    monkeypatch.setenv("TENON_ENV", "staging")
+    assert env.env_name() == "staging"
+
+
 def test_submission_exceptions_payloads():
     conflict = exceptions.SubmissionConflict()
     order_error = exceptions.SubmissionOrderError()
