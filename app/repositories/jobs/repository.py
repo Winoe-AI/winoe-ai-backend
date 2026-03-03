@@ -85,6 +85,8 @@ async def get_by_id_for_principal(
                 return recruiter_job
 
     if "candidate:access" in principal.permissions:
+        # Keep this strict check aligned with candidate session ownership logic:
+        # candidate access requires an explicit `email_verified is True` claim.
         if principal.claims.get("email_verified") is not True:
             return None
         email = _normalize_email(principal.email)

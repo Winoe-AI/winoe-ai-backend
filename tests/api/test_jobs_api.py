@@ -157,3 +157,39 @@ async def test_get_job_status_candidate_sub_mismatch_returns_404(
     assert denied.status_code == 404
     body = denied.json()
     assert body["errorCode"] == "JOB_NOT_FOUND"
+
+
+@pytest.mark.asyncio
+async def test_get_job_status_candidate_cannot_read_company_scoped_job(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(
+        async_session, email="jobs-candidate-company-scope@test.com"
+    )
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="candidate-company-scope@test.com",
+    )
+    company = await async_session.get(Company, recruiter.company_id)
+    assert company is not None
+    job = await create_job(
+        async_session,
+        company=company,
+        status=JOB_STATUS_SUCCEEDED,
+        job_type="scenario_generation",
+        payload_json={"simulationId": sim.id},
+        result_json={"ok": True},
+        candidate_session=None,
+    )
+    await async_session.commit()
+
+    denied = await async_client.get(
+        f"/api/jobs/{job.id}",
+        headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
+    )
+    assert denied.status_code == 404
+    body = denied.json()
+    assert body["errorCode"] == "JOB_NOT_FOUND"
+    assert body["retryable"] is False

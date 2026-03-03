@@ -1,12 +1,18 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.auth.principal import Principal
 from app.repositories.jobs import repository as jobs_repo
-from app.repositories.jobs.models import JOB_STATUS_RUNNING
+from app.repositories.jobs.models import (
+    JOB_STATUS_DEAD_LETTER,
+    JOB_STATUS_RUNNING,
+    JOB_STATUS_SUCCEEDED,
+)
 from tests.factories import (
     create_candidate_session,
     create_company,
@@ -36,6 +42,12 @@ def _principal(
     )
 
 
+def _session_maker(async_session: AsyncSession) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+
+
 @pytest.mark.asyncio
 async def test_create_or_get_idempotent_returns_existing(async_session):
     company = await create_company(async_session, name="Jobs Co")
@@ -59,6 +71,95 @@ async def test_create_or_get_idempotent_returns_existing(async_session):
     fetched = await jobs_repo.get_by_id(async_session, first.id)
     assert fetched is not None
     assert fetched.id == first.id
+
+
+@pytest.mark.asyncio
+async def test_claim_next_runnable_prevents_double_claim_with_two_sessions(
+    async_session,
+):
+    company = await create_company(async_session, name="Jobs Co Double Claim")
+    job = await create_job(
+        async_session,
+        company=company,
+        status="queued",
+        attempt=0,
+        next_run_at=datetime.now(UTC) - timedelta(seconds=1),
+    )
+    await async_session.commit()
+
+    session_maker = _session_maker(async_session)
+    now = datetime.now(UTC)
+    async with session_maker() as session_a, session_maker() as session_b:
+        claimed_a, claimed_b = await asyncio.gather(
+            jobs_repo.claim_next_runnable(
+                session_a,
+                worker_id="worker-a",
+                now=now,
+                lease_seconds=300,
+            ),
+            jobs_repo.claim_next_runnable(
+                session_b,
+                worker_id="worker-b",
+                now=now,
+                lease_seconds=300,
+            ),
+        )
+
+    claimed = [job_row for job_row in [claimed_a, claimed_b] if job_row is not None]
+    assert len(claimed) == 1
+    winning_claim = claimed[0]
+    assert winning_claim.id == job.id
+    assert winning_claim.status == JOB_STATUS_RUNNING
+    assert winning_claim.attempt == 1
+    assert winning_claim.locked_by in {"worker-a", "worker-b"}
+
+    refreshed = await jobs_repo.get_by_id(async_session, job.id)
+    assert refreshed is not None
+    assert refreshed.status == JOB_STATUS_RUNNING
+    assert refreshed.locked_by == winning_claim.locked_by
+
+
+@pytest.mark.asyncio
+async def test_claim_next_runnable_never_reclaims_terminal_state_jobs(async_session):
+    company = await create_company(async_session, name="Jobs Co Terminal")
+    old_lock = datetime.now(UTC) - timedelta(hours=4)
+    succeeded = await create_job(
+        async_session,
+        company=company,
+        status=JOB_STATUS_SUCCEEDED,
+        attempt=3,
+        max_attempts=5,
+        next_run_at=None,
+    )
+    succeeded.locked_at = old_lock
+    succeeded.locked_by = "old-worker-succeeded"
+
+    dead_letter = await create_job(
+        async_session,
+        company=company,
+        status=JOB_STATUS_DEAD_LETTER,
+        attempt=5,
+        max_attempts=5,
+        next_run_at=None,
+    )
+    dead_letter.locked_at = old_lock
+    dead_letter.locked_by = "old-worker-dead-letter"
+    await async_session.commit()
+
+    claimed = await jobs_repo.claim_next_runnable(
+        async_session,
+        worker_id="fresh-worker",
+        now=datetime.now(UTC),
+        lease_seconds=300,
+    )
+    assert claimed is None
+
+    refreshed_succeeded = await jobs_repo.get_by_id(async_session, succeeded.id)
+    refreshed_dead_letter = await jobs_repo.get_by_id(async_session, dead_letter.id)
+    assert refreshed_succeeded is not None
+    assert refreshed_dead_letter is not None
+    assert refreshed_succeeded.status == JOB_STATUS_SUCCEEDED
+    assert refreshed_dead_letter.status == JOB_STATUS_DEAD_LETTER
 
 
 @pytest.mark.asyncio
@@ -237,5 +338,39 @@ async def test_get_by_id_for_principal_denies_unverified_candidate(async_session
     )
     denied = await jobs_repo.get_by_id_for_principal(
         async_session, job.id, unverified_principal
+    )
+    assert denied is None
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_for_principal_denies_company_scoped_job_for_candidate(
+    async_session,
+):
+    recruiter = await create_recruiter(
+        async_session, email="jobs-owner-company-scoped@test.com"
+    )
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="jobs-candidate-company-scoped@test.com",
+    )
+    job = await jobs_repo.create_or_get_idempotent(
+        async_session,
+        job_type="scenario_generation",
+        idempotency_key="idem-company-scoped",
+        payload_json={"simulationId": sim.id},
+        company_id=recruiter.company_id,
+        candidate_session_id=None,
+    )
+
+    candidate_principal = _principal(
+        cs.invite_email,
+        ["candidate:access"],
+        sub="candidate-company-scoped",
+        email_verified=True,
+    )
+    denied = await jobs_repo.get_by_id_for_principal(
+        async_session, job.id, candidate_principal
     )
     assert denied is None
