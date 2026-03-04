@@ -1,6 +1,15 @@
 from datetime import datetime
+from typing import Any
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base, TimestampMixin
@@ -56,6 +65,12 @@ class Simulation(Base, TimestampMixin):
 
     focus: Mapped[str] = mapped_column(
         Text, nullable=False, server_default="", default=""
+    )
+    company_context: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    ai_notice_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    ai_notice_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ai_eval_enabled_by_day: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
     )
 
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))

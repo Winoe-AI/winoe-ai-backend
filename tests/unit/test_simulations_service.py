@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from app.domains import CandidateSession
 from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
 from app.domains.simulations import service as sim_service
+from app.services.simulations import creation as sim_creation
 from tests.factories import create_recruiter, create_simulation
 
 
@@ -42,6 +43,45 @@ def test_invite_url_uses_portal_base(monkeypatch):
         sim_service.settings, "CANDIDATE_PORTAL_BASE_URL", "https://portal.test"
     )
     assert sim_service.invite_url("abc") == "https://portal.test/candidate/session/abc"
+
+
+def test_create_simulation_payload_extractors_cover_context_branches():
+    payload_with_dicts = SimpleNamespace(
+        companyContext={"domain": "social"},
+        ai={
+            "noticeVersion": "mvp1",
+            "noticeText": "Notice",
+            "evalEnabledByDay": {"1": True},
+        },
+    )
+    assert sim_creation._extract_company_context(payload_with_dicts) == {
+        "domain": "social"
+    }
+    assert sim_creation._extract_ai_fields(payload_with_dicts) == (
+        "mvp1",
+        "Notice",
+        {"1": True},
+    )
+
+    payload_with_object = SimpleNamespace(
+        company_context={"productArea": "creator tools"},
+        ai=SimpleNamespace(
+            notice_version=None,
+            noticeVersion="mvp2",
+            notice_text=None,
+            noticeText="Fallback",
+            eval_enabled_by_day=None,
+            evalEnabledByDay={"2": False},
+        ),
+    )
+    assert sim_creation._extract_company_context(payload_with_object) == {
+        "productArea": "creator tools"
+    }
+    assert sim_creation._extract_ai_fields(payload_with_object) == (
+        "mvp2",
+        "Fallback",
+        {"2": False},
+    )
 
 
 @pytest.mark.asyncio
