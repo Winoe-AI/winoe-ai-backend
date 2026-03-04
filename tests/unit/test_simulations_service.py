@@ -7,8 +7,9 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.domains import CandidateSession, Job
+from app.domains import CandidateSession, Job, Simulation
 from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
 from app.domains.simulations import service as sim_service
 from app.services.simulations import creation as sim_creation
@@ -214,15 +215,26 @@ async def test_create_simulation_with_tasks_enqueues_scenario_generation_job(
         async_session, payload, recruiter
     )
 
-    job = (
-        await async_session.execute(
-            select(Job).where(
-                Job.company_id == recruiter.company_id,
-                Job.job_type == "scenario_generation",
-                Job.idempotency_key == f"simulation:{sim.id}:scenario_generation",
+    session_maker = async_sessionmaker(
+        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    )
+    async with session_maker() as check_session:
+        persisted_sim = (
+            await check_session.execute(
+                select(Simulation).where(Simulation.id == sim.id)
             )
-        )
-    ).scalar_one()
+        ).scalar_one()
+        job = (
+            await check_session.execute(
+                select(Job).where(
+                    Job.company_id == recruiter.company_id,
+                    Job.job_type == "scenario_generation",
+                    Job.idempotency_key == f"simulation:{sim.id}:scenario_generation",
+                )
+            )
+        ).scalar_one()
+
+    assert persisted_sim.id == sim.id
 
     assert job.payload_json["simulationId"] == sim.id
     assert job.payload_json["templateKey"] == "python-fastapi"

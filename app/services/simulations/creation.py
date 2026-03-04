@@ -106,7 +106,6 @@ async def create_simulation_with_tasks(
         target_status=SIMULATION_STATUS_READY_FOR_REVIEW,
         changed_at=datetime.now(UTC),
     )
-    await db.commit()
 
     payload_json = build_scenario_generation_payload(sim)
     await jobs_repo.create_or_get_idempotent(
@@ -116,7 +115,9 @@ async def create_simulation_with_tasks(
         payload_json=payload_json,
         company_id=sim.company_id,
         correlation_id=f"simulation:{sim.id}",
+        commit=False,
     )
+    await db.commit()
 
     await db.refresh(sim)
     for task in created_tasks:
