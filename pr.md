@@ -105,6 +105,60 @@
 - `tests/unit/test_candidate_sessions_repository.py::test_get_by_token_for_update_locks_only_candidate_sessions`
 - `tests/unit/test_job_handler_registration.py::test_register_builtin_handlers_is_explicit`
 
+## Audit QA (runtime)
+
+- Execution method:
+- `uvicorn` localhost bind is blocked in this sandbox (`operation not permitted`), so manual runtime QA was executed via an in-process ASGI harness.
+- Harness: `.qa/issue197/manual_http_harness.py`
+
+- Evidence files:
+- `.qa/issue197/QA_REPORT.md` — primary pass/fail matrix A–F.
+- `.qa/issue197/output.txt` — captured HTTP responses, DB checks, and compiled SQL snippets.
+- `.qa/issue197/commands.txt` — full command log.
+- `.qa/issue197/env.txt` — environment snapshot.
+- `.qa/issue197/issue197_manualqa.db` — SQLite DB used for the harness run.
+
+- Results summary (A–F):
+
+| Check | Result |
+|------|--------|
+| A) Owner terminate / non-owner / missing sim | PASS (`200` owner terminate, `403` non-owner, `404` missing simulation) |
+| B) Idempotency | PASS (`terminatedAt` + `cleanupJobIds` stable; single cleanup job row) |
+| C) Invite create/resend blocked | PASS (`409` + `SIMULATION_TERMINATED`) |
+| D) Candidate resolve/claim hidden | PASS (`404` + `"Invalid invite token"`) |
+| E) Cleanup job row validation | PASS (`job_type`, `idempotency_key`, payload fields validated) |
+| F) Lock scope compiled SQL | PASS (`FOR UPDATE OF candidate_sessions`) |
+
+- Key response snippets:
+
+```json
+{
+  "cleanupJobIds": ["1707f03a-f172-463f-b54c-35db67ad387b"],
+  "simulationId": 1,
+  "status": "terminated",
+  "terminatedAt": "2026-03-04T05:13:15.439416"
+}
+```
+
+```json
+{
+  "detail": "Simulation has been terminated.",
+  "errorCode": "SIMULATION_TERMINATED"
+}
+```
+
+```json
+{
+  "detail": "Invalid invite token"
+}
+```
+
+```sql
+WHERE candidate_sessions.id = 123
+  AND (simulations.status IS NULL OR simulations.status != 'terminated')
+  FOR UPDATE OF candidate_sessions
+```
+
 ## Risks / Rollout Notes
 
 - Cleanup is currently best-effort and safe: handler is a retry-safe noop skeleton scoped to simulation-owned resources, so external deletion coverage can be expanded incrementally.
