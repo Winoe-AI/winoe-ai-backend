@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import inspect
+from sqlalchemy.exc import NoInspectionAvailable
 
 from app.core.auth.principal import Principal
 from app.domains import CandidateSession
@@ -11,10 +13,27 @@ from app.domains.candidate_sessions.service.status import (
     mark_in_progress,
     require_not_expired,
 )
+from app.repositories.simulations.simulation import SIMULATION_STATUS_TERMINATED
 
 _NOT_FOUND = HTTPException(
     status_code=status.HTTP_404_NOT_FOUND, detail="Candidate session not found"
 )
+
+
+def _loaded_simulation_status(cs: CandidateSession) -> str | None:
+    try:
+        state = inspect(cs)
+    except NoInspectionAvailable:
+        simulation = getattr(cs, "simulation", None)
+        return getattr(simulation, "status", None)
+
+    if "simulation" in state.unloaded:
+        raise _NOT_FOUND
+
+    simulation = state.attrs.simulation.value
+    if simulation is None:
+        raise _NOT_FOUND
+    return getattr(simulation, "status", None)
 
 
 def ensure_can_access(
@@ -27,6 +46,8 @@ def ensure_can_access(
     if cs is None and allow_missing:
         raise _NOT_FOUND
     if cs is None:
+        raise _NOT_FOUND
+    if _loaded_simulation_status(cs) == SIMULATION_STATUS_TERMINATED:
         raise _NOT_FOUND
     require_not_expired(cs, now=now or datetime.now(UTC))
     return cs
