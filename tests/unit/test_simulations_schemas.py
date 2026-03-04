@@ -30,6 +30,8 @@ def test_simulation_detail_task_serializes_optional_fields():
 def test_simulation_schema_helpers_cover_edge_cases():
     assert normalize_role_level(None) is None
     assert normalize_role_level("   ") is None
+    assert normalize_role_level(" Mid ") == "mid"
+    assert normalize_role_level("Wizard") is None
 
     with pytest.raises(ValueError):
         normalize_eval_enabled_by_day("not-a-map", strict=True)

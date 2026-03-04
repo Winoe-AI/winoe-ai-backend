@@ -25,8 +25,8 @@ def test_build_scenario_generation_payload_includes_recruiter_context_fields() -
     assert payload["simulationId"] == 42
     assert payload["templateKey"] == "python-fastapi"
     assert payload["scenarioTemplate"] == "default-5day-node-postgres"
-    assert payload["recruiterContext"]["roleLevel"] == "mid"
-    assert payload["recruiterContext"]["focusNotes"] == simulation.focus
+    assert payload["recruiterContext"]["seniority"] == "mid"
+    assert payload["recruiterContext"]["focus"] == simulation.focus
     assert payload["recruiterContext"]["companyContext"] == simulation.company_context
     assert payload["recruiterContext"]["ai"] == {
         "noticeVersion": "mvp1",

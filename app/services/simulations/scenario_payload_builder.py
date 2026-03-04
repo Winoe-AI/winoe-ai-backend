@@ -17,11 +17,11 @@ def build_scenario_generation_payload(simulation: Any) -> dict[str, Any]:
 
     role_level = normalize_role_level(getattr(simulation, "seniority", None))
     if role_level is not None:
-        recruiter_context["roleLevel"] = role_level
+        recruiter_context["seniority"] = role_level
 
     focus_notes = getattr(simulation, "focus", None)
     if focus_notes is not None:
-        recruiter_context["focusNotes"] = focus_notes
+        recruiter_context["focus"] = focus_notes
 
     company_context = build_simulation_company_context(
         getattr(simulation, "company_context", None)

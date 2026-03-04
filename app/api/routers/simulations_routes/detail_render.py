@@ -19,7 +19,8 @@ def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
         title=sim.title,
         templateKey=sim.template_key,
         role=sim.role,
-        seniority=normalize_role_level(getattr(sim, "seniority", None)),
+        seniority=normalize_role_level(getattr(sim, "seniority", None))
+        or getattr(sim, "seniority", None),
         techStack=sim.tech_stack,
         focus=sim.focus,
         companyContext=build_simulation_company_context(

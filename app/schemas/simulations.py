@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime
-from enum import Enum
 from typing import Any
 
 from pydantic import (
@@ -52,21 +51,13 @@ _ALLOWED_ROLE_LEVELS = frozenset({"junior", "mid", "senior", "staff", "principal
 _ALLOWED_AI_EVAL_DAY_KEYS = frozenset({"1", "2", "3", "4", "5"})
 
 
-class RoleLevel(str, Enum):
-    JUNIOR = "junior"
-    MID = "mid"
-    SENIOR = "senior"
-    STAFF = "staff"
-    PRINCIPAL = "principal"
-
-
 def normalize_role_level(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = value.strip().lower()
     if not normalized:
         return None
-    return normalized
+    return normalized if normalized in _ALLOWED_ROLE_LEVELS else None
 
 
 def normalize_eval_enabled_by_day(

@@ -5,9 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.domains import CandidateSession
+from app.domains import CandidateSession, Job
 from app.domains.common.types import CANDIDATE_SESSION_STATUS_COMPLETED
 from app.domains.simulations import service as sim_service
 from app.services.simulations import creation as sim_creation
@@ -183,6 +184,59 @@ async def test_create_simulation_with_tasks_flow(async_session, monkeypatch):
     assert len(tasks) == len(sim_service.DEFAULT_5_DAY_BLUEPRINT)
     # ensure tasks are sorted and refreshed
     assert tasks[0].day_index == 1
+
+
+@pytest.mark.asyncio
+async def test_create_simulation_with_tasks_enqueues_scenario_generation_job(
+    async_session,
+):
+    recruiter = await create_recruiter(async_session, email="sim-job@test.com")
+    payload = type(
+        "P",
+        (),
+        {
+            "title": "Title",
+            "role": "Role",
+            "techStack": "Python",
+            "seniority": "Mid",
+            "focus": "Build",
+            "companyContext": {"domain": "social", "productArea": "creator tools"},
+            "ai": {
+                "noticeVersion": "mvp1",
+                "noticeText": "AI may assist with scenario generation.",
+                "evalEnabledByDay": {"1": True, "2": False, "9": True},
+            },
+            "templateKey": "python-fastapi",
+        },
+    )()
+
+    sim, _tasks = await sim_service.create_simulation_with_tasks(
+        async_session, payload, recruiter
+    )
+
+    job = (
+        await async_session.execute(
+            select(Job).where(
+                Job.company_id == recruiter.company_id,
+                Job.job_type == "scenario_generation",
+                Job.idempotency_key == f"simulation:{sim.id}:scenario_generation",
+            )
+        )
+    ).scalar_one()
+
+    assert job.payload_json["simulationId"] == sim.id
+    assert job.payload_json["templateKey"] == "python-fastapi"
+    assert job.payload_json["scenarioTemplate"] == "default-5day-node-postgres"
+    assert job.payload_json["recruiterContext"] == {
+        "seniority": "mid",
+        "focus": "Build",
+        "companyContext": {"domain": "social", "productArea": "creator tools"},
+        "ai": {
+            "noticeVersion": "mvp1",
+            "noticeText": "AI may assist with scenario generation.",
+            "evalEnabledByDay": {"1": True, "2": False},
+        },
+    }
 
 
 @pytest.mark.asyncio

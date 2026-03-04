@@ -10,14 +10,22 @@ from app.domains.simulations.schemas import (
     normalize_eval_enabled_by_day,
     normalize_role_level,
 )
+from app.repositories.jobs import repository as jobs_repo
 from app.repositories.simulations.simulation import (
     SIMULATION_STATUS_GENERATING,
     SIMULATION_STATUS_READY_FOR_REVIEW,
 )
 
 from .lifecycle import apply_status_transition
+from .scenario_payload_builder import build_scenario_generation_payload
 from .task_seed import seed_default_tasks
 from .template_keys import resolve_template_key
+
+SCENARIO_GENERATION_JOB_TYPE = "scenario_generation"
+
+
+def _scenario_generation_idempotency_key(simulation_id: int) -> str:
+    return f"simulation:{simulation_id}:scenario_generation"
 
 
 def _extract_company_context(payload: Any) -> dict[str, Any] | None:
@@ -98,8 +106,18 @@ async def create_simulation_with_tasks(
         target_status=SIMULATION_STATUS_READY_FOR_REVIEW,
         changed_at=datetime.now(UTC),
     )
-
     await db.commit()
+
+    payload_json = build_scenario_generation_payload(sim)
+    await jobs_repo.create_or_get_idempotent(
+        db,
+        job_type=SCENARIO_GENERATION_JOB_TYPE,
+        idempotency_key=_scenario_generation_idempotency_key(sim.id),
+        payload_json=payload_json,
+        company_id=sim.company_id,
+        correlation_id=f"simulation:{sim.id}",
+    )
+
     await db.refresh(sim)
     for task in created_tasks:
         await db.refresh(task)
