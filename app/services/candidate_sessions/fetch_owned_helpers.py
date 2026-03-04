@@ -28,9 +28,11 @@ def _loaded_simulation_status(cs: CandidateSession) -> str | None:
         return getattr(simulation, "status", None)
 
     if "simulation" in state.unloaded:
-        return None
+        raise _NOT_FOUND
 
     simulation = state.attrs.simulation.value
+    if simulation is None:
+        raise _NOT_FOUND
     return getattr(simulation, "status", None)
 
 
