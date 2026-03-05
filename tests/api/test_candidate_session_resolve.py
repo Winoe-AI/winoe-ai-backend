@@ -167,6 +167,11 @@ async def test_current_task_initial_is_day_1(async_client, async_session, monkey
     assert body["progress"]["completed"] == 0
     assert body["progress"]["total"] == 5
     assert body["currentTask"]["description"]
+    assert body["currentWindow"] is not None
+    assert body["currentWindow"]["windowStartAt"] is not None
+    assert body["currentWindow"]["windowEndAt"] is not None
+    assert isinstance(body["currentWindow"]["isOpen"], bool)
+    assert body["currentWindow"]["now"] is not None
 
 
 @pytest.mark.asyncio

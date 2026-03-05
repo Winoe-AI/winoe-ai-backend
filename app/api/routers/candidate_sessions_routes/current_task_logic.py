@@ -1,5 +1,7 @@
 """Logic helper for current task route."""
 
+from fastapi import status
+
 from app.api.routers.candidate_sessions_routes.rate_limits import (
     CANDIDATE_CURRENT_TASK_RATE_LIMIT,
 )
@@ -8,10 +10,43 @@ from app.api.routers.candidate_sessions_routes.responses import (
 )
 from app.api.routers.candidate_sessions_routes.time_utils import utcnow
 from app.core.auth import rate_limit
+from app.core.errors import ApiError
 from app.domains.candidate_sessions import service as cs_service
 
 
+def _require_candidate_session_header_match(candidate_session_id: int, request) -> None:
+    header_value = (request.headers.get("x-candidate-session-id") or "").strip()
+    if not header_value:
+        raise ApiError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing candidate session headers",
+            error_code="CANDIDATE_SESSION_HEADER_REQUIRED",
+        )
+    try:
+        header_session_id = int(header_value)
+    except ValueError as exc:
+        raise ApiError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing candidate session headers",
+            error_code="CANDIDATE_SESSION_HEADER_REQUIRED",
+        ) from exc
+    if header_session_id < 1:
+        raise ApiError(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing candidate session headers",
+            error_code="CANDIDATE_SESSION_HEADER_REQUIRED",
+        )
+    if header_session_id != candidate_session_id:
+        raise ApiError(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Candidate session header does not match requested session.",
+            error_code="CANDIDATE_SESSION_HEADER_MISMATCH",
+            retryable=False,
+        )
+
+
 async def build_current_task_view(candidate_session_id, request, principal, db):
+    _require_candidate_session_header_match(candidate_session_id, request)
     if rate_limit.rate_limit_enabled():
         key = rate_limit.rate_limit_key(
             "candidate_current_task",
@@ -39,7 +74,13 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
         await db.commit()
         await db.refresh(cs)
     return build_current_task_response(
-        cs, current_task, completed_ids, completed, total, is_complete
+        cs,
+        current_task,
+        completed_ids,
+        completed,
+        total,
+        is_complete,
+        now_utc=now,
     )
 
 

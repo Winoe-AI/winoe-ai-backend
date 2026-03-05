@@ -25,10 +25,14 @@ from app.domains.candidate_sessions.service.status import (
     require_not_expired,
 )
 from app.services.candidate_sessions.schedule_gates import (
+    TaskWindow,
     build_schedule_not_started_error,
+    build_task_window_closed_error,
     compute_day1_window,
+    compute_task_window,
     ensure_schedule_started_for_content,
     is_schedule_started_for_content,
+    require_active_window,
 )
 
 __all__ = [
@@ -43,10 +47,14 @@ __all__ = [
     "mark_in_progress",
     "progress_snapshot",
     "schedule_candidate_session",
+    "TaskWindow",
     "build_schedule_not_started_error",
+    "build_task_window_closed_error",
     "compute_day1_window",
+    "compute_task_window",
     "is_schedule_started_for_content",
     "ensure_schedule_started_for_content",
+    "require_active_window",
     "require_not_expired",
     "_normalize_email",
     "_ensure_candidate_ownership",

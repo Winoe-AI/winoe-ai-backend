@@ -42,8 +42,8 @@ class StubSession:
         self.refreshed = True
 
 
-def _request(host: str = "127.0.0.1"):
-    return SimpleNamespace(headers={}, client=SimpleNamespace(host=host))
+def _request(host: str = "127.0.0.1", headers: dict | None = None):
+    return SimpleNamespace(headers=headers or {}, client=SimpleNamespace(host=host))
 
 
 @pytest.mark.asyncio
@@ -107,7 +107,7 @@ async def test_get_current_task_marks_completed(monkeypatch):
 
     resp = await candidate_sessions.get_current_task(
         candidate_session_id=cs.id,
-        request=_request(),
+        request=_request(headers={"x-candidate-session-id": str(cs.id)}),
         db=stub_db,
         principal=_principal("user@example.com"),
     )

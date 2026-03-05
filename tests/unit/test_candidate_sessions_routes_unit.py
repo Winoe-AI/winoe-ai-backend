@@ -110,7 +110,10 @@ async def test_candidate_session_rate_limits(monkeypatch):
         token="x" * 20, request=_fake_request(), db=db, principal=principal
     )
     await candidate_sessions.get_current_task(
-        candidate_session_id=1, request=_fake_request(), principal=principal, db=db
+        candidate_session_id=1,
+        request=_fake_request({"headers": [(b"x-candidate-session-id", b"1")]}),
+        principal=principal,
+        db=db,
     )
     await candidate_sessions.list_candidate_invites(
         request=_fake_request(), principal=principal, db=db

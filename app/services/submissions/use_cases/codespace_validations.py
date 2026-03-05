@@ -12,6 +12,7 @@ async def validate_codespace_request(
 ):
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
+    cs_service.require_active_window(candidate_session, task)
     _, _, current, *_ = await cs_service.progress_snapshot(db, candidate_session)
     submission_service.ensure_in_order(current, task_id)
     submission_service.validate_run_allowed(task)

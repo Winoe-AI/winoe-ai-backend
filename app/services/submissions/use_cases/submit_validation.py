@@ -15,6 +15,7 @@ async def validate_submission_flow(
 ):
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
+    cs_service.require_active_window(candidate_session, task)
     await submission_service.ensure_not_duplicate(db, candidate_session.id, task_id)
     _, _, current_task, *_ = await cs_service.progress_snapshot(db, candidate_session)
     submission_service.ensure_in_order(current_task, task_id)

@@ -5,6 +5,7 @@ from app.domains.candidate_sessions.schemas import (
     CandidateSessionScheduleResponse,
     CandidateSimulationSummary,
     CurrentTaskResponse,
+    CurrentTaskWindow,
     ProgressSummary,
 )
 from app.domains.tasks.schemas_public import TaskPublic
@@ -65,8 +66,30 @@ def render_schedule_response(cs) -> CandidateSessionScheduleResponse:
 
 
 def build_current_task_response(
-    cs, current_task, completed_ids, completed, total, is_complete
+    cs,
+    current_task,
+    completed_ids,
+    completed,
+    total,
+    is_complete,
+    *,
+    now_utc,
 ):
+    current_window = None
+    if not is_complete and current_task is not None:
+        task_window = cs_service.compute_task_window(cs, current_task, now_utc=now_utc)
+        if (
+            task_window.window_start_at is not None
+            and task_window.window_end_at is not None
+        ):
+            current_window = CurrentTaskWindow(
+                windowStartAt=task_window.window_start_at,
+                windowEndAt=task_window.window_end_at,
+                nextOpenAt=task_window.next_open_at,
+                isOpen=task_window.is_open,
+                now=task_window.now,
+            )
+
     return CurrentTaskResponse(
         candidateSessionId=cs.id,
         status=cs.status,
@@ -85,4 +108,5 @@ def build_current_task_response(
         completedTaskIds=sorted(completed_ids),
         progress=ProgressSummary(completed=completed, total=total),
         isComplete=is_complete,
+        currentWindow=current_window,
     )

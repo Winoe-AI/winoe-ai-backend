@@ -1,5 +1,4 @@
-from datetime import UTC, datetime, time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -7,10 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import CandidateSession, Company, Simulation, Submission, User
 from app.integrations.github.workspaces.workspace import Workspace
-from app.services.scheduling.day_windows import (
-    derive_day_windows,
-    serialize_day_windows,
-)
+from app.services.scheduling.day_windows import serialize_day_windows
 from tests.factories import (
     create_candidate_session,
     create_recruiter,
@@ -88,13 +84,6 @@ async def claim_session(async_client, token: str, email: str) -> dict:
     return resp.json()
 
 
-def _local_window_start_utc(timezone_name: str, *, days_ahead: int) -> datetime:
-    zone = ZoneInfo(timezone_name)
-    local_date = datetime.now(UTC).astimezone(zone).date() + timedelta(days=days_ahead)
-    local_start = datetime.combine(local_date, time(hour=9, minute=0), tzinfo=zone)
-    return local_start.astimezone(UTC).replace(microsecond=0)
-
-
 async def unlock_schedule(
     async_session: AsyncSession,
     *,
@@ -106,21 +95,23 @@ async def unlock_schedule(
             select(CandidateSession).where(CandidateSession.id == candidate_session_id)
         )
     ).scalar_one()
-    simulation = (
+    _simulation = (
         await async_session.execute(
             select(Simulation).where(Simulation.id == candidate_session.simulation_id)
         )
     ).scalar_one()
-    scheduled_start = _local_window_start_utc(timezone_name, days_ahead=-1)
-    day_windows = derive_day_windows(
-        scheduled_start_at_utc=scheduled_start,
-        candidate_tz=timezone_name,
-        day_window_start_local=simulation.day_window_start_local,
-        day_window_end_local=simulation.day_window_end_local,
-        overrides=simulation.day_window_overrides_json,
-        overrides_enabled=bool(simulation.day_window_overrides_enabled),
-        total_days=5,
-    )
+    now_utc = datetime.now(UTC).replace(microsecond=0)
+    open_window_start = now_utc - timedelta(days=1)
+    open_window_end = now_utc + timedelta(days=1)
+    scheduled_start = open_window_start
+    day_windows = [
+        {
+            "dayIndex": day_index,
+            "windowStartAt": open_window_start,
+            "windowEndAt": open_window_end,
+        }
+        for day_index in range(1, 6)
+    ]
     candidate_session.scheduled_start_at = scheduled_start
     candidate_session.candidate_timezone = timezone_name
     candidate_session.day_windows_json = serialize_day_windows(day_windows)
@@ -466,7 +457,10 @@ async def test_code_submission_requires_workspace_without_preprovision(
     recruiter = await create_recruiter(async_session, email="no-preprov@test.com")
     sim, tasks = await create_simulation_factory(async_session, created_by=recruiter)
     cs = await create_candidate_session(
-        async_session, simulation=sim, status="in_progress"
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
     )
     await create_submission(
         async_session,
