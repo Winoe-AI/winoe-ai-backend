@@ -83,6 +83,15 @@ def _principal(email: str = "candidate@example.com") -> Principal:
     )
 
 
+@pytest.fixture(autouse=True)
+def _disable_task_window_guard(monkeypatch):
+    monkeypatch.setattr(
+        candidate_submissions.cs_service,
+        "require_active_window",
+        lambda *_a, **_k: None,
+    )
+
+
 @pytest.mark.asyncio
 async def test_init_codespace_success_path(monkeypatch, async_session):
     cs = _stub_cs()

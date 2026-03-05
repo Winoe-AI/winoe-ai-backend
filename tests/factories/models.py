@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,10 +15,7 @@ from app.domains import (
     User,
 )
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
-from app.services.scheduling.day_windows import (
-    derive_day_windows,
-    serialize_day_windows,
-)
+from app.services.scheduling.day_windows import serialize_day_windows
 from app.services.tasks.template_catalog import (
     DEFAULT_TEMPLATE_KEY,
     resolve_template_repo_full_name,
@@ -141,31 +138,23 @@ async def create_candidate_session(
         and resolved_scheduled_start is None
         and resolved_day_windows is None
     ):
-        resolved_scheduled_start = datetime.now(UTC) - timedelta(days=1)
+        now_utc = datetime.now(UTC).replace(microsecond=0)
+        resolved_scheduled_start = now_utc - timedelta(days=1)
         resolved_timezone = resolved_timezone or "UTC"
-        try:
-            day_windows = derive_day_windows(
-                scheduled_start_at_utc=resolved_scheduled_start,
-                candidate_tz=resolved_timezone,
-                day_window_start_local=getattr(
-                    simulation,
-                    "day_window_start_local",
-                    time(hour=9, minute=0),
-                ),
-                day_window_end_local=getattr(
-                    simulation,
-                    "day_window_end_local",
-                    time(hour=17, minute=0),
-                ),
-                overrides=getattr(simulation, "day_window_overrides_json", None),
-                overrides_enabled=bool(
-                    getattr(simulation, "day_window_overrides_enabled", False)
-                ),
-                total_days=5,
-            )
-            resolved_day_windows = serialize_day_windows(day_windows)
-        except ValueError:
-            resolved_day_windows = None
+        # Keep all default test windows open around "now" so tests remain
+        # deterministic even when strict day-window guards are enabled.
+        open_window_start = now_utc - timedelta(days=1)
+        open_window_end = now_utc + timedelta(days=1)
+        resolved_day_windows = serialize_day_windows(
+            [
+                {
+                    "dayIndex": day_index,
+                    "windowStartAt": open_window_start,
+                    "windowEndAt": open_window_end,
+                }
+                for day_index in range(1, 6)
+            ]
+        )
 
     cs = CandidateSession(
         simulation_id=simulation.id,

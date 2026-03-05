@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import CandidateSession
+from app.domains.candidate_sessions import service as cs_service
 from app.domains.submissions import service_candidate as submission_service
 from app.domains.submissions.exceptions import WorkspaceMissing
 from app.domains.submissions.rate_limits import apply_rate_limit, concurrency_guard
@@ -22,6 +23,7 @@ async def run_task_tests(
     apply_rate_limit(candidate_session.id, "run")
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
+    cs_service.require_active_window(candidate_session, task)
     submission_service.validate_run_allowed(task)
 
     workspace = await submission_service.workspace_repo.get_by_session_and_task(

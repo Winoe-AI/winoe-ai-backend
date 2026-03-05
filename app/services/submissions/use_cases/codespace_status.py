@@ -5,6 +5,7 @@ import json
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import CandidateSession
+from app.domains.candidate_sessions import service as cs_service
 from app.domains.submissions import service_candidate as submission_service
 from app.domains.submissions.codespace_urls import ensure_canonical_workspace_url
 from app.domains.submissions.exceptions import WorkspaceMissing
@@ -16,6 +17,7 @@ async def codespace_status(
     """Return Codespace/workflow status for a candidate task."""
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
+    cs_service.require_active_window(candidate_session, task)
 
     workspace = await submission_service.workspace_repo.get_by_session_and_task(
         db, candidate_session_id=candidate_session.id, task_id=task.id

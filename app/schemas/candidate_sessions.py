@@ -120,6 +120,16 @@ class CandidateInviteListItem(APIModel):
     currentDayWindow: CurrentDayWindow | None = None
 
 
+class CurrentTaskWindow(APIModel):
+    """Window metadata for the current task day."""
+
+    windowStartAt: datetime | None = None
+    windowEndAt: datetime | None = None
+    nextOpenAt: datetime | None = None
+    isOpen: bool
+    now: datetime
+
+
 class CurrentTaskResponse(APIModel):
     """Schema for the current task assigned to the candidate."""
 
@@ -130,6 +140,7 @@ class CurrentTaskResponse(APIModel):
     completedTaskIds: list[int]
     progress: ProgressSummary
     isComplete: bool
+    currentWindow: CurrentTaskWindow | None = None
 
 
 class CandidateSessionListItem(APIModel):
