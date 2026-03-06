@@ -145,6 +145,37 @@ def task_id_by_day(sim_json: dict, day_index: int) -> int:
     raise AssertionError(f"Simulation missing task for day_index={day_index}")
 
 
+def build_day5_reflection_payload() -> dict:
+    return {
+        "reflection": {
+            "challenges": (
+                "I managed conflicting constraints by listing assumptions and "
+                "validating them early."
+            ),
+            "decisions": (
+                "I favored explicit schema validation so frontend error handling "
+                "remains deterministic."
+            ),
+            "tradeoffs": (
+                "I chose stricter section requirements over flexibility to improve "
+                "rubric scoring consistency."
+            ),
+            "communication": (
+                "I wrote clear handoff notes describing open questions and known "
+                "limitations for evaluators."
+            ),
+            "next": (
+                "Next I would add evaluator evidence linking and richer rubric "
+                "mapping for section scoring."
+            ),
+        },
+        "contentText": (
+            "## Challenges\n...\n## Decisions\n...\n## Tradeoffs\n...\n"
+            "## Communication / Handoff\n...\n## What I'd do next\n..."
+        ),
+    }
+
+
 @pytest.mark.asyncio
 async def test_submit_day1_text_creates_submission_and_advances(
     async_client, async_session: AsyncSession, monkeypatch
@@ -503,7 +534,7 @@ async def test_submitting_all_tasks_marks_session_complete(
         2: {},
         3: {},
         4: {"contentText": "handoff notes"},
-        5: {"contentText": "documentation"},
+        5: build_day5_reflection_payload(),
     }
 
     last_response = None
@@ -547,3 +578,89 @@ async def test_submitting_all_tasks_marks_session_complete(
     ).scalar_one()
     assert cs_row.status == "completed"
     assert cs_row.completed_at is not None
+
+
+@pytest.mark.asyncio
+async def test_submit_day5_reflection_validation_error_has_field_map(
+    async_client, async_session: AsyncSession
+):
+    recruiter = await create_recruiter(async_session, email="day5-invalid@test.com")
+    sim, tasks = await create_simulation_factory(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    for task in tasks[:4]:
+        await create_submission(
+            async_session,
+            candidate_session=cs,
+            task=task,
+            content_text=f"day{task.day_index}",
+        )
+    await async_session.commit()
+
+    response = await async_client.post(
+        f"/api/tasks/{tasks[4].id}/submit",
+        headers=candidate_headers(cs.id, f"candidate:{cs.invite_email}"),
+        json={
+            "reflection": {
+                "challenges": "short",
+                "decisions": " ",
+                "tradeoffs": (
+                    "This section has enough text to pass the per-section minimum."
+                ),
+                "communication": (
+                    "This section also has enough text to satisfy validation."
+                ),
+            },
+            "contentText": "## Reflection",
+        },
+    )
+
+    assert response.status_code == 422, response.text
+    body = response.json()
+    assert body["errorCode"] == "VALIDATION_ERROR"
+    fields = body["details"]["fields"]
+    assert fields["reflection.challenges"] == ["too_short"]
+    assert fields["reflection.decisions"] == ["missing"]
+    assert fields["reflection.next"] == ["missing"]
+
+
+@pytest.mark.asyncio
+async def test_submit_day5_reflection_persists_content_json_and_text(
+    async_client, async_session: AsyncSession
+):
+    recruiter = await create_recruiter(async_session, email="day5-valid@test.com")
+    sim, tasks = await create_simulation_factory(async_session, created_by=recruiter)
+    cs = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    for task in tasks[:4]:
+        await create_submission(
+            async_session,
+            candidate_session=cs,
+            task=task,
+            content_text=f"day{task.day_index}",
+        )
+    await async_session.commit()
+
+    payload = build_day5_reflection_payload()
+    response = await async_client.post(
+        f"/api/tasks/{tasks[4].id}/submit",
+        headers=candidate_headers(cs.id, f"candidate:{cs.invite_email}"),
+        json=payload,
+    )
+    assert response.status_code == 201, response.text
+
+    submission = await async_session.get(Submission, response.json()["submissionId"])
+    assert submission is not None
+    assert submission.content_text == payload["contentText"]
+    assert submission.content_json == {
+        "kind": "day5_reflection",
+        "sections": payload["reflection"],
+    }

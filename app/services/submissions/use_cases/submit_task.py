@@ -22,7 +22,9 @@ async def submit_task(
     actions_runner,
 ):
     apply_rate_limit(candidate_session.id, "submit")
-    task = await validate_submission_flow(db, candidate_session, task_id, payload)
+    task, content_json = await validate_submission_flow(
+        db, candidate_session, task_id, payload
+    )
     now = datetime.now(UTC)
     actions_result = diff_summary_json = workspace = None
     if submission_service.is_code_task(task):
@@ -40,6 +42,7 @@ async def submit_task(
         task,
         payload,
         now=now,
+        content_json=content_json,
         actions_result=actions_result,
         workspace=workspace,
         diff_summary_json=diff_summary_json,

@@ -35,6 +35,7 @@ def present_detail(sub, task, cs, _sim):
         "candidateSessionId": cs.id,
         "task": build_task_payload(task),
         "contentText": sub.content_text,
+        "contentJson": getattr(sub, "content_json", None),
         "code": build_code_payload(sub),
         "testResults": test_results,
         "diffSummary": diff_summary,
