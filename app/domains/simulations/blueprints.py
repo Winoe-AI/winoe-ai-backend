@@ -38,10 +38,10 @@ DEFAULT_5_DAY_BLUEPRINT = [
     {
         "day_index": 5,
         "type": "documentation",
-        "title": "Documentation",
+        "title": "Reflection",
         "description": (
-            "Write concise documentation explaining how the system works, "
-            "how to run it, and key design decisions."
+            "Write a structured reflection covering challenges, decisions, "
+            "tradeoffs, communication/handoff, and what you would do next."
         ),
     },
 ]

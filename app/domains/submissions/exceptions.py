@@ -53,3 +53,21 @@ class WorkspaceMissing(ApiError):
             error_code="WORKSPACE_NOT_INITIALIZED",
             retryable=True,
         )
+
+
+class SubmissionValidationError(ApiError):
+    """Raised when submission payload fails domain-level validation."""
+
+    def __init__(
+        self,
+        *,
+        fields: dict[str, list[str]],
+        detail: str = "Submission payload validation failed",
+    ):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=detail,
+            error_code="VALIDATION_ERROR",
+            retryable=False,
+            details={"fields": fields},
+        )

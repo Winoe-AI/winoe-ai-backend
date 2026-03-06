@@ -13,6 +13,7 @@ class SubmissionCreateRequest(BaseModel):
     """Schema for creating a submission."""
 
     contentText: str | None = Field(default=None)
+    reflection: Any | None = Field(default=None)
     branch: str | None = Field(default=None)
     workflowInputs: dict[str, Any] | None = Field(default=None)
     # Code tasks are GitHub-native; code payload is no longer accepted.
@@ -135,6 +136,7 @@ class RecruiterSubmissionDetailOut(APIModel):
     candidateSessionId: int
     task: RecruiterTaskMetaOut
     contentText: str | None = None
+    contentJson: dict[str, Any] | None = None
     code: RecruiterCodeArtifactOut | None = None
     testResults: RecruiterTestResultsOut | None = None
     diffSummary: dict[str, object] | str | None = None

@@ -19,5 +19,5 @@ async def validate_submission_flow(
     await submission_service.ensure_not_duplicate(db, candidate_session.id, task_id)
     _, _, current_task, *_ = await cs_service.progress_snapshot(db, candidate_session)
     submission_service.ensure_in_order(current_task, task_id)
-    submission_service.validate_submission_payload(task, payload)
-    return task
+    content_json = submission_service.validate_submission_payload(task, payload)
+    return task, content_json

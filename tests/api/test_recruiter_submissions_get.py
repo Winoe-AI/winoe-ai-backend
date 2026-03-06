@@ -35,6 +35,7 @@ async def test_recruiter_can_fetch_known_submission(
         candidate_session=cs,
         task=task,
         content_text="my design answer",
+        content_json={"kind": "day5_reflection", "sections": {"challenges": "x" * 20}},
         submitted_at=datetime.now(UTC),
         tests_passed=3,
         tests_failed=0,
@@ -52,6 +53,10 @@ async def test_recruiter_can_fetch_known_submission(
     assert data["candidateSessionId"] == cs.id
     assert data["task"]["taskId"] == task.id
     assert data["contentText"] == "my design answer"
+    assert data["contentJson"] == {
+        "kind": "day5_reflection",
+        "sections": {"challenges": "x" * 20},
+    }
     assert data["testResults"]["status"] == "passed"
     assert data["testResults"]["passed"] == 3
     assert data["testResults"]["failed"] == 0

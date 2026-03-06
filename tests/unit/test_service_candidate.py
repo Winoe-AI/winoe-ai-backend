@@ -174,6 +174,145 @@ def test_validate_helpers_raise():
         svc.validate_branch("../etc")
 
 
+def test_validate_day5_reflection_payload_rejects_missing_and_too_short():
+    day5_task = SimpleNamespace(type="documentation", day_index=5)
+    payload = SimpleNamespace(
+        contentText="## Reflection",
+        reflection={
+            "challenges": "too short",
+            "decisions": " " * 3,
+            "tradeoffs": (
+                "Tradeoff discussion with enough detail to satisfy minimum length."
+            ),
+            "communication": (
+                "Communication plan with enough detail to satisfy minimum length."
+            ),
+            # "next" intentionally missing
+        },
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        svc.validate_submission_payload(day5_task, payload)
+    assert excinfo.value.status_code == 422
+    assert getattr(excinfo.value, "error_code", None) == "VALIDATION_ERROR"
+    fields = getattr(excinfo.value, "details", {}).get("fields", {})
+    assert fields["reflection.challenges"] == ["too_short"]
+    assert fields["reflection.decisions"] == ["missing"]
+    assert fields["reflection.next"] == ["missing"]
+
+
+def test_validate_day5_reflection_payload_returns_structured_content_json():
+    day5_task = SimpleNamespace(type="documentation", day_index=5)
+    payload = SimpleNamespace(
+        contentText="## Challenges\n...\n## Decisions\n...",
+        reflection={
+            "challenges": (
+                "Handled API ambiguity by writing assumptions and validating early."
+            ),
+            "decisions": (
+                "Chose clear request contracts and explicit error fields for FE."
+            ),
+            "tradeoffs": (
+                "Prioritized deterministic validation over flexible free-form input."
+            ),
+            "communication": (
+                "Documented constraints and highlighted known risks in handoff notes."
+            ),
+            "next": (
+                "Would add richer rubric mapping and evaluator-side evidence pointers."
+            ),
+        },
+    )
+
+    result = svc.validate_submission_payload(day5_task, payload)
+    assert result == {
+        "kind": "day5_reflection",
+        "sections": {
+            "challenges": (
+                "Handled API ambiguity by writing assumptions and validating early."
+            ),
+            "decisions": (
+                "Chose clear request contracts and explicit error fields for FE."
+            ),
+            "tradeoffs": (
+                "Prioritized deterministic validation over flexible free-form input."
+            ),
+            "communication": (
+                "Documented constraints and highlighted known risks in handoff notes."
+            ),
+            "next": (
+                "Would add richer rubric mapping and evaluator-side evidence pointers."
+            ),
+        },
+    }
+
+
+def _valid_day5_reflection_sections() -> dict[str, str]:
+    return {
+        "challenges": "Handled ambiguous requirements with explicit assumptions.",
+        "decisions": "Chose stable contracts with machine-readable validation errors.",
+        "tradeoffs": "Accepted stricter validation to improve recruiter scoring consistency.",
+        "communication": "Documented progress and open risks during each handoff checkpoint.",
+        "next": "Would add evaluator evidence pointers and richer rubric alignment.",
+    }
+
+
+def test_validate_day5_reflection_payload_rejects_missing_reflection_object():
+    day5_task = SimpleNamespace(type="documentation", day_index=5)
+    payload = SimpleNamespace(contentText="## Reflection summary")
+
+    with pytest.raises(HTTPException) as excinfo:
+        svc.validate_submission_payload(day5_task, payload)
+
+    assert excinfo.value.status_code == 422
+    fields = getattr(excinfo.value, "details", {}).get("fields", {})
+    assert fields["reflection"] == ["missing"]
+
+
+def test_validate_day5_reflection_payload_rejects_non_dict_reflection_object():
+    day5_task = SimpleNamespace(type="documentation", day_index=5)
+    payload = SimpleNamespace(
+        contentText="## Reflection summary", reflection="not-a-dict"
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        svc.validate_submission_payload(day5_task, payload)
+
+    assert excinfo.value.status_code == 422
+    fields = getattr(excinfo.value, "details", {}).get("fields", {})
+    assert fields["reflection"] == ["invalid_type"]
+
+
+def test_validate_day5_reflection_payload_rejects_non_string_section_values():
+    day5_task = SimpleNamespace(type="documentation", day_index=5)
+    reflection = _valid_day5_reflection_sections()
+    reflection["tradeoffs"] = 123  # type: ignore[assignment]
+    payload = SimpleNamespace(
+        contentText="## Reflection summary", reflection=reflection
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        svc.validate_submission_payload(day5_task, payload)
+
+    assert excinfo.value.status_code == 422
+    fields = getattr(excinfo.value, "details", {}).get("fields", {})
+    assert fields["reflection.tradeoffs"] == ["invalid_type"]
+
+
+def test_validate_day5_reflection_payload_requires_content_text():
+    day5_task = SimpleNamespace(type="documentation", day_index=5)
+    payload = SimpleNamespace(
+        contentText="   ", reflection=_valid_day5_reflection_sections()
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        svc.validate_submission_payload(day5_task, payload)
+
+    assert excinfo.value.status_code == 422
+    fields = getattr(excinfo.value, "details", {}).get("fields", {})
+    assert fields["contentText"] == ["missing"]
+
+
 def test_is_code_task_and_branch_validation():
     assert svc.is_code_task(SimpleNamespace(type="code")) is True
     assert svc.is_code_task(SimpleNamespace(type="design")) is False
