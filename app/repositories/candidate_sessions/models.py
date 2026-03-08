@@ -97,3 +97,8 @@ class CandidateSession(Base):
     workspaces = relationship(
         "Workspace", back_populates="candidate_session", cascade="all, delete-orphan"
     )
+    workspace_groups = relationship(
+        "WorkspaceGroup",
+        back_populates="candidate_session",
+        cascade="all, delete-orphan",
+    )

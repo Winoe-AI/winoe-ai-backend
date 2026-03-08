@@ -1,7 +1,7 @@
 from app.core.db.base import Base, TimestampMixin
 from app.repositories.candidate_sessions.models import CandidateSession
 from app.repositories.companies.models import Company
-from app.repositories.github_native.workspaces.models import Workspace
+from app.repositories.github_native.workspaces.models import Workspace, WorkspaceGroup
 from app.repositories.jobs.models import Job
 from app.repositories.simulations.simulation import Simulation
 from app.repositories.submissions.fit_profile import FitProfile
@@ -22,5 +22,6 @@ __all__ = [
     "Submission",
     "FitProfile",
     "Workspace",
+    "WorkspaceGroup",
     "User",
 ]

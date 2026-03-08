@@ -5,7 +5,7 @@ from app.api.dependencies.github_native import get_github_client
 from app.api.dependencies.notifications import get_email_service
 from app.domains import CandidateSession
 from app.integrations.github.client import GithubError
-from app.integrations.github.workspaces.workspace import Workspace
+from app.integrations.github.workspaces.workspace import Workspace, WorkspaceGroup
 from app.integrations.notifications.email_provider import MemoryEmailProvider
 from app.services.email import EmailService
 from tests.factories import create_recruiter, create_simulation
@@ -163,10 +163,24 @@ async def test_invite_preprovisions_day2_day3_workspaces(
         .scalars()
         .all()
     )
+    workspace_groups = (
+        (
+            await async_session.execute(
+                select(WorkspaceGroup).where(
+                    WorkspaceGroup.candidate_session_id == cs.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
 
-    assert len(stub_client.generated) == 2
-    expected_ids = {day2_tasks[0].id, day3_tasks[0].id}
-    assert {ws.task_id for ws in workspaces} == expected_ids
+    assert len(stub_client.generated) == 1
+    assert len(workspace_groups) == 1
+    assert workspace_groups[0].workspace_key == "coding"
+    assert len(workspaces) == 1
+    assert workspaces[0].workspace_group_id == workspace_groups[0].id
+    assert workspaces[0].repo_full_name == workspace_groups[0].repo_full_name
     assert all(ws.base_template_sha == "base-sha" for ws in workspaces)
 
 
@@ -266,7 +280,21 @@ async def test_invite_github_failure_reuses_candidate_session(
         .scalars()
         .all()
     )
-    assert {ws.task_id for ws in workspaces} == {day2_task_id, day3_task_id}
+    workspace_groups = (
+        (
+            await async_session.execute(
+                select(WorkspaceGroup).where(
+                    WorkspaceGroup.candidate_session_id == existing[0].id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(workspace_groups) == 1
+    assert workspace_groups[0].workspace_key == "coding"
+    assert len(workspaces) == 1
+    assert workspaces[0].task_id in {day2_task_id, day3_task_id}
 
 
 @pytest.mark.asyncio

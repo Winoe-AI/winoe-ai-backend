@@ -1,82 +1,152 @@
-# Day 5 reflection structured submission schema + validation (Issue #212)
+# Unify Day 2 / Day 3 coding repo with WorkspaceGroup
 
 ## TL;DR
 
-- Day 5 submit now accepts a structured `reflection` object plus raw `contentText`.
-- Day 5 payload validation returns `422 VALIDATION_ERROR` with machine-readable `details.fields` for inline FE errors.
-- Structured reflection is stored in `Submission.content_json` (Option A), while raw markdown remains in `content_text`.
-- Recruiter submission detail now includes both `contentText` and `contentJson` (backward-safe for legacy rows).
-- Day 5 detection is explicit: `task.type == "documentation"` and `task.day_index == 5`.
+- Added a new `WorkspaceGroup` layer so coding workspace identity is session-scoped, not task-scoped.
+- Day 2/Day 3 coding tasks now resolve to `workspace_key="coding"` and share one repo/workspace identity.
+- Legacy candidate sessions with pre-existing task-scoped coding workspaces remain task-scoped (new-sessions-only grouped behavior).
+- `POST /api/tasks/{task_id}/codespace/init` and `GET /api/tasks/{task_id}/codespace/status` response schemas are unchanged.
+
+## Problem
+
+Workspace identity was keyed to `(candidate_session_id, task_id)`, so Day 2 and Day 3 produced separate repositories for the same candidate session. That broke continuity/fairness for candidates and forced recruiters to review split evidence trails instead of one continuous repo history.
 
 ## What changed
 
-- API contract update for Day 5 submit (`POST /api/tasks/{task_id}/submit`):
-  - Request supports `reflection` sections plus `contentText`.
-  - Validation failures return `422 VALIDATION_ERROR` with `details.fields` keyed by field path (for example, `reflection.challenges`).
-- Storage:
-  - Implemented Option A: `Submission.content_json` stores structured reflection sections.
-  - `content_text` continues to store raw markdown for display/export.
-  - Migration: `202603050003_add_submission_content_json`.
-- Recruiter detail:
-  - Submission detail response now returns `contentJson` alongside `contentText` (legacy-safe when `content_json` is `null`).
+### Data model
 
-## Validation rules
+- Added new `workspace_groups` table (migration `202603080001`) with:
+  - `candidate_session_id`
+  - `workspace_key`
+  - `repo_full_name`
+  - `template_repo_full_name`
+  - `default_branch`
+  - `base_template_sha`
+  - `created_at`
+- Enforced uniqueness on workspace group identity with `uq_workspace_groups_session_key` over `(candidate_session_id, workspace_key)`.
+- Added nullable `workspaces.workspace_group_id` FK to `workspace_groups.id` with `ON DELETE CASCADE`.
+- Enforced one canonical workspace row per group via unique index `uq_workspaces_workspace_group_id` (migration `202603080002`).
+- Existing task-scoped uniqueness (`uq_workspaces_session_task`) remains, preserving compatibility for legacy task-scoped rows.
+- Candidate-session cascade behavior covers both `workspace_groups` and `workspaces`.
 
-- Required reflection sections:
-  - `challenges`
-  - `decisions`
-  - `tradeoffs`
-  - `communication`
-  - `next`
-- Per-section minimum length: 20 characters.
-- Section strings are trimmed before length checks.
-- `contentText` is still required for Day 5 and must be non-empty after trim.
-- Stable error codes used in `details.fields`:
-  - `missing`
-  - `too_short`
-  - `invalid_type`
+### Runtime behavior
 
-## Tests / verification
+- Introduced workspace-key resolver logic: Day 2/Day 3 coding task types (`code`/`debug`) map to `workspace_key="coding"`.
+- Grouped-mode eligibility (`session_uses_grouped_workspace`) is:
+  - `false` when no workspace key applies
+  - `true` when a matching group already exists
+  - otherwise `true` only when no legacy task-scoped workspace exists for that same key
+- Legacy-session safety rule: sessions that already have task-scoped coding workspaces (no `workspace_group_id`) are kept task-scoped unless a group already exists.
+- Grouped provisioning now reuses/creates one group repo and links a single canonical workspace row to it.
 
-- `poetry run pytest -q` -> PASS (`1007 passed`, coverage `99.05%`)
-- `poetry run ruff check app tests` -> PASS
-- `./precommit.sh` -> PASS
+### Endpoints
 
-Key test files touched:
+- Impacted endpoints:
+  - `POST /api/tasks/{task_id}/codespace/init`
+  - `GET /api/tasks/{task_id}/codespace/status`
+- Response schema remains unchanged.
+- For grouped sessions, both Day 2 and Day 3 return the same `repoFullName`/workspace identity.
 
-- `tests/unit/test_service_candidate.py`
-- `tests/api/test_task_submit.py`
-- `tests/api/test_recruiter_submissions_get.py`
+### Provisioning / preprovision
 
-## Risk / rollout notes
+- Runtime provisioning path (`ensure_workspace`/`provision_workspace`) now routes through group-aware resolution and creation.
+- Invite preprovision (`preprovision_workspaces`) for Day 2/Day 3 coding tasks now uses the same group-aware path, producing one coding repo for eligible new sessions.
 
-- Backward compatibility: existing submissions with `content_json = null` still render correctly.
-- Day 5 detection note: reflection validation applies only when task is `documentation` and `day_index == 5`.
-- Security note: validation logs only aggregate counts (`missing`, `too_short`, `invalid_type`), not reflection content.
+### Observability
 
-## Demo checklist
+- Added info log on group creation: `workspace_group_created` with:
+  - `candidateSessionId`
+  - `workspaceKey`
+  - `repoFullName`
+- Added duplicate-create warning paths:
+  - `workspace_group_duplicate_create_attempt`
+  - `workspace_duplicate_create_attempt`
 
-1. Submit valid Day 5 reflection with all five sections and `contentText` -> expect success.
-2. Submit invalid Day 5 reflection (missing/short sections) -> expect `422 VALIDATION_ERROR` with per-field errors.
-3. Open recruiter submission detail for Day 5 -> verify both `contentText` and `contentJson` are present.
+## Migration / rollout notes
+
+- Migration is additive (`202603080001`, `202603080002`); no destructive rewrite.
+- No backfill and no best-effort Day 2/Day 3 merge is attempted in this issue.
+- Grouping behavior is safely applied for new sessions.
+- Legacy sessions that already have task-scoped coding workspaces continue with legacy task-scoped behavior.
+
+## Testing
+
+- `poetry run ruff check .` — PASS (clean run; no diagnostics)
+- `poetry run pytest -q` — PASS (`1026 passed`, coverage `99.04%`)
+- `poetry run alembic heads` — PASS (`202603080002 (head)`)
+- Targeted run note: `poetry run pytest -q tests/unit/test_workspace_groups.py` executed tests successfully (`8 passed`) but command exited non-zero only due global repo coverage gate (`--cov-fail-under=99`), not functional test failures.
+- Typecheck note: no canonical repo typecheck command was found in `pyproject.toml`, `README.md`, `docs/`, or `.github` config/docs.
 
 ## Audit QA (manual runtime)
 
-- Overall verdict: PASS
-- Execution method: `uvicorn` bind failed (`operation not permitted`), so QA used ASGI in-process harness fallback.
-- Auth setup note: initial auth failure was `CANDIDATE_EMAIL_NOT_VERIFIED`; harness was updated to override principal claims for test tokens only (no production changes).
-- Evidence bundle paths:
-  - Folder: `.qa/issue212/manualqa_20260306T014525Z/`
-  - Zip: `.qa/issue212/manualqa_20260306T014525Z.zip`
+**Overall verdict:** `PASS`. Issue #202 is **PR-ready from manual QA perspective**.
 
-| Case | Goal | Result | Evidence |
-|---|---|---|---|
-| A | Day5 valid submit succeeds | PASS | [responses/day5_submit_valid.json](.qa/issue212/manualqa_20260306T014525Z/responses/day5_submit_valid.json) |
-| B | Missing section returns 422 with field map | PASS | [responses/day5_submit_missing_next.json](.qa/issue212/manualqa_20260306T014525Z/responses/day5_submit_missing_next.json) |
-| C | Invalid type returns 422 with field map | PASS | [responses/day5_submit_invalid_type.json](.qa/issue212/manualqa_20260306T014525Z/responses/day5_submit_invalid_type.json) |
-| D | Missing contentText returns 422 with field map | PASS | [responses/day5_submit_missing_contentText.json](.qa/issue212/manualqa_20260306T014525Z/responses/day5_submit_missing_contentText.json) |
-| E | DB persisted content_text + content_json | PASS | [db/submission_row_day5.json](.qa/issue212/manualqa_20260306T014525Z/db/submission_row_day5.json) |
-| F | Recruiter detail includes contentText + contentJson | PASS | [responses/recruiter_submission_detail_day5.json](.qa/issue212/manualqa_20260306T014525Z/responses/recruiter_submission_detail_day5.json) |
-| G | Logs contain counts only (no reflection content) | PASS | [logs/validation_failure.log](.qa/issue212/manualqa_20260306T014525Z/logs/validation_failure.log) |
+### Runtime method
 
-- Notes / Limitations: Schedule-window negative-path checks were not exercised in this QA run (window enforcement covered by Issue #200); this run focused on Day5 schema/validation/storage/read-path + safe logging.
+- Real localhost startup was attempted first with `poetry run uvicorn app.main:app --host 127.0.0.1 --port 8011`.
+- `uvicorn` bind failed in sandbox with `[Errno 1] ... operation not permitted` (`.qa/issue202/manualqa_20260308T175445Z/logs/server_startup_attempt.log`).
+- QA then used an ASGI in-process HTTP harness against the real FastAPI app/routes/services/repositories (`.qa/issue202/manualqa_20260308T175445Z/scripts/manual_http_harness.py`, `.qa/issue202/manualqa_20260308T175445Z/logs/harness.log`).
+- GitHub interactions were stubbed for local verification.
+- SQLite (`sqlite+aiosqlite`) was used for QA.
+
+### Environment summary
+
+- Source: `.qa/issue202/manualqa_20260308T175445Z/env.txt`
+- Captured at `2026-03-08T18:04:09Z`; git head `c10d8b0d31114670b1a385aedac5e5bffdaed4a5`
+- OS: macOS 26.3 arm64 (Darwin 25.3.0)
+- Python: system `3.14.3`; Poetry env `3.12.8`
+- Poetry: `2.3.2`
+- DB backend: `sqlite+aiosqlite` (`.qa/issue202/manualqa_20260308T175445Z/db/manualqa_runtime.sqlite`)
+
+### Scenario matrix
+
+| Scenario | Result | Evidence |
+| --- | --- | --- |
+| A — New session Day 2 init + Day 3 status/init share one repo | PASS | `.qa/issue202/manualqa_20260308T175445Z/responses/day2_init.json`<br>`.qa/issue202/manualqa_20260308T175445Z/responses/day3_status.json`<br>`.qa/issue202/manualqa_20260308T175445Z/responses/day3_init.json` |
+| B — Legacy session remains task-scoped; no silent regroup | PASS | `.qa/issue202/manualqa_20260308T175445Z/responses/legacy_day2_status.json`<br>`.qa/issue202/manualqa_20260308T175445Z/responses/legacy_day3_init.json`<br>`.qa/issue202/manualqa_20260308T175445Z/responses/legacy_day3_status.json` |
+| C — DB uniqueness constraints hold | PASS | `.qa/issue202/manualqa_20260308T175445Z/db/new_session_workspace_groups.json`<br>`.qa/issue202/manualqa_20260308T175445Z/db/new_session_workspaces.json`<br>`.qa/issue202/manualqa_20260308T175445Z/db/uniqueness_checks.json` |
+| D — Candidate-session delete cascade removes grouped rows | PASS | `.qa/issue202/manualqa_20260308T175445Z/db/delete_cascade_before.json`<br>`.qa/issue202/manualqa_20260308T175445Z/db/delete_cascade_after.json`<br>`.qa/issue202/manualqa_20260308T175445Z/artifacts/verification_results.json` |
+| E — Auth/ownership negative path still rejects correctly | PASS | `.qa/issue202/manualqa_20260308T175445Z/responses/auth_negative.json`<br>`.qa/issue202/manualqa_20260308T175445Z/artifacts/verification_results.json`<br>`.qa/issue202/manualqa_20260308T175445Z/QA_REPORT.md` |
+
+Additional legacy DB evidence: `.qa/issue202/manualqa_20260308T175445Z/db/legacy_session_workspace_groups.json`, `.qa/issue202/manualqa_20260308T175445Z/db/legacy_session_workspaces.json`.
+
+### Evidence bundle paths
+
+- QA folder: `.qa/issue202/manualqa_20260308T175445Z/`
+- Zip: `.qa/issue202/manualqa_20260308T175445Z.zip`
+- Core report artifacts: `.qa/issue202/manualqa_20260308T175445Z/QA_REPORT.md`, `.qa/issue202/manualqa_20260308T175445Z/env.txt`, `.qa/issue202/manualqa_20260308T175445Z/commands.txt`, `.qa/issue202/manualqa_20260308T175445Z/artifacts/verification_results.json`
+
+### Notes / limitations
+
+- Localhost TCP bind is blocked in this sandbox.
+- Verification used an ASGI in-process harness instead of external localhost HTTP.
+- GitHub interactions were stubbed for local QA.
+- SQLite backend was used for this QA run.
+
+### Conclusion
+
+Manual QA verified Issue #202 against the shipped acceptance behavior for scenarios A-E, and the change is ready for PR raise from the manual QA perspective.
+
+## Acceptance criteria checklist
+
+- [x] New candidate session Day 2 + Day 3 resolve to the same `repo_full_name`.
+  - Verified by API tests covering both init and status shared-repo behavior.
+- [x] Unique constraints prevent two coding repos/groups for the same candidate session.
+  - Enforced by `(candidate_session_id, workspace_key)` uniqueness and one-workspace-per-group uniqueness.
+  - Covered by unit tests asserting `IntegrityError` on duplicate group and duplicate grouped-workspace row creation.
+- [x] Existing API responses remain backward compatible.
+  - `codespace/init` and `codespace/status` response models/fields are unchanged; only repo identity becomes shared for grouped sessions.
+
+## Risks / follow-ups
+
+- Legacy backfill/merge is intentionally out of scope here.
+- If additional workspace keys are introduced later, resolver logic and grouped/legacy tests should be extended accordingly.
+
+## Manual reviewer/demo checklist
+
+1. Create a simulation.
+2. Invite a candidate.
+3. Init Day 2 codespace.
+4. Verify Day 3 status/init returns the same repo identity.
+5. Verify only one coding repo exists per new grouped candidate session.
+6. Verify a legacy pre-existing task-scoped session remains task-scoped.

@@ -17,6 +17,7 @@ async def generate_template_repo(
     task: Task,
     repo_prefix: str,
     template_default_owner: str | None,
+    workspace_key: str | None = None,
 ) -> tuple[str, str, str | None, int | None]:
     template_repo = (task.template_repo or "").strip()
     if not template_repo:
@@ -27,7 +28,10 @@ async def generate_template_repo(
     validate_repo_full_name(template_repo)
 
     new_repo_name = build_repo_name(
-        prefix=repo_prefix, candidate_session=candidate_session, task=task
+        prefix=repo_prefix,
+        candidate_session=candidate_session,
+        task=task,
+        workspace_key=workspace_key,
     )
     template_owner = template_repo.split("/")[0] if "/" in template_repo else None
     generated = await github_client.generate_repo_from_template(
