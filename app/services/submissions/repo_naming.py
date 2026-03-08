@@ -11,9 +11,17 @@ _REPO_FULL_NAME_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 
 def build_repo_name(
-    *, prefix: str, candidate_session: CandidateSession, task: Task
+    *,
+    prefix: str,
+    candidate_session: CandidateSession,
+    task: Task | None = None,
+    workspace_key: str | None = None,
 ) -> str:
     """Construct a deterministic repo name for a workspace."""
+    if workspace_key:
+        return f"{prefix}{candidate_session.id}-{workspace_key}"
+    if task is None:  # pragma: no cover - defensive guard
+        raise ValueError("task is required when workspace_key is not provided")
     return f"{prefix}{candidate_session.id}-task{task.id}"
 
 

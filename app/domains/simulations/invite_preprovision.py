@@ -5,6 +5,9 @@ import logging
 from app.core.settings import settings
 from app.domains.submissions import service_candidate as submission_service
 from app.integrations.github import GithubClient, GithubError
+from app.repositories.github_native.workspaces.workspace_keys import (
+    resolve_workspace_key_for_task,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +50,7 @@ async def preprovision_workspaces(
                         prefix=repo_prefix,
                         candidate_session=candidate_session,
                         task=task,
+                        workspace_key=resolve_workspace_key_for_task(task),
                     ),
                     "status_code": getattr(exc, "status_code", None),
                 },

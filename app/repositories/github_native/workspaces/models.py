@@ -9,6 +9,41 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db.base import Base
 
 
+class WorkspaceGroup(Base):
+    """Canonical workspace repo metadata shared across related coding tasks."""
+
+    __tablename__ = "workspace_groups"
+    __table_args__ = (
+        UniqueConstraint(
+            "candidate_session_id",
+            "workspace_key",
+            name="uq_workspace_groups_session_key",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    candidate_session_id: Mapped[int] = mapped_column(
+        ForeignKey("candidate_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    workspace_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    template_repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    repo_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    default_branch: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    base_template_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    candidate_session = relationship(
+        "CandidateSession", back_populates="workspace_groups"
+    )
+    workspaces = relationship(
+        "Workspace", back_populates="workspace_group", cascade="all, delete-orphan"
+    )
+
+
 class Workspace(Base):
     """GitHub workspace repository provisioned for a candidate task."""
 
@@ -17,10 +52,14 @@ class Workspace(Base):
         UniqueConstraint(
             "candidate_session_id", "task_id", name="uq_workspaces_session_task"
         ),
+        UniqueConstraint("workspace_group_id", name="uq_workspaces_workspace_group_id"),
     )
 
     id: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    workspace_group_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspace_groups.id", ondelete="CASCADE"), nullable=True
     )
     candidate_session_id: Mapped[int] = mapped_column(
         ForeignKey("candidate_sessions.id", ondelete="CASCADE"), nullable=False
@@ -50,3 +89,4 @@ class Workspace(Base):
 
     candidate_session = relationship("CandidateSession", back_populates="workspaces")
     task = relationship("Task", back_populates="workspaces")
+    workspace_group = relationship("WorkspaceGroup", back_populates="workspaces")
