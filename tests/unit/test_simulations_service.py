@@ -133,19 +133,24 @@ def test_extract_day_window_config_normalizes_overrides():
 async def test_create_invite_handles_token_collisions(monkeypatch):
     class StubSession:
         def __init__(self):
-            self.commits = 0
-            self.rollbacks = 0
+            self.flushes = 0
             self.added: CandidateSession | None = None
 
         def add(self, obj):
             self.added = obj
 
-        async def commit(self):
-            self.commits += 1
-            raise IntegrityError("", {}, None)
+        def begin_nested(self):
+            return self
 
-        async def rollback(self):
-            self.rollbacks += 1
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def flush(self):
+            self.flushes += 1
+            raise IntegrityError("", {}, None)
 
         async def execute(self, *_args, **_kwargs):
             class _Result:
@@ -176,17 +181,20 @@ async def test_create_invite_integrity_error_returns_existing(monkeypatch):
     existing.id = 123
 
     class StubSession:
-        def __init__(self):
-            self.rollbacks = 0
-
         def add(self, _obj):
             return None
 
-        async def commit(self):
-            raise IntegrityError("", {}, None)
+        def begin_nested(self):
+            return self
 
-        async def rollback(self):
-            self.rollbacks += 1
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def flush(self):
+            raise IntegrityError("", {}, None)
 
     async def _get_existing(*_args, **_kwargs):
         return existing
@@ -225,6 +233,7 @@ async def test_create_simulation_with_tasks_flow(async_session, monkeypatch):
         async_session, payload, user
     )
     assert sim.id is not None
+    assert sim.active_scenario_version_id is not None
     assert len(tasks) == len(sim_service.DEFAULT_5_DAY_BLUEPRINT)
     # ensure tasks are sorted and refreshed
     assert tasks[0].day_index == 1
@@ -318,11 +327,18 @@ async def test_create_simulation_with_tasks_rejects_bad_template(async_session):
 
 @pytest.mark.asyncio
 async def test_create_invite_success(async_session):
+    recruiter = await create_recruiter(async_session, email="invite-success@test.com")
+    sim, _ = await create_simulation(async_session, created_by=recruiter)
+    assert sim.active_scenario_version_id is not None
     payload = type(
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
     cs, created = await sim_service.create_invite(
-        async_session, simulation_id=1, payload=payload, now=datetime.now(UTC)
+        async_session,
+        simulation_id=sim.id,
+        payload=payload,
+        scenario_version_id=sim.active_scenario_version_id,
+        now=datetime.now(UTC),
     )
     assert cs.token
     assert cs.status == "not_started"
@@ -337,7 +353,11 @@ async def test_create_invite_reuses_existing(async_session, monkeypatch):
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
     first, created = await sim_service.create_invite(
-        async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+        async_session,
+        simulation_id=sim.id,
+        payload=payload,
+        scenario_version_id=sim.active_scenario_version_id,
+        now=datetime.now(UTC),
     )
     assert created is True
     first_id = first.id
@@ -359,7 +379,11 @@ async def test_create_invite_reuses_existing(async_session, monkeypatch):
         sim_service.cs_repo, "get_by_simulation_and_email", _get_existing
     )
     second, created = await sim_service.create_invite(
-        async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+        async_session,
+        simulation_id=sim.id,
+        payload=payload,
+        scenario_version_id=sim.active_scenario_version_id,
+        now=datetime.now(UTC),
     )
     assert second.id == first_id
     assert created is False
@@ -373,7 +397,11 @@ async def test_create_or_resend_invite_resends_active(async_session):
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
     first, _created = await sim_service.create_invite(
-        async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+        async_session,
+        simulation_id=sim.id,
+        payload=payload,
+        scenario_version_id=sim.active_scenario_version_id,
+        now=datetime.now(UTC),
     )
 
     second, outcome = await sim_service.create_or_resend_invite(
@@ -393,7 +421,11 @@ async def test_create_or_resend_invite_refreshes_expired(async_session):
     )
     now = datetime.now(UTC)
     cs, _created = await sim_service.create_invite(
-        async_session, simulation_id=sim.id, payload=payload, now=now
+        async_session,
+        simulation_id=sim.id,
+        payload=payload,
+        scenario_version_id=sim.active_scenario_version_id,
+        now=now,
     )
     old_token = cs.token
     cs.expires_at = now - timedelta(days=1)
@@ -416,7 +448,11 @@ async def test_create_or_resend_invite_rejects_completed(async_session):
         "P", (), {"candidateName": "Jane", "inviteEmail": "jane@example.com"}
     )
     cs, _created = await sim_service.create_invite(
-        async_session, simulation_id=sim.id, payload=payload, now=datetime.now(UTC)
+        async_session,
+        simulation_id=sim.id,
+        payload=payload,
+        scenario_version_id=sim.active_scenario_version_id,
+        now=datetime.now(UTC),
     )
     cs.status = CANDIDATE_SESSION_STATUS_COMPLETED
     cs.completed_at = datetime.now(UTC)
@@ -455,6 +491,7 @@ async def test_list_candidates_with_profile(async_session):
         async_session,
         simulation_id=sim.id,
         payload=type("P", (), {"candidateName": "a", "inviteEmail": "b@example.com"}),
+        scenario_version_id=sim.active_scenario_version_id,
     )
     rows = await sim_service.list_candidates_with_profile(async_session, sim.id)
     assert rows and rows[0][0].id == cs.id
@@ -678,8 +715,9 @@ async def test_create_or_resend_invite_refreshes_new_expired(monkeypatch):
         payload=SimpleNamespace(inviteEmail="soon@test.com"),
         now=datetime.now(UTC),
     )
+    assert refreshed is cs
     assert outcome == "created"
-    assert db.commits == 1
+    assert db.commits == 0
 
 
 @pytest.mark.asyncio
@@ -748,3 +786,108 @@ async def test_create_or_resend_invite_returns_resent_for_new_active(monkeypatch
     )
     assert outcome == "resent"
     assert created is cs
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_passes_scenario_version_id(monkeypatch):
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Scenario",
+        invite_email="scenario@test.com",
+        token="tok",
+        status="not_started",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+    captured = {}
+
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return None
+
+    async def fake_create_invite(
+        db, simulation_id, payload, now=None, scenario_version_id=None
+    ):
+        captured["scenario_version_id"] = scenario_version_id
+        return cs, True
+
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite)
+
+    created, outcome = await sim_service.create_or_resend_invite(
+        db=None,
+        simulation_id=1,
+        payload=SimpleNamespace(inviteEmail="scenario@test.com"),
+        now=datetime.now(UTC),
+        scenario_version_id=321,
+    )
+    assert outcome == "created"
+    assert created is cs
+    assert captured["scenario_version_id"] == 321
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_falls_back_when_create_invite_signature_is_legacy(
+    monkeypatch,
+):
+    cs = CandidateSession(
+        simulation_id=1,
+        candidate_name="Legacy",
+        invite_email="legacy@test.com",
+        token="tok",
+        status="not_started",
+        expires_at=datetime.now(UTC) + timedelta(days=1),
+    )
+    call_count = 0
+
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return None
+
+    async def fake_create_invite_legacy(db, simulation_id, payload, now=None):
+        nonlocal call_count
+        call_count += 1
+        return cs, True
+
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite_legacy)
+
+    created, outcome = await sim_service.create_or_resend_invite(
+        db=None,
+        simulation_id=1,
+        payload=SimpleNamespace(inviteEmail="legacy@test.com"),
+        now=datetime.now(UTC),
+        scenario_version_id=999,
+    )
+    assert outcome == "created"
+    assert created is cs
+    assert call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_create_or_resend_invite_reraises_unrelated_typeerror(monkeypatch):
+    async def fake_get_for_update(db, simulation_id, invite_email):
+        return None
+
+    async def fake_create_invite(db, simulation_id, payload, now=None):
+        raise TypeError("unexpected internal typing issue")
+
+    monkeypatch.setattr(
+        sim_service.cs_repo,
+        "get_by_simulation_and_email_for_update",
+        fake_get_for_update,
+    )
+    monkeypatch.setattr(sim_service, "create_invite", fake_create_invite)
+
+    with pytest.raises(TypeError):
+        await sim_service.create_or_resend_invite(
+            db=None,
+            simulation_id=1,
+            payload=SimpleNamespace(inviteEmail="typeerror@test.com"),
+            now=datetime.now(UTC),
+        )

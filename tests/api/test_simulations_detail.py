@@ -19,7 +19,10 @@ async def test_get_simulation_detail_happy_path(
 
     body = res.json()
     assert body["id"] == sim.id
-    assert body["scenario"] == sim.scenario_template
+    assert body["scenario"]["id"] == sim.active_scenario_version_id
+    assert body["scenario"]["versionIndex"] == 1
+    assert body["scenario"]["status"] in {"ready", "locked"}
+    assert body["scenario"]["lockedAt"] is None
     assert body["templateKey"] == sim.template_key
     assert body["techStack"] == sim.tech_stack
     assert isinstance(body["tasks"], list)

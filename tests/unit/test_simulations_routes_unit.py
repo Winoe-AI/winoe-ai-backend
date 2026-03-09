@@ -17,6 +17,14 @@ def _fake_request():
     )()
 
 
+class _FakeDB:
+    async def commit(self):
+        return None
+
+    async def refresh(self, _obj):
+        return None
+
+
 @pytest.mark.asyncio
 async def test_create_candidate_invite_rejected(monkeypatch):
     monkeypatch.setattr(rate_limit, "rate_limit_enabled", lambda: False)
@@ -28,19 +36,23 @@ async def test_create_candidate_invite_rejected(monkeypatch):
             [],
         )
 
-    async def fake_create(db, simulation_id, payload, now):
+    async def fake_lock(db, simulation_id, now):
+        return SimpleNamespace(id=99)
+
+    async def fake_create(db, simulation_id, payload, now, scenario_version_id=None):
         raise exc
 
     monkeypatch.setattr(
         sim_service, "require_owned_simulation_with_tasks", fake_require
     )
+    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
     monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
 
     response = await simulations.create_candidate_invite(
         simulation_id=1,
         payload=SimpleNamespace(inviteEmail="a@b.com", candidateName="C"),
         request=_fake_request(),
-        db=None,
+        db=_FakeDB(),
         user=SimpleNamespace(id=1, role="recruiter"),
         email_service=None,
         github_client=None,
@@ -59,7 +71,10 @@ async def test_create_candidate_invite_github_error(monkeypatch):
         sim = SimpleNamespace(id=1, title="t", role="r", status="active_inviting")
         return sim, [task]
 
-    async def fake_create(db, simulation_id, payload, now):
+    async def fake_lock(db, simulation_id, now):
+        return SimpleNamespace(id=11)
+
+    async def fake_create(db, simulation_id, payload, now, scenario_version_id=None):
         return SimpleNamespace(id=10, token="tok"), "created"
 
     async def fail_workspace(
@@ -77,6 +92,7 @@ async def test_create_candidate_invite_github_error(monkeypatch):
     monkeypatch.setattr(
         sim_service, "require_owned_simulation_with_tasks", fake_require
     )
+    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
     monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
     monkeypatch.setattr(
         simulations.submission_service, "ensure_workspace", fail_workspace
@@ -87,7 +103,7 @@ async def test_create_candidate_invite_github_error(monkeypatch):
             simulation_id=1,
             payload=SimpleNamespace(inviteEmail="a@b.com", candidateName="C"),
             request=_fake_request(),
-            db=None,
+            db=_FakeDB(),
             user=SimpleNamespace(id=1, role="recruiter"),
             email_service=None,
             github_client=None,
@@ -158,7 +174,10 @@ async def test_create_candidate_invite_skips_non_code_tasks(monkeypatch):
         ]
         return sim, tasks
 
-    async def fake_create(db, simulation_id, payload, now):
+    async def fake_lock(db, simulation_id, now):
+        return SimpleNamespace(id=11)
+
+    async def fake_create(db, simulation_id, payload, now, scenario_version_id=None):
         return SimpleNamespace(id=10, token="tok", simulation_id=1), "created"
 
     async def ensure_workspace(**_kwargs):
@@ -170,6 +189,7 @@ async def test_create_candidate_invite_skips_non_code_tasks(monkeypatch):
     monkeypatch.setattr(
         sim_service, "require_owned_simulation_with_tasks", fake_require
     )
+    monkeypatch.setattr(sim_service, "lock_active_scenario_for_invites", fake_lock)
     monkeypatch.setattr(sim_service, "create_or_resend_invite", fake_create)
     monkeypatch.setattr(
         simulations.submission_service, "ensure_workspace", ensure_workspace
@@ -182,7 +202,7 @@ async def test_create_candidate_invite_skips_non_code_tasks(monkeypatch):
         simulation_id=1,
         payload=SimpleNamespace(inviteEmail="a@b.com", candidateName="C"),
         request=_fake_request(),
-        db=None,
+        db=_FakeDB(),
         user=SimpleNamespace(id=1, role="recruiter"),
         email_service=None,
         github_client=None,

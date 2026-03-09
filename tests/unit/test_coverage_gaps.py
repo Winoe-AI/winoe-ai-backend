@@ -185,6 +185,9 @@ async def test_simulation_routes_execute_service_calls(monkeypatch):
     async def _list_sims(*_a, **_k):
         return [(sim, 2)]
 
+    async def _get_active_scenario(*_a, **_k):
+        return SimpleNamespace(id=10, version_index=1, status="ready", locked_at=None)
+
     monkeypatch.setattr(
         sim_create_route.sim_service,
         "create_simulation_with_tasks",
@@ -196,9 +199,18 @@ async def test_simulation_routes_execute_service_calls(monkeypatch):
         _require_owned,
     )
     monkeypatch.setattr(
+        sim_detail_route.sim_service,
+        "get_active_scenario_version",
+        _get_active_scenario,
+    )
+    monkeypatch.setattr(
         sim_detail_route,
         "render_simulation_detail",
-        lambda _sim, _tasks: {"id": _sim.id, "title": _sim.title, "tasks": _tasks},
+        lambda _sim, _tasks, _active: {
+            "id": _sim.id,
+            "title": _sim.title,
+            "tasks": _tasks,
+        },
     )
     monkeypatch.setattr(sim_list_route.sim_service, "list_simulations", _list_sims)
 

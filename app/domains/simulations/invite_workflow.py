@@ -25,9 +25,18 @@ async def create_candidate_invite_workflow(
     )
     sim_service.require_simulation_invitable(sim)
     now = now or datetime.now(UTC)
-    cs, outcome = await sim_service.create_or_resend_invite(
-        db, simulation_id, payload, now=now
+    scenario_version = await sim_service.lock_active_scenario_for_invites(
+        db, simulation_id=simulation_id, now=now
     )
+    cs, outcome = await sim_service.create_or_resend_invite(
+        db,
+        simulation_id,
+        payload,
+        scenario_version_id=scenario_version.id,
+        now=now,
+    )
+    await db.commit()
+    await db.refresh(cs)
     await invite_preprovision.preprovision_workspaces(
         db, cs, tasks, github_client, now=now
     )

@@ -79,7 +79,9 @@ async def test_list_route_rejects_invalid_status(monkeypatch):
 def test_detail_render_rejects_invalid_status():
     sim = _invalid_simulation()
     with pytest.raises(ApiError) as excinfo:
-        sim_detail_render.render_simulation_detail(sim, tasks=[])
+        sim_detail_render.render_simulation_detail(
+            sim, tasks=[], active_scenario_version=None
+        )
     assert excinfo.value.status_code == 500
     assert excinfo.value.error_code == "SIMULATION_STATUS_INVALID"
     assert excinfo.value.details == {"status": "bad_status"}

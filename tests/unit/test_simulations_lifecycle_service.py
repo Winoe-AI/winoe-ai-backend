@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.core.errors import ApiError
-from app.domains import Company, Job, Simulation, User
+from app.domains import Company, Job, ScenarioVersion, Simulation, User
 from app.domains.simulations import service as sim_service
 from app.services.simulations import lifecycle as lifecycle_service
 
@@ -24,6 +24,25 @@ def _simulation(status: str) -> Simulation:
         created_by=1,
         status=status,
     )
+
+
+async def _attach_active_scenario(async_session, simulation: Simulation) -> None:
+    scenario = ScenarioVersion(
+        simulation_id=simulation.id,
+        version_index=1,
+        status="ready",
+        storyline_md=f"# {simulation.title}",
+        task_prompts_json=[],
+        rubric_json={},
+        focus_notes=simulation.focus or "",
+        template_key=simulation.template_key,
+        tech_stack=simulation.tech_stack,
+        seniority=simulation.seniority,
+    )
+    async_session.add(scenario)
+    await async_session.flush()
+    simulation.active_scenario_version_id = scenario.id
+    await async_session.flush()
 
 
 def test_normalize_simulation_status_strictness():
@@ -174,10 +193,14 @@ async def test_activate_and_terminate_service_idempotency(async_session):
         focus="Service idempotency",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.SIMULATION_STATUS_READY_FOR_REVIEW,
-        ready_for_review_at=datetime.now(UTC),
+        status=sim_service.SIMULATION_STATUS_GENERATING,
+        generating_at=datetime.now(UTC),
     )
     async_session.add(simulation)
+    await async_session.flush()
+    await _attach_active_scenario(async_session, simulation)
+    simulation.status = sim_service.SIMULATION_STATUS_READY_FOR_REVIEW
+    simulation.ready_for_review_at = datetime.now(UTC)
     await async_session.commit()
 
     activated = await sim_service.activate_simulation(
@@ -255,10 +278,14 @@ async def test_require_owner_for_lifecycle_not_found_and_forbidden(async_session
         focus="Guard coverage",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.SIMULATION_STATUS_READY_FOR_REVIEW,
-        ready_for_review_at=datetime.now(UTC),
+        status=sim_service.SIMULATION_STATUS_GENERATING,
+        generating_at=datetime.now(UTC),
     )
     async_session.add(simulation)
+    await async_session.flush()
+    await _attach_active_scenario(async_session, simulation)
+    simulation.status = sim_service.SIMULATION_STATUS_READY_FOR_REVIEW
+    simulation.ready_for_review_at = datetime.now(UTC)
     await async_session.commit()
 
     with pytest.raises(HTTPException) as forbidden:
@@ -295,10 +322,14 @@ async def test_activate_rejected_transition_surfaces_api_error(async_session):
         focus="Rejected transition",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.SIMULATION_STATUS_TERMINATED,
-        terminated_at=datetime.now(UTC),
+        status=sim_service.SIMULATION_STATUS_GENERATING,
+        generating_at=datetime.now(UTC),
     )
     async_session.add(simulation)
+    await async_session.flush()
+    await _attach_active_scenario(async_session, simulation)
+    simulation.status = sim_service.SIMULATION_STATUS_TERMINATED
+    simulation.terminated_at = datetime.now(UTC)
     await async_session.commit()
 
     with pytest.raises(ApiError) as excinfo:
@@ -336,10 +367,14 @@ async def test_terminate_with_cleanup_sets_reason_and_enqueues_job(async_session
         focus="Termination metadata",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.SIMULATION_STATUS_READY_FOR_REVIEW,
-        ready_for_review_at=datetime.now(UTC),
+        status=sim_service.SIMULATION_STATUS_GENERATING,
+        generating_at=datetime.now(UTC),
     )
     async_session.add(simulation)
+    await async_session.flush()
+    await _attach_active_scenario(async_session, simulation)
+    simulation.status = sim_service.SIMULATION_STATUS_READY_FOR_REVIEW
+    simulation.ready_for_review_at = datetime.now(UTC)
     await async_session.commit()
 
     result = await sim_service.terminate_simulation_with_cleanup(
@@ -395,10 +430,14 @@ async def test_terminate_with_cleanup_rethrows_transition_errors(
         focus="Transition failure",
         scenario_template="default-5day-node-postgres",
         created_by=owner.id,
-        status=sim_service.SIMULATION_STATUS_READY_FOR_REVIEW,
-        ready_for_review_at=datetime.now(UTC),
+        status=sim_service.SIMULATION_STATUS_GENERATING,
+        generating_at=datetime.now(UTC),
     )
     async_session.add(simulation)
+    await async_session.flush()
+    await _attach_active_scenario(async_session, simulation)
+    simulation.status = sim_service.SIMULATION_STATUS_READY_FOR_REVIEW
+    simulation.ready_for_review_at = datetime.now(UTC)
     await async_session.commit()
 
     def _raise_transition(*_args, **_kwargs):

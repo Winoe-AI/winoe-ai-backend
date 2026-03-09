@@ -2,7 +2,7 @@ import pytest
 import pytest_asyncio
 
 from app.core.auth.current_user import get_current_user
-from app.domains import CandidateSession, Company, User
+from app.domains import CandidateSession, Company, Simulation, User
 
 
 @pytest_asyncio.fixture
@@ -91,9 +91,12 @@ async def test_list_simulations_candidate_counts(authed_client, async_session):
     r = await authed_client.post("/api/simulations", json=payload)
     assert r.status_code == 201
     sim_id = r.json()["id"]
+    sim = await async_session.get(Simulation, sim_id)
+    assert sim is not None and sim.active_scenario_version_id is not None
 
     cs1 = CandidateSession(
         simulation_id=sim_id,
+        scenario_version_id=sim.active_scenario_version_id,
         candidate_user_id=None,
         candidate_name="Candidate A",
         invite_email="a@example.com",
@@ -104,6 +107,7 @@ async def test_list_simulations_candidate_counts(authed_client, async_session):
     )
     cs2 = CandidateSession(
         simulation_id=sim_id,
+        scenario_version_id=sim.active_scenario_version_id,
         candidate_user_id=None,
         candidate_name="Candidate B",
         invite_email="b@example.com",

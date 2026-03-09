@@ -6,6 +6,7 @@ from app.repositories.candidate_sessions.models import (
 from app.repositories.companies.models import Company
 from app.repositories.github_native.workspaces.models import Workspace, WorkspaceGroup
 from app.repositories.jobs.models import Job
+from app.repositories.scenario_versions.models import ScenarioVersion
 from app.repositories.simulations.simulation import Simulation
 from app.repositories.submissions.fit_profile import FitProfile
 from app.repositories.submissions.submission import Submission
@@ -20,6 +21,7 @@ __all__ = [
     "CandidateDayAudit",
     "Company",
     "Job",
+    "ScenarioVersion",
     "Simulation",
     "Task",
     "TaskDraft",

@@ -30,4 +30,7 @@ async def get_simulation_detail(
     sim, tasks = await sim_service.require_owned_simulation_with_tasks(
         db, simulation_id, user.id
     )
-    return render_simulation_detail(sim, tasks)
+    active_scenario_version = await sim_service.get_active_scenario_version(
+        db, simulation_id
+    )
+    return render_simulation_detail(sim, tasks, active_scenario_version)
