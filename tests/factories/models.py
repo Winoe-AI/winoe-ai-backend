@@ -3,12 +3,14 @@ from __future__ import annotations
 import secrets
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import (
     CandidateSession,
     Company,
     Job,
+    ScenarioVersion,
     Simulation,
     Submission,
     Task,
@@ -76,8 +78,8 @@ async def create_simulation(
         focus=focus,
         scenario_template="default-5day-node-postgres",
         created_by=created_by.id,
-        status="active_inviting",
-        activated_at=datetime.now(UTC),
+        status="generating",
+        generating_at=datetime.now(UTC),
         template_key=template_key,
         company_context=company_context,
         ai_notice_version=ai_notice_version,
@@ -104,6 +106,32 @@ async def create_simulation(
         tasks.append(task)
 
     await session.flush()
+    scenario_version = ScenarioVersion(
+        simulation_id=sim.id,
+        version_index=1,
+        status="ready",
+        storyline_md=f"# {sim.title}",
+        task_prompts_json=[
+            {
+                "dayIndex": task.day_index,
+                "type": task.type,
+                "title": task.title,
+                "description": task.description,
+            }
+            for task in sorted(tasks, key=lambda item: item.day_index)
+        ],
+        rubric_json={},
+        focus_notes=sim.focus or "",
+        template_key=sim.template_key,
+        tech_stack=sim.tech_stack,
+        seniority=sim.seniority,
+    )
+    session.add(scenario_version)
+    await session.flush()
+    sim.active_scenario_version_id = scenario_version.id
+    sim.status = "active_inviting"
+    sim.activated_at = datetime.now(UTC)
+    await session.flush()
     tasks.sort(key=lambda t: t.day_index)
     return sim, tasks
 
@@ -127,6 +155,7 @@ async def create_candidate_session(
     day_windows_json: list[dict] | None = None,
     schedule_locked_at: datetime | None = None,
     with_default_schedule: bool = False,
+    scenario_version_id: int | None = None,
 ) -> CandidateSession:
     token = token or secrets.token_urlsafe(16)
     expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
@@ -156,8 +185,44 @@ async def create_candidate_session(
             ]
         )
 
+    resolved_scenario_version_id = (
+        scenario_version_id
+        if scenario_version_id is not None
+        else simulation.active_scenario_version_id
+    )
+    if resolved_scenario_version_id is None:
+        existing_scenario = (
+            await session.execute(
+                select(ScenarioVersion)
+                .where(ScenarioVersion.simulation_id == simulation.id)
+                .order_by(ScenarioVersion.version_index.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        if existing_scenario is not None:
+            resolved_scenario_version_id = existing_scenario.id
+        else:
+            scenario_version = ScenarioVersion(
+                simulation_id=simulation.id,
+                version_index=1,
+                status="ready",
+                storyline_md=f"# {simulation.title}",
+                task_prompts_json=[],
+                rubric_json={},
+                focus_notes=simulation.focus or "",
+                template_key=simulation.template_key,
+                tech_stack=simulation.tech_stack,
+                seniority=simulation.seniority,
+            )
+            session.add(scenario_version)
+            await session.flush()
+            resolved_scenario_version_id = scenario_version.id
+        simulation.active_scenario_version_id = resolved_scenario_version_id
+        await session.flush()
+
     cs = CandidateSession(
         simulation_id=simulation.id,
+        scenario_version_id=resolved_scenario_version_id,
         candidate_user_id=None,
         candidate_name=candidate_name,
         invite_email=invite_email,

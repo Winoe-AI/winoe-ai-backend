@@ -33,28 +33,30 @@ class ApiError(HTTPException):
         retryable: bool | None = None,
         headers: dict[str, Any] | None = None,
         details: dict[str, Any] | None = None,
+        compact_response: bool = False,
     ) -> None:
         super().__init__(status_code=status_code, detail=detail, headers=headers)
         self.error_code = error_code
         self.retryable = retryable
         self.details = details or {}
+        self.compact_response = compact_response
 
 
 __all__ = [
-    "ApiError",
+    "CANDIDATE_AUTH_EMAIL_MISSING",
     "CANDIDATE_EMAIL_NOT_VERIFIED",
     "CANDIDATE_INVITE_EMAIL_MISMATCH",
-    "CANDIDATE_AUTH_EMAIL_MISSING",
     "CANDIDATE_SESSION_ALREADY_CLAIMED",
+    "DRAFT_CONTENT_TOO_LARGE",
+    "DRAFT_FINALIZED",
+    "DRAFT_NOT_FOUND",
     "INVITE_TOKEN_EXPIRED",
     "SCHEDULE_ALREADY_SET",
     "SCHEDULE_INVALID_TIMEZONE",
-    "SCHEDULE_START_IN_PAST",
-    "SCHEDULE_NOT_CLAIMED",
     "SCHEDULE_INVALID_WINDOW",
+    "SCHEDULE_NOT_CLAIMED",
     "SCHEDULE_NOT_STARTED",
+    "SCHEDULE_START_IN_PAST",
     "TASK_WINDOW_CLOSED",
-    "DRAFT_NOT_FOUND",
-    "DRAFT_FINALIZED",
-    "DRAFT_CONTENT_TOO_LARGE",
+    "ApiError",
 ]

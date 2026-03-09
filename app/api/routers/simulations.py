@@ -11,6 +11,12 @@ from app.api.routers.simulations_routes.lifecycle import (
     terminate_simulation,
 )
 from app.api.routers.simulations_routes.list_simulations import list_simulations
+from app.api.routers.simulations_routes.scenario_regenerate import (
+    regenerate_scenario_version,
+)
+from app.api.routers.simulations_routes.scenario_update import (
+    update_active_scenario_version,
+)
 from app.core.auth.roles import ensure_recruiter_or_none
 from app.domains.notifications import service as notification_service
 from app.domains.simulations import service as sim_service
@@ -30,6 +36,8 @@ __all__ = [
     "terminate_simulation",
     "list_simulation_candidates",
     "list_simulations",
+    "regenerate_scenario_version",
+    "update_active_scenario_version",
     "notification_service",
     "submission_service",
     "sim_service",

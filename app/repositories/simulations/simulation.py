@@ -34,11 +34,21 @@ SIMULATION_STATUSES = (
 
 LEGACY_SIMULATION_STATUS_ACTIVE = "active"
 SIMULATION_STATUS_CHECK_CONSTRAINT_NAME = "ck_simulations_status_lifecycle"
+SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME = (
+    "ck_simulations_active_scenario_required"
+)
 
 
 def _status_check_expr() -> str:
     allowed = ",".join(f"'{status}'" for status in SIMULATION_STATUSES)
     return f"status IN ({allowed})"
+
+
+def _active_scenario_required_expr() -> str:
+    # Keep bootstrap inserts possible while simulation is still draft/generating.
+    return (
+        "status IN ('draft','generating') " "OR active_scenario_version_id IS NOT NULL"
+    )
 
 
 class Simulation(Base, TimestampMixin):
@@ -49,6 +59,10 @@ class Simulation(Base, TimestampMixin):
         CheckConstraint(
             _status_check_expr(),
             name=SIMULATION_STATUS_CHECK_CONSTRAINT_NAME,
+        ),
+        CheckConstraint(
+            _active_scenario_required_expr(),
+            name=SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME,
         ),
     )
 
@@ -96,6 +110,14 @@ class Simulation(Base, TimestampMixin):
     day_window_overrides_json: Mapped[dict[str, dict[str, str]] | None] = mapped_column(
         JSON, nullable=True
     )
+    active_scenario_version_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "scenario_versions.id",
+            use_alter=True,
+            name="fk_simulations_active_scenario_version_id",
+        ),
+        nullable=True,
+    )
 
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(
@@ -117,4 +139,15 @@ class Simulation(Base, TimestampMixin):
 
     company = relationship("Company", back_populates="simulations")
     tasks = relationship("Task", back_populates="simulation")
+    scenario_versions = relationship(
+        "ScenarioVersion",
+        back_populates="simulation",
+        foreign_keys="ScenarioVersion.simulation_id",
+    )
+    active_scenario_version = relationship(
+        "ScenarioVersion",
+        foreign_keys=[active_scenario_version_id],
+        uselist=False,
+        post_update=True,
+    )
     candidate_sessions = relationship("CandidateSession", back_populates="simulation")

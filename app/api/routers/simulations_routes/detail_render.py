@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from app.domains.simulations import service as sim_service
 from app.domains.simulations.schemas import (
+    ScenarioStateSummary,
     ScenarioVersionSummary,
     SimulationDetailResponse,
     SimulationDetailTask,
@@ -11,7 +12,9 @@ from app.domains.simulations.schemas import (
 )
 
 
-def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
+def render_simulation_detail(
+    sim, tasks, active_scenario_version
+) -> SimulationDetailResponse:
     raw_status = getattr(sim, "status", None)
     status_value = sim_service.normalize_simulation_status_or_raise(raw_status)
     return SimulationDetailResponse(
@@ -31,7 +34,16 @@ def render_simulation_detail(sim, tasks) -> SimulationDetailResponse:
             notice_text=getattr(sim, "ai_notice_text", None),
             eval_enabled_by_day=getattr(sim, "ai_eval_enabled_by_day", None),
         ),
-        scenario=sim.scenario_template,
+        scenario=(
+            ScenarioStateSummary(
+                id=active_scenario_version.id,
+                versionIndex=active_scenario_version.version_index,
+                status=active_scenario_version.status,
+                lockedAt=active_scenario_version.locked_at,
+            )
+            if active_scenario_version is not None
+            else None
+        ),
         status=status_value,
         generatingAt=getattr(sim, "generating_at", None),
         readyForReviewAt=getattr(sim, "ready_for_review_at", None),

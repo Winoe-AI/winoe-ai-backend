@@ -1,6 +1,7 @@
 from app.core.settings import settings
 from app.domains.simulations.blueprints import DEFAULT_5_DAY_BLUEPRINT
 from app.repositories.candidate_sessions import repository as cs_repo
+from app.repositories.scenario_versions import repository as scenario_repo
 from app.repositories.simulations import repository as sim_repo
 from app.repositories.simulations.simulation import (
     SIMULATION_STATUS_ACTIVE_INVITING,
@@ -36,6 +37,14 @@ from .lifecycle import (
 from .listing import list_candidates_with_profile, list_simulations
 from .ownership import require_owned_simulation, require_owned_simulation_with_tasks
 from .scenario_payload_builder import build_scenario_generation_payload
+from .scenario_versions import (
+    create_initial_scenario_version,
+    ensure_scenario_version_mutable,
+    get_active_scenario_version,
+    lock_active_scenario_for_invites,
+    regenerate_active_scenario_version,
+    update_active_scenario_version,
+)
 from .task_templates import _template_repo_for_task
 from .template_keys import ApiError
 from .urls import invite_url
@@ -58,24 +67,31 @@ __all__ = [
     "apply_status_transition",
     "build_simulation_cleanup_payload",
     "build_scenario_generation_payload",
+    "create_initial_scenario_version",
     "create_invite",
     "create_or_resend_invite",
     "create_simulation_with_tasks",
     "cs_repo",
+    "ensure_scenario_version_mutable",
     "enqueue_simulation_cleanup_job",
+    "get_active_scenario_version",
     "invite_url",
+    "lock_active_scenario_for_invites",
     "list_candidates_with_profile",
     "list_simulations",
     "normalize_simulation_status",
     "normalize_simulation_status_or_raise",
+    "regenerate_active_scenario_version",
     "require_owner_for_lifecycle",
     "require_owned_simulation",
     "require_owned_simulation_with_tasks",
     "require_simulation_invitable",
     "resolve_template_repo_full_name",
+    "scenario_repo",
     "settings",
     "sim_repo",
     "simulation_cleanup_idempotency_key",
     "terminate_simulation",
     "terminate_simulation_with_cleanup",
+    "update_active_scenario_version",
 ]

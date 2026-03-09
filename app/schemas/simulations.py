@@ -36,6 +36,10 @@ __all__ = [
     "SimulationActivateResponse",
     "SimulationTerminateResponse",
     "ScenarioVersionSummary",
+    "ScenarioStateSummary",
+    "ScenarioRegenerateResponse",
+    "ScenarioActiveUpdateRequest",
+    "ScenarioActiveUpdateResponse",
     "SimulationCompanyContext",
     "SimulationAIConfig",
     "SimulationDayWindowOverride",
@@ -312,6 +316,39 @@ class ScenarioVersionSummary(BaseModel):
     scenarioTemplate: str | None = None
 
 
+class ScenarioStateSummary(BaseModel):
+    """Scenario version metadata shown on simulation detail."""
+
+    id: int
+    versionIndex: int
+    status: str
+    lockedAt: datetime | None = None
+
+
+class ScenarioRegenerateResponse(BaseModel):
+    """Response for scenario regeneration."""
+
+    simulationId: int
+    scenario: ScenarioStateSummary
+
+
+class ScenarioActiveUpdateRequest(BaseModel):
+    """Minimal payload to mutate the active scenario version."""
+
+    storylineMd: str | None = None
+    taskPromptsJson: dict | list | None = None
+    rubricJson: dict | list | None = None
+    focusNotes: str | None = None
+    status: str | None = None
+
+
+class ScenarioActiveUpdateResponse(BaseModel):
+    """Response for active scenario version mutation."""
+
+    simulationId: int
+    scenario: ScenarioStateSummary
+
+
 class SimulationCreateResponse(BaseModel):
     """Response returned after creating a simulation."""
 
@@ -402,7 +439,7 @@ class SimulationDetailResponse(BaseModel):
     focus: str | list[str] | None = None
     companyContext: SimulationCompanyContext | None = None
     ai: SimulationAIConfig | None = None
-    scenario: str | None = None
+    scenario: ScenarioStateSummary | None = None
     status: SimulationStatus
     generatingAt: datetime | None = None
     readyForReviewAt: datetime | None = None

@@ -41,6 +41,9 @@ class CandidateSession(Base):
     simulation_id: Mapped[int] = mapped_column(
         ForeignKey("simulations.id"), nullable=False
     )
+    scenario_version_id: Mapped[int] = mapped_column(
+        ForeignKey("scenario_versions.id"), nullable=False
+    )
     candidate_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"), nullable=True
     )
@@ -86,6 +89,9 @@ class CandidateSession(Base):
     )
 
     simulation = relationship("Simulation", back_populates="candidate_sessions")
+    scenario_version = relationship(
+        "ScenarioVersion", back_populates="candidate_sessions"
+    )
     candidate_user = relationship("User", back_populates="candidate_sessions")
     submissions = relationship(
         "Submission", back_populates="candidate_session", cascade="all, delete-orphan"

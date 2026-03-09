@@ -2,7 +2,14 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.domains import CandidateSession, Company, FitProfile, Simulation, User
+from app.domains import (
+    CandidateSession,
+    Company,
+    FitProfile,
+    ScenarioVersion,
+    Simulation,
+    User,
+)
 
 
 @pytest.mark.asyncio
@@ -72,9 +79,26 @@ async def test_simulation_with_multiple_sessions_returns_all_and_has_report(
     )
     async_session.add(sim)
     await async_session.flush()
+    scenario = ScenarioVersion(
+        simulation_id=sim.id,
+        version_index=1,
+        status="ready",
+        storyline_md="# Sim With Candidates",
+        task_prompts_json=[],
+        rubric_json={},
+        focus_notes="",
+        template_key=sim.template_key,
+        tech_stack=sim.tech_stack,
+        seniority=sim.seniority,
+    )
+    async_session.add(scenario)
+    await async_session.flush()
+    sim.active_scenario_version_id = scenario.id
+    await async_session.flush()
 
     cs1 = CandidateSession(
         simulation_id=sim.id,
+        scenario_version_id=scenario.id,
         candidate_name="Ada Lovelace",
         invite_email="ada@example.com",
         token="tok-1",
@@ -83,6 +107,7 @@ async def test_simulation_with_multiple_sessions_returns_all_and_has_report(
     )
     cs2 = CandidateSession(
         simulation_id=sim.id,
+        scenario_version_id=scenario.id,
         candidate_name="Bob",
         invite_email="bob@example.com",
         token="tok-2",

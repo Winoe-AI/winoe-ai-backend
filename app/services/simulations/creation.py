@@ -18,6 +18,7 @@ from app.repositories.simulations.simulation import (
 
 from .lifecycle import apply_status_transition
 from .scenario_payload_builder import build_scenario_generation_payload
+from .scenario_versions import create_initial_scenario_version
 from .task_seed import seed_default_tasks
 from .template_keys import resolve_template_key
 
@@ -145,13 +146,13 @@ async def create_simulation_with_tasks(
     await db.flush()
 
     created_tasks = await seed_default_tasks(db, sim.id, template_key)
+    await create_initial_scenario_version(db, simulation=sim, tasks=created_tasks)
     # Creation is currently synchronous, so "generating" can be short-lived.
     apply_status_transition(
         sim,
         target_status=SIMULATION_STATUS_READY_FOR_REVIEW,
         changed_at=datetime.now(UTC),
     )
-
     await db.flush()
 
     payload_json = build_scenario_generation_payload(sim)

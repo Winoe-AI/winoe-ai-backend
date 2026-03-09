@@ -19,6 +19,7 @@ async def create_invite(
     simulation_id: int,
     payload: CandidateInviteRequest,
     *,
+    scenario_version_id: int | None = None,
     now: datetime | None = None,
 ) -> tuple[CandidateSession, bool]:
     now = now or datetime.now(UTC)
@@ -28,19 +29,19 @@ async def create_invite(
         token = secrets.token_urlsafe(32)
         cs = CandidateSession(
             simulation_id=simulation_id,
+            scenario_version_id=scenario_version_id,
             candidate_name=payload.candidateName,
             invite_email=invite_email,
             token=token,
             status="not_started",
             expires_at=expires_at,
         )
-        db.add(cs)
         try:
-            await db.commit()
-            await db.refresh(cs)
+            async with db.begin_nested():
+                db.add(cs)
+                await db.flush()
             return cs, True
         except IntegrityError:
-            await db.rollback()
             existing = await cs_repo.get_by_simulation_and_email(
                 db, simulation_id=simulation_id, invite_email=invite_email
             )

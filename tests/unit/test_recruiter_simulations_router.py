@@ -12,6 +12,14 @@ def _request(host: str = "127.0.0.1"):
     return SimpleNamespace(headers={}, client=SimpleNamespace(host=host))
 
 
+class _FakeDB:
+    async def commit(self):
+        return None
+
+    async def refresh(self, _obj):
+        return None
+
+
 @pytest.mark.asyncio
 async def test_create_candidate_invite_happy_path(monkeypatch):
     user = SimpleNamespace(id=1)
@@ -35,7 +43,12 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
             [task_day2, task_day3],
         )
 
-    async def _create_or_resend_invite(db, simulation_id, payload, now):
+    async def _lock_active_scenario_for_invites(db, simulation_id, now):
+        return SimpleNamespace(id=777)
+
+    async def _create_or_resend_invite(
+        db, simulation_id, payload, now, scenario_version_id=None
+    ):
         assert payload.candidateName == "Name"
         return cs, "created"
 
@@ -50,6 +63,11 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
         recruiter_sims.sim_service,
         "require_owned_simulation_with_tasks",
         _require_owned_with_tasks,
+    )
+    monkeypatch.setattr(
+        recruiter_sims.sim_service,
+        "lock_active_scenario_for_invites",
+        _lock_active_scenario_for_invites,
     )
     monkeypatch.setattr(
         recruiter_sims.sim_service, "create_or_resend_invite", _create_or_resend_invite
@@ -74,7 +92,7 @@ async def test_create_candidate_invite_happy_path(monkeypatch):
         simulation_id=5,
         payload=payload,
         request=_request(),
-        db=None,
+        db=_FakeDB(),
         user=user,
         email_service=email_service,
         github_client=SimpleNamespace(),
