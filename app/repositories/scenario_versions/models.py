@@ -91,3 +91,8 @@ class ScenarioVersion(Base, TimestampMixin):
         "CandidateSession",
         back_populates="scenario_version",
     )
+    edit_audits = relationship(
+        "ScenarioEditAudit",
+        back_populates="scenario_version",
+        cascade="all, delete-orphan",
+    )

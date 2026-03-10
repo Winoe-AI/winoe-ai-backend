@@ -45,6 +45,7 @@ def render_simulation_detail(
                 storylineMd=active_scenario_version.storyline_md,
                 taskPromptsJson=active_scenario_version.task_prompts_json,
                 rubricJson=active_scenario_version.rubric_json,
+                notes=active_scenario_version.focus_notes,
                 modelName=active_scenario_version.model_name,
                 modelVersion=active_scenario_version.model_version,
                 promptVersion=active_scenario_version.prompt_version,

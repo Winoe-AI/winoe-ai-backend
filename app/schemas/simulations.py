@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import datetime, time
 from typing import Any
@@ -40,6 +41,9 @@ __all__ = [
     "ScenarioStateSummary",
     "ScenarioRegenerateResponse",
     "ScenarioApproveResponse",
+    "ScenarioVersionPatchTaskPrompt",
+    "ScenarioVersionPatchRequest",
+    "ScenarioVersionPatchResponse",
     "ScenarioActiveUpdateRequest",
     "ScenarioActiveUpdateResponse",
     "SimulationCompanyContext",
@@ -53,12 +57,26 @@ __all__ = [
 ]
 
 MAX_FOCUS_NOTES_CHARS = 1000
+MAX_SCENARIO_STORYLINE_CHARS = 20_000
+MAX_SCENARIO_NOTES_CHARS = 5_000
+MAX_SCENARIO_TASK_PROMPTS_BYTES = 200 * 1024
+MAX_SCENARIO_RUBRIC_BYTES = 200 * 1024
 MAX_COMPANY_CONTEXT_VALUE_CHARS = 120
 MAX_AI_NOTICE_VERSION_CHARS = 100
 MAX_AI_NOTICE_TEXT_CHARS = 2000
 _ALLOWED_ROLE_LEVELS = frozenset({"junior", "mid", "senior", "staff", "principal"})
 _ALLOWED_AI_EVAL_DAY_KEYS = frozenset({"1", "2", "3", "4", "5"})
 _ALLOWED_DAY_WINDOW_OVERRIDE_KEYS = frozenset(str(day) for day in range(9, 22))
+
+
+def _json_payload_size_bytes(value: Any) -> int:
+    encoded = json.dumps(
+        value,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        sort_keys=True,
+    ).encode("utf-8")
+    return len(encoded)
 
 
 def normalize_role_level(value: str | None) -> str | None:
@@ -333,6 +351,7 @@ class SimulationDetailScenario(ScenarioStateSummary):
     storylineMd: str | None = None
     taskPromptsJson: list[dict[str, Any]] | dict[str, Any] | list[Any] | None = None
     rubricJson: dict[str, Any] | list[Any] | None = None
+    notes: str | None = None
     modelName: str | None = None
     modelVersion: str | None = None
     promptVersion: str | None = None
@@ -355,6 +374,100 @@ class ScenarioApproveResponse(BaseModel):
     activeScenarioVersionId: int
     pendingScenarioVersionId: int | None = None
     scenario: ScenarioStateSummary
+
+
+class ScenarioVersionPatchTaskPrompt(BaseModel):
+    """Full per-day prompt payload for scenario patching."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    dayIndex: int = Field(
+        ...,
+        ge=1,
+        validation_alias=AliasChoices("dayIndex", "day_index"),
+    )
+    title: str = Field(..., min_length=1, max_length=200)
+    description: str = Field(..., min_length=1, max_length=10_000)
+    type: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class ScenarioVersionPatchRequest(BaseModel):
+    """Patch payload for an editable scenario version.
+
+    Contract: each provided field replaces that stored field value.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    storylineMd: str | None = Field(
+        default=None,
+        max_length=MAX_SCENARIO_STORYLINE_CHARS,
+    )
+    taskPrompts: list[ScenarioVersionPatchTaskPrompt] | None = None
+    rubric: dict[str, Any] | None = None
+    notes: str | None = Field(
+        default=None,
+        max_length=MAX_SCENARIO_NOTES_CHARS,
+    )
+
+    @field_validator("taskPrompts", mode="before")
+    @classmethod
+    def _validate_task_prompts_shape(cls, value: Any):
+        if value is None:
+            return value
+        if not isinstance(value, list):
+            raise ValueError("taskPrompts must be an array")
+        return value
+
+    @field_validator("taskPrompts")
+    @classmethod
+    def _validate_task_prompts_size(
+        cls, value: list[ScenarioVersionPatchTaskPrompt] | None
+    ):
+        if value is None:
+            return value
+        serialized = [
+            item.model_dump(by_alias=True, exclude_none=True) for item in value
+        ]
+        size_bytes = _json_payload_size_bytes(serialized)
+        if size_bytes > MAX_SCENARIO_TASK_PROMPTS_BYTES:
+            raise ValueError(
+                f"taskPrompts exceeds {MAX_SCENARIO_TASK_PROMPTS_BYTES} bytes"
+            )
+        return value
+
+    @field_validator("rubric", mode="before")
+    @classmethod
+    def _validate_rubric_shape(cls, value: Any):
+        if value is None:
+            return value
+        if not isinstance(value, Mapping):
+            raise ValueError("rubric must be an object")
+        return dict(value)
+
+    @field_validator("rubric")
+    @classmethod
+    def _validate_rubric_size(cls, value: dict[str, Any] | None):
+        if value is None:
+            return value
+        size_bytes = _json_payload_size_bytes(value)
+        if size_bytes > MAX_SCENARIO_RUBRIC_BYTES:
+            raise ValueError(f"rubric exceeds {MAX_SCENARIO_RUBRIC_BYTES} bytes")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_non_empty_patch(self):
+        editable_fields = {"storylineMd", "taskPrompts", "rubric", "notes"}
+        if not self.model_fields_set.intersection(editable_fields):
+            raise ValueError("At least one editable scenario field must be provided")
+        return self
+
+
+class ScenarioVersionPatchResponse(BaseModel):
+    """Response for scenario version patch requests."""
+
+    scenarioVersionId: int
+    status: str
 
 
 class ScenarioActiveUpdateRequest(BaseModel):

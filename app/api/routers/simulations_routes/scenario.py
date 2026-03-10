@@ -18,6 +18,8 @@ from app.domains.simulations.schemas import (
     ScenarioApproveResponse,
     ScenarioRegenerateResponse,
     ScenarioStateSummary,
+    ScenarioVersionPatchRequest,
+    ScenarioVersionPatchResponse,
 )
 
 router = APIRouter()
@@ -128,8 +130,46 @@ async def update_active_scenario_version(
     )
 
 
+@router.patch(
+    "/{simulation_id}/scenario/{scenario_version_id}",
+    response_model=ScenarioVersionPatchResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def patch_scenario_version(
+    simulation_id: int,
+    scenario_version_id: int,
+    payload: ScenarioVersionPatchRequest,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[Any, Depends(get_current_user)],
+):
+    ensure_recruiter_or_none(user)
+    updates = payload.model_dump(exclude_unset=True, exclude_none=False)
+    normalized_updates: dict[str, Any] = {}
+    if "storylineMd" in updates:
+        normalized_updates["storyline_md"] = updates["storylineMd"]
+    if "taskPrompts" in updates:
+        normalized_updates["task_prompts_json"] = updates["taskPrompts"]
+    if "rubric" in updates:
+        normalized_updates["rubric_json"] = updates["rubric"]
+    if "notes" in updates:
+        normalized_updates["focus_notes"] = updates["notes"]
+
+    scenario_version = await sim_service.patch_scenario_version(
+        db,
+        simulation_id=simulation_id,
+        scenario_version_id=scenario_version_id,
+        actor_user_id=user.id,
+        updates=normalized_updates,
+    )
+    return ScenarioVersionPatchResponse(
+        scenarioVersionId=scenario_version.id,
+        status=scenario_version.status,
+    )
+
+
 __all__ = [
     "approve_scenario_version",
+    "patch_scenario_version",
     "regenerate_scenario_version",
     "router",
     "update_active_scenario_version",
