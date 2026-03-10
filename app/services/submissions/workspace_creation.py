@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 
@@ -14,6 +15,9 @@ from app.repositories.github_native.workspaces.workspace_keys import (
     CODING_WORKSPACE_KEY,
     resolve_workspace_key_for_task,
 )
+from app.services.submissions.workspace_precommit_bundle import (
+    apply_precommit_bundle_if_available,
+)
 from app.services.submissions.workspace_repo_state import (
     add_collaborator_if_needed,
     fetch_base_template_sha,
@@ -21,6 +25,44 @@ from app.services.submissions.workspace_repo_state import (
 from app.services.submissions.workspace_template_repo import generate_template_repo
 
 logger = logging.getLogger(__name__)
+
+
+def _serialize_no_bundle_details(precommit_result: object) -> str | None:
+    if getattr(precommit_result, "state", None) != "no_bundle":
+        return None
+    details = getattr(precommit_result, "details", None)
+    if not isinstance(details, dict):
+        return None
+    payload = {"state": "no_bundle", **details}
+    return json.dumps(payload, sort_keys=True)
+
+
+async def _persist_precommit_result(
+    db,
+    *,
+    workspace: Workspace,
+    precommit_result,
+) -> Workspace:
+    if (
+        precommit_result.precommit_sha
+        and getattr(workspace, "precommit_sha", None) != precommit_result.precommit_sha
+    ):
+        return await workspace_repo.set_precommit_sha(
+            db,
+            workspace=workspace,
+            precommit_sha=precommit_result.precommit_sha,
+        )
+
+    no_bundle_details_json = _serialize_no_bundle_details(precommit_result)
+    if no_bundle_details_json and (
+        getattr(workspace, "precommit_details_json", None) != no_bundle_details_json
+    ):
+        return await workspace_repo.set_precommit_details(
+            db,
+            workspace=workspace,
+            precommit_details_json=no_bundle_details_json,
+        )
+    return workspace
 
 
 async def provision_workspace(
@@ -84,7 +126,7 @@ async def provision_workspace(
         github_client, repo_full_name, default_branch
     )
     await add_collaborator_if_needed(github_client, repo_full_name, github_username)
-    return await workspace_repo.create_workspace(
+    workspace = await workspace_repo.create_workspace(
         db,
         candidate_session_id=candidate_session.id,
         task_id=task.id,
@@ -95,6 +137,22 @@ async def provision_workspace(
         base_template_sha=base_template_sha,
         created_at=now,
     )
+    precommit_result = await apply_precommit_bundle_if_available(
+        db,
+        github_client=github_client,
+        candidate_session=candidate_session,
+        task=task,
+        repo_full_name=workspace.repo_full_name,
+        default_branch=workspace.default_branch,
+        base_template_sha=workspace.base_template_sha,
+        existing_precommit_sha=getattr(workspace, "precommit_sha", None),
+    )
+    workspace = await _persist_precommit_result(
+        db,
+        workspace=workspace,
+        precommit_result=precommit_result,
+    )
+    return workspace
 
 
 async def _provision_grouped_workspace(
@@ -127,10 +185,26 @@ async def _provision_grouped_workspace(
         await add_collaborator_if_needed(
             github_client, existing.repo_full_name, github_username
         )
+        if not getattr(existing, "precommit_sha", None):
+            precommit_result = await apply_precommit_bundle_if_available(
+                db,
+                github_client=github_client,
+                candidate_session=candidate_session,
+                task=task,
+                repo_full_name=existing.repo_full_name,
+                default_branch=existing.default_branch,
+                base_template_sha=existing.base_template_sha,
+                existing_precommit_sha=getattr(existing, "precommit_sha", None),
+            )
+            existing = await _persist_precommit_result(
+                db,
+                workspace=existing,
+                precommit_result=precommit_result,
+            )
         return existing
 
     try:
-        return await workspace_repo.create_workspace(
+        created = await workspace_repo.create_workspace(
             db,
             workspace_group_id=group.id,
             candidate_session_id=candidate_session.id,
@@ -142,6 +216,22 @@ async def _provision_grouped_workspace(
             base_template_sha=group.base_template_sha,
             created_at=now,
         )
+        precommit_result = await apply_precommit_bundle_if_available(
+            db,
+            github_client=github_client,
+            candidate_session=candidate_session,
+            task=task,
+            repo_full_name=created.repo_full_name,
+            default_branch=created.default_branch,
+            base_template_sha=created.base_template_sha,
+            existing_precommit_sha=getattr(created, "precommit_sha", None),
+        )
+        created = await _persist_precommit_result(
+            db,
+            workspace=created,
+            precommit_result=precommit_result,
+        )
+        return created
     except IntegrityError:
         await db.rollback()
         logger.warning(
@@ -157,6 +247,22 @@ async def _provision_grouped_workspace(
         )
         if existing is None:  # pragma: no cover - defensive guard
             raise
+        if not getattr(existing, "precommit_sha", None):
+            precommit_result = await apply_precommit_bundle_if_available(
+                db,
+                github_client=github_client,
+                candidate_session=candidate_session,
+                task=task,
+                repo_full_name=existing.repo_full_name,
+                default_branch=existing.default_branch,
+                base_template_sha=existing.base_template_sha,
+                existing_precommit_sha=getattr(existing, "precommit_sha", None),
+            )
+            existing = await _persist_precommit_result(
+                db,
+                workspace=existing,
+                precommit_result=precommit_result,
+            )
         return existing
 
 

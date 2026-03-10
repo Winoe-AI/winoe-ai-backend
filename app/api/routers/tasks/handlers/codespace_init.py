@@ -39,5 +39,7 @@ async def handle_codespace_init(
         repoUrl=f"https://github.com/{workspace.repo_full_name}",
         codespaceUrl=codespace_url,
         defaultBranch=workspace.default_branch,
+        baseTemplateSha=getattr(workspace, "base_template_sha", None),
+        precommitSha=getattr(workspace, "precommit_sha", None),
         workspaceId=workspace.id,
     )

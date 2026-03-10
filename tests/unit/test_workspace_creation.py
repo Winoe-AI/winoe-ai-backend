@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -19,6 +20,23 @@ class _RollbackDB:
         self.rollback_calls += 1
 
 
+@pytest.fixture(autouse=True)
+def _stub_precommit_bundle_apply(monkeypatch):
+    async def _no_bundle(*_args, **_kwargs):
+        return SimpleNamespace(state="no_bundle", precommit_sha=None, bundle_id=None)
+
+    monkeypatch.setattr(wc, "apply_precommit_bundle_if_available", _no_bundle)
+
+
+def test_serialize_no_bundle_details_returns_none_for_non_no_bundle_state():
+    assert (
+        wc._serialize_no_bundle_details(
+            SimpleNamespace(state="applied", details={"reason": "commit_created"})
+        )
+        is None
+    )
+
+
 @pytest.mark.asyncio
 async def test_provision_workspace_non_group_path(monkeypatch):
     db = object()
@@ -27,7 +45,13 @@ async def test_provision_workspace_non_group_path(monkeypatch):
     now = datetime.now(UTC)
     github_client = object()
     calls: dict[str, object] = {}
-    created = SimpleNamespace(id="ws-1")
+    created = SimpleNamespace(
+        id="ws-1",
+        repo_full_name="org/repo",
+        default_branch="main",
+        base_template_sha="base-sha",
+        precommit_sha=None,
+    )
 
     async def _generate_template_repo(**_kwargs):
         return ("org/template", "org/repo", "main", 123)
@@ -69,6 +93,162 @@ async def test_provision_workspace_non_group_path(monkeypatch):
         "default_branch": "main",
         "base_template_sha": "base-sha",
         "created_at": now,
+    }
+
+
+@pytest.mark.asyncio
+async def test_provision_workspace_persists_precommit_sha_when_bundle_applied(
+    monkeypatch,
+):
+    candidate_session = SimpleNamespace(id=11, scenario_version_id=2)
+    task = SimpleNamespace(id=101, day_index=2, type="code")
+    now = datetime.now(UTC)
+    workspace = SimpleNamespace(
+        id="ws-1",
+        repo_full_name="org/repo",
+        default_branch="main",
+        base_template_sha="base-sha",
+        precommit_sha=None,
+    )
+    calls: dict[str, object] = {}
+
+    async def _generate_template_repo(**_kwargs):
+        return ("org/template", "org/repo", "main", 123)
+
+    async def _fetch_base_template_sha(_client, _repo, _branch):
+        return "base-sha"
+
+    async def _create_workspace(_db, **_kwargs):
+        return workspace
+
+    async def _session_uses_grouped_workspace(*_args, **_kwargs):
+        return False
+
+    async def _apply_bundle(*_args, **_kwargs):
+        return SimpleNamespace(
+            state="applied",
+            precommit_sha="precommit-sha-123",
+            bundle_id=88,
+        )
+
+    async def _add_collaborator_if_needed(*_args, **_kwargs):
+        return None
+
+    async def _set_precommit_sha(_db, *, workspace, precommit_sha):
+        calls["set_precommit_sha"] = precommit_sha
+        workspace.precommit_sha = precommit_sha
+        return workspace
+
+    monkeypatch.setattr(wc, "generate_template_repo", _generate_template_repo)
+    monkeypatch.setattr(wc, "fetch_base_template_sha", _fetch_base_template_sha)
+    monkeypatch.setattr(
+        wc.workspace_repo,
+        "session_uses_grouped_workspace",
+        _session_uses_grouped_workspace,
+    )
+    monkeypatch.setattr(wc.workspace_repo, "create_workspace", _create_workspace)
+    monkeypatch.setattr(wc, "add_collaborator_if_needed", _add_collaborator_if_needed)
+    monkeypatch.setattr(wc, "apply_precommit_bundle_if_available", _apply_bundle)
+    monkeypatch.setattr(wc.workspace_repo, "set_precommit_sha", _set_precommit_sha)
+
+    result = await wc.provision_workspace(
+        object(),
+        candidate_session=candidate_session,
+        task=task,
+        github_client=object(),
+        github_username="octocat",
+        repo_prefix="pref-",
+        template_default_owner="org",
+        now=now,
+    )
+
+    assert result.precommit_sha == "precommit-sha-123"
+    assert calls["set_precommit_sha"] == "precommit-sha-123"
+
+
+@pytest.mark.asyncio
+async def test_provision_workspace_records_no_bundle_details(monkeypatch):
+    candidate_session = SimpleNamespace(id=11, scenario_version_id=2)
+    task = SimpleNamespace(id=101, day_index=2, type="code")
+    now = datetime.now(UTC)
+    workspace = SimpleNamespace(
+        id="ws-1",
+        repo_full_name="org/repo",
+        default_branch="main",
+        base_template_sha="base-sha",
+        precommit_sha=None,
+        precommit_details_json=None,
+    )
+    calls: dict[str, object] = {}
+
+    async def _generate_template_repo(**_kwargs):
+        return ("org/template", "org/repo", "main", 123)
+
+    async def _fetch_base_template_sha(_client, _repo, _branch):
+        return "base-sha"
+
+    async def _create_workspace(_db, **_kwargs):
+        return workspace
+
+    async def _session_uses_grouped_workspace(*_args, **_kwargs):
+        return False
+
+    async def _apply_bundle(*_args, **_kwargs):
+        return SimpleNamespace(
+            state="no_bundle",
+            precommit_sha=None,
+            bundle_id=None,
+            details={
+                "reason": "bundle_not_found",
+                "scenarioVersionId": 2,
+                "templateKey": "template-default",
+            },
+        )
+
+    async def _set_precommit_sha(*_args, **_kwargs):
+        raise AssertionError("precommit_sha should stay null on no_bundle")
+
+    async def _set_precommit_details(_db, *, workspace, precommit_details_json):
+        calls["precommit_details_json"] = precommit_details_json
+        workspace.precommit_details_json = precommit_details_json
+        return workspace
+
+    async def _add_collaborator_if_needed(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(wc, "generate_template_repo", _generate_template_repo)
+    monkeypatch.setattr(wc, "fetch_base_template_sha", _fetch_base_template_sha)
+    monkeypatch.setattr(
+        wc.workspace_repo,
+        "session_uses_grouped_workspace",
+        _session_uses_grouped_workspace,
+    )
+    monkeypatch.setattr(wc.workspace_repo, "create_workspace", _create_workspace)
+    monkeypatch.setattr(wc, "add_collaborator_if_needed", _add_collaborator_if_needed)
+    monkeypatch.setattr(wc, "apply_precommit_bundle_if_available", _apply_bundle)
+    monkeypatch.setattr(wc.workspace_repo, "set_precommit_sha", _set_precommit_sha)
+    monkeypatch.setattr(
+        wc.workspace_repo, "set_precommit_details", _set_precommit_details
+    )
+
+    result = await wc.provision_workspace(
+        object(),
+        candidate_session=candidate_session,
+        task=task,
+        github_client=object(),
+        github_username="octocat",
+        repo_prefix="pref-",
+        template_default_owner="org",
+        now=now,
+    )
+
+    assert result.precommit_sha is None
+    assert calls["precommit_details_json"] is not None
+    assert json.loads(calls["precommit_details_json"]) == {
+        "reason": "bundle_not_found",
+        "scenarioVersionId": 2,
+        "state": "no_bundle",
+        "templateKey": "template-default",
     }
 
 
@@ -159,7 +339,13 @@ async def test_provision_workspace_coding_task_uses_legacy_path_when_grouping_di
     task = SimpleNamespace(id=101, day_index=2, type="code")
     now = datetime.now(UTC)
     calls: dict[str, object] = {}
-    created = SimpleNamespace(id="ws-legacy")
+    created = SimpleNamespace(
+        id="ws-legacy",
+        repo_full_name="org/day3",
+        default_branch="main",
+        base_template_sha="base-sha",
+        precommit_sha=None,
+    )
 
     async def _session_uses_grouped_workspace(*_args, **_kwargs):
         return False
@@ -220,7 +406,13 @@ async def test_provision_workspace_coding_task_uses_legacy_path_when_grouping_di
 
 @pytest.mark.asyncio
 async def test_provision_grouped_workspace_reuses_existing_group_workspace(monkeypatch):
-    existing = SimpleNamespace(id="ws-existing", repo_full_name="org/coding")
+    existing = SimpleNamespace(
+        id="ws-existing",
+        repo_full_name="org/coding",
+        default_branch="main",
+        base_template_sha="base",
+        precommit_sha=None,
+    )
     group = SimpleNamespace(
         id="group-1",
         template_repo_full_name="org/template",
@@ -260,9 +452,67 @@ async def test_provision_grouped_workspace_reuses_existing_group_workspace(monke
 
 
 @pytest.mark.asyncio
+async def test_provision_grouped_workspace_skips_bundle_apply_when_precommit_present(
+    monkeypatch,
+):
+    existing = SimpleNamespace(
+        id="ws-existing",
+        repo_full_name="org/coding",
+        default_branch="main",
+        base_template_sha="base",
+        precommit_sha="already-sha",
+    )
+    group = SimpleNamespace(
+        id="group-1",
+        template_repo_full_name="org/template",
+        repo_full_name="org/coding",
+        default_branch="main",
+        base_template_sha="base",
+    )
+
+    async def _get_or_create_group(*_args, **_kwargs):
+        return group, None
+
+    async def _get_by_group(*_args, **_kwargs):
+        return existing
+
+    async def _add_collaborator_if_needed(*_args, **_kwargs):
+        return None
+
+    async def _apply_bundle(*_args, **_kwargs):
+        raise AssertionError("bundle apply should be skipped when precommit is set")
+
+    monkeypatch.setattr(wc, "_get_or_create_workspace_group", _get_or_create_group)
+    monkeypatch.setattr(wc.workspace_repo, "get_by_workspace_group_id", _get_by_group)
+    monkeypatch.setattr(wc, "add_collaborator_if_needed", _add_collaborator_if_needed)
+    monkeypatch.setattr(wc, "apply_precommit_bundle_if_available", _apply_bundle)
+
+    result = await wc._provision_grouped_workspace(
+        object(),
+        candidate_session=SimpleNamespace(id=1),
+        task=SimpleNamespace(id=2),
+        workspace_key="coding",
+        github_client=object(),
+        github_username="octocat",
+        repo_prefix="pref-",
+        template_default_owner="org",
+        now=datetime.now(UTC),
+    )
+
+    assert result is existing
+    assert result.precommit_sha == "already-sha"
+
+
+@pytest.mark.asyncio
 async def test_provision_grouped_workspace_handles_duplicate_workspace_row(monkeypatch):
     db = _RollbackDB()
-    fallback = SimpleNamespace(id="ws-fallback")
+    fallback = SimpleNamespace(
+        id="ws-fallback",
+        repo_full_name="org/coding",
+        default_branch="main",
+        base_template_sha="base",
+        precommit_sha=None,
+    )
     group = SimpleNamespace(
         id="group-1",
         template_repo_full_name="org/template",
@@ -422,3 +672,31 @@ async def test_get_or_create_workspace_group_handles_duplicate_insert(monkeypatc
         ("collab", "org/coding", "octocat"),
         ("collab", "org/coding", "octocat"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_workspace_group_propagates_non_422_github_error(
+    monkeypatch,
+):
+    async def _get_workspace_group(*_args, **_kwargs):
+        return None
+
+    async def _generate_template_repo(**_kwargs):
+        raise GithubError("github-failure", status_code=500)
+
+    monkeypatch.setattr(wc.workspace_repo, "get_workspace_group", _get_workspace_group)
+    monkeypatch.setattr(wc, "generate_template_repo", _generate_template_repo)
+
+    with pytest.raises(GithubError) as excinfo:
+        await wc._get_or_create_workspace_group(
+            object(),
+            candidate_session=SimpleNamespace(id=1),
+            task=SimpleNamespace(id=2),
+            workspace_key="coding",
+            github_client=object(),
+            github_username="octocat",
+            repo_prefix="pref-",
+            template_default_owner="org",
+            now=datetime.now(UTC),
+        )
+    assert excinfo.value.status_code == 500

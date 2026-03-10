@@ -136,6 +136,8 @@ async def create_workspace(
     repo_id: int | None,
     default_branch: str | None,
     base_template_sha: str | None,
+    precommit_sha: str | None = None,
+    precommit_details_json: str | None = None,
     created_at,
 ) -> Workspace:
     """Persist a workspace record."""
@@ -148,12 +150,40 @@ async def create_workspace(
         repo_id=repo_id,
         default_branch=default_branch,
         base_template_sha=base_template_sha,
+        precommit_sha=precommit_sha,
+        precommit_details_json=precommit_details_json,
         created_at=created_at,
     )
     db.add(ws)
     await db.commit()
     await db.refresh(ws)
     return ws
+
+
+async def set_precommit_sha(
+    db: AsyncSession,
+    *,
+    workspace: Workspace,
+    precommit_sha: str,
+) -> Workspace:
+    workspace.precommit_sha = precommit_sha
+    # A resolved precommit SHA supersedes any prior no-bundle diagnostic snapshot.
+    workspace.precommit_details_json = None
+    await db.commit()
+    await db.refresh(workspace)
+    return workspace
+
+
+async def set_precommit_details(
+    db: AsyncSession,
+    *,
+    workspace: Workspace,
+    precommit_details_json: str,
+) -> Workspace:
+    workspace.precommit_details_json = precommit_details_json
+    await db.commit()
+    await db.refresh(workspace)
+    return workspace
 
 
 async def _resolve_workspace_key_for_task_id(

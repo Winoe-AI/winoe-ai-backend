@@ -45,6 +45,8 @@ async def codespace_status_route(
         repoUrl=f"https://github.com/{workspace.repo_full_name}",
         codespaceUrl=codespace_url,
         defaultBranch=workspace.default_branch,
+        baseTemplateSha=getattr(workspace, "base_template_sha", None),
+        precommitSha=getattr(workspace, "precommit_sha", None),
         latestCommitSha=workspace.latest_commit_sha,
         lastWorkflowRunId=workspace.last_workflow_run_id,
         lastWorkflowConclusion=workspace.last_workflow_conclusion,

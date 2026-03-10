@@ -6,6 +6,7 @@ from app.repositories.candidate_sessions.models import (
 from app.repositories.companies.models import Company
 from app.repositories.github_native.workspaces.models import Workspace, WorkspaceGroup
 from app.repositories.jobs.models import Job
+from app.repositories.precommit_bundles.models import PrecommitBundle
 from app.repositories.scenario_edit_audits.models import ScenarioEditAudit
 from app.repositories.scenario_versions.models import ScenarioVersion
 from app.repositories.simulations.simulation import Simulation
@@ -22,6 +23,7 @@ __all__ = [
     "CandidateDayAudit",
     "Company",
     "Job",
+    "PrecommitBundle",
     "ScenarioEditAudit",
     "ScenarioVersion",
     "Simulation",
