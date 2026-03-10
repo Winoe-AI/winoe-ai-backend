@@ -25,6 +25,7 @@ async def test_get_simulation_detail_happy_path(
     assert body["scenario"]["versionIndex"] == 1
     assert body["scenario"]["status"] in {"ready", "locked"}
     assert body["scenario"]["lockedAt"] is None
+    assert body["scenario"]["notes"] == sim.focus
     assert body["templateKey"] == sim.template_key
     assert body["techStack"] == sim.tech_stack
     assert isinstance(body["tasks"], list)

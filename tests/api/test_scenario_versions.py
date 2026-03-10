@@ -8,9 +8,16 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.api.routers import simulations as sim_routes
 from app.core.settings import settings
-from app.domains import CandidateSession, Job, ScenarioVersion, Simulation
+from app.domains import (
+    CandidateSession,
+    Job,
+    ScenarioEditAudit,
+    ScenarioVersion,
+    Simulation,
+)
 from app.jobs import worker
 from app.repositories.jobs.models import JOB_STATUS_QUEUED
+from app.schemas.simulations import MAX_SCENARIO_STORYLINE_CHARS
 from tests.factories import create_recruiter
 
 
@@ -357,6 +364,378 @@ async def test_mutating_locked_scenario_returns_scenario_locked(
         "detail": "Scenario version is locked.",
         "errorCode": "SCENARIO_LOCKED",
     }
+
+
+@pytest.mark.asyncio
+async def test_patch_scenario_version_updates_detail_and_creates_audit(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-patch-api@test.com"
+    )
+    headers = auth_header_factory(recruiter)
+    sim_id = await _create_simulation(async_client, async_session, headers)
+
+    detail_before = await async_client.get(
+        f"/api/simulations/{sim_id}", headers=headers
+    )
+    assert detail_before.status_code == 200, detail_before.text
+    before_body = detail_before.json()
+    scenario_version_id = before_body["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+    assert before_body["scenario"]["notes"] == "Scenario lock semantics"
+
+    patch = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={
+            "storylineMd": "## Updated storyline copy",
+            "taskPrompts": [
+                {
+                    "dayIndex": 2,
+                    "title": "Updated Day 2 Title",
+                    "description": "Updated day 2 wording",
+                }
+            ],
+            "rubric": {"dayWeights": {"2": 35}, "dimensions": []},
+            "notes": "Recruiter edited wording",
+        },
+    )
+    assert patch.status_code == 200, patch.text
+    patch_body = patch.json()
+    assert patch_body == {
+        "scenarioVersionId": scenario_version_id,
+        "status": "ready",
+    }
+
+    detail_after = await async_client.get(f"/api/simulations/{sim_id}", headers=headers)
+    assert detail_after.status_code == 200, detail_after.text
+    after_body = detail_after.json()
+    assert after_body["scenario"]["storylineMd"] == "## Updated storyline copy"
+    assert after_body["scenario"]["taskPromptsJson"] == [
+        {
+            "dayIndex": 2,
+            "title": "Updated Day 2 Title",
+            "description": "Updated day 2 wording",
+        }
+    ]
+    assert after_body["scenario"]["rubricJson"] == {
+        "dayWeights": {"2": 35},
+        "dimensions": [],
+    }
+    assert after_body["scenario"]["notes"] == "Recruiter edited wording"
+    assert "focusNotes" not in after_body["scenario"]
+    assert "focus_notes" not in after_body["scenario"]
+
+    audits = (
+        (
+            await async_session.execute(
+                select(ScenarioEditAudit)
+                .where(ScenarioEditAudit.scenario_version_id == scenario_version_id)
+                .order_by(ScenarioEditAudit.id.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 1
+    assert audits[0].recruiter_id == recruiter.id
+    assert audits[0].patch_json == {
+        "changedFields": [
+            "storyline_md",
+            "task_prompts_json",
+            "rubric_json",
+            "focus_notes",
+        ],
+        "before": {
+            "storyline_md": before_body["scenario"]["storylineMd"],
+            "task_prompts_json": before_body["scenario"]["taskPromptsJson"],
+            "rubric_json": before_body["scenario"]["rubricJson"],
+            "focus_notes": before_body["scenario"]["notes"],
+        },
+        "after": {
+            "storyline_md": "## Updated storyline copy",
+            "task_prompts_json": [
+                {
+                    "dayIndex": 2,
+                    "title": "Updated Day 2 Title",
+                    "description": "Updated day 2 wording",
+                }
+            ],
+            "rubric_json": {
+                "dayWeights": {"2": 35},
+                "dimensions": [],
+            },
+            "focus_notes": "Recruiter edited wording",
+        },
+    }
+
+
+@pytest.mark.asyncio
+async def test_patch_scenario_version_notes_contract_round_trips_on_detail(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-patch-notes-contract@test.com"
+    )
+    headers = auth_header_factory(recruiter)
+    sim_id = await _create_simulation(async_client, async_session, headers)
+
+    before_detail = await async_client.get(
+        f"/api/simulations/{sim_id}", headers=headers
+    )
+    assert before_detail.status_code == 200, before_detail.text
+    scenario_version_id = before_detail.json()["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+
+    patch = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={"notes": "Only notes were edited"},
+    )
+    assert patch.status_code == 200, patch.text
+    assert patch.json()["scenarioVersionId"] == scenario_version_id
+
+    after_detail = await async_client.get(f"/api/simulations/{sim_id}", headers=headers)
+    assert after_detail.status_code == 200, after_detail.text
+    scenario_payload = after_detail.json()["scenario"]
+    assert scenario_payload["notes"] == "Only notes were edited"
+    assert "focusNotes" not in scenario_payload
+    assert "focus_notes" not in scenario_payload
+
+
+@pytest.mark.asyncio
+async def test_patch_scenario_version_locked_returns_scenario_locked(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-patch-locked-api@test.com"
+    )
+    headers = auth_header_factory(recruiter)
+    sim_id = await _create_simulation(async_client, async_session, headers)
+
+    activate = await async_client.post(
+        f"/api/simulations/{sim_id}/activate",
+        headers=headers,
+        json={"confirm": True},
+    )
+    assert activate.status_code == 200, activate.text
+
+    invite = await async_client.post(
+        f"/api/simulations/{sim_id}/invite",
+        headers=headers,
+        json={"candidateName": "Lock Me", "inviteEmail": "lockme@example.com"},
+    )
+    assert invite.status_code == 200, invite.text
+
+    detail = await async_client.get(f"/api/simulations/{sim_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    scenario_version_id = detail.json()["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+
+    patch = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={"notes": "Should fail"},
+    )
+    assert patch.status_code == 409, patch.text
+    assert patch.json() == {
+        "detail": "Scenario version is locked.",
+        "errorCode": "SCENARIO_LOCKED",
+    }
+    audits = (
+        (
+            await async_session.execute(
+                select(ScenarioEditAudit).where(
+                    ScenarioEditAudit.scenario_version_id == scenario_version_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert audits == []
+
+
+@pytest.mark.asyncio
+async def test_patch_scenario_version_creates_audit_row_per_successful_edit(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-patch-audit-count@test.com"
+    )
+    headers = auth_header_factory(recruiter)
+    sim_id = await _create_simulation(async_client, async_session, headers)
+
+    detail = await async_client.get(f"/api/simulations/{sim_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    scenario_version_id = detail.json()["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+
+    first = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={"notes": "First edit"},
+    )
+    assert first.status_code == 200, first.text
+
+    second = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={"storylineMd": "## second edit"},
+    )
+    assert second.status_code == 200, second.text
+
+    audits = (
+        (
+            await async_session.execute(
+                select(ScenarioEditAudit).where(
+                    ScenarioEditAudit.scenario_version_id == scenario_version_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 2
+    assert all(audit.recruiter_id == recruiter.id for audit in audits)
+
+
+@pytest.mark.asyncio
+async def test_patch_scenario_version_disallowed_status_returns_not_editable(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-patch-disallowed-status-api@test.com"
+    )
+    headers = auth_header_factory(recruiter)
+    sim_id = await _create_simulation(async_client, async_session, headers)
+
+    detail = await async_client.get(f"/api/simulations/{sim_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    scenario_version_id = detail.json()["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+
+    version = await async_session.get(ScenarioVersion, scenario_version_id)
+    assert version is not None
+    version.status = "draft"
+    await async_session.commit()
+
+    patch = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={"notes": "Should fail for draft status"},
+    )
+    assert patch.status_code == 409, patch.text
+    assert patch.json()["errorCode"] == "SCENARIO_NOT_EDITABLE"
+
+    audits = (
+        (
+            await async_session.execute(
+                select(ScenarioEditAudit).where(
+                    ScenarioEditAudit.scenario_version_id == scenario_version_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert audits == []
+
+
+@pytest.mark.asyncio
+async def test_patch_scenario_version_owner_and_not_found_guards(
+    async_client, async_session, auth_header_factory
+):
+    owner = await create_recruiter(
+        async_session, email="scenario-patch-owner-api@test.com"
+    )
+    outsider = await create_recruiter(
+        async_session, email="scenario-patch-outsider-api@test.com"
+    )
+    owner_headers = auth_header_factory(owner)
+    sim_id = await _create_simulation(async_client, async_session, owner_headers)
+
+    detail = await async_client.get(f"/api/simulations/{sim_id}", headers=owner_headers)
+    assert detail.status_code == 200, detail.text
+    scenario_version_id = detail.json()["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+
+    forbidden = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=auth_header_factory(outsider),
+        json={"notes": "forbidden"},
+    )
+    assert forbidden.status_code == 403, forbidden.text
+
+    missing_sim = await async_client.patch(
+        "/api/simulations/999999/scenario/999999",
+        headers=owner_headers,
+        json={"notes": "missing"},
+    )
+    assert missing_sim.status_code == 404, missing_sim.text
+
+    missing_version = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/999999",
+        headers=owner_headers,
+        json={"notes": "missing version"},
+    )
+    assert missing_version.status_code == 404, missing_version.text
+
+
+@pytest.mark.asyncio
+async def test_patch_scenario_version_validation_errors(
+    async_client, async_session, auth_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="scenario-patch-validation-api@test.com"
+    )
+    headers = auth_header_factory(recruiter)
+    sim_id = await _create_simulation(async_client, async_session, headers)
+
+    detail = await async_client.get(f"/api/simulations/{sim_id}", headers=headers)
+    assert detail.status_code == 200, detail.text
+    scenario_version_id = detail.json()["activeScenarioVersionId"]
+    assert scenario_version_id is not None
+
+    malformed_shape = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={"taskPrompts": {"dayIndex": 2, "description": "bad shape"}},
+    )
+    assert malformed_shape.status_code == 422, malformed_shape.text
+
+    malformed_merged = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={
+            "taskPrompts": [
+                {"dayIndex": 2, "title": "A", "description": "A"},
+                {"dayIndex": 2, "title": "B", "description": "B"},
+            ]
+        },
+    )
+    assert malformed_merged.status_code == 422, malformed_merged.text
+    assert malformed_merged.json()["errorCode"] == "SCENARIO_PATCH_INVALID"
+
+    oversized = await async_client.patch(
+        f"/api/simulations/{sim_id}/scenario/{scenario_version_id}",
+        headers=headers,
+        json={"storylineMd": "x" * (MAX_SCENARIO_STORYLINE_CHARS + 1)},
+    )
+    assert oversized.status_code == 422, oversized.text
+    audits = (
+        (
+            await async_session.execute(
+                select(ScenarioEditAudit).where(
+                    ScenarioEditAudit.scenario_version_id == scenario_version_id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert audits == []
 
 
 @pytest.mark.asyncio

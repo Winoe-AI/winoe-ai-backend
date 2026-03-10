@@ -13,6 +13,7 @@ from app.api.routers.simulations_routes.lifecycle import (
 from app.api.routers.simulations_routes.list_simulations import list_simulations
 from app.api.routers.simulations_routes.scenario import (
     approve_scenario_version,
+    patch_scenario_version,
     regenerate_scenario_version,
     update_active_scenario_version,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "list_simulation_candidates",
     "list_simulations",
     "approve_scenario_version",
+    "patch_scenario_version",
     "regenerate_scenario_version",
     "update_active_scenario_version",
     "notification_service",

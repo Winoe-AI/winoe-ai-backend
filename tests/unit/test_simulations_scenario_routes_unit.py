@@ -6,7 +6,10 @@ import pytest
 from fastapi.routing import APIRoute
 
 from app.api.routers.simulations_routes import scenario
-from app.domains.simulations.schemas import ScenarioActiveUpdateRequest
+from app.domains.simulations.schemas import (
+    ScenarioActiveUpdateRequest,
+    ScenarioVersionPatchRequest,
+)
 from app.main import app
 
 
@@ -140,6 +143,54 @@ async def test_approve_scenario_route_promotes_pending(monkeypatch):
     assert response.scenario.id == 22
 
 
+@pytest.mark.asyncio
+async def test_patch_scenario_version_route_normalizes_fields(monkeypatch):
+    monkeypatch.setattr(scenario, "ensure_recruiter_or_none", lambda _u: None)
+    captured = {}
+
+    async def fake_patch(
+        db,
+        simulation_id,
+        scenario_version_id,
+        actor_user_id,
+        updates,
+    ):
+        captured["updates"] = updates
+        assert simulation_id == 8
+        assert scenario_version_id == 22
+        assert actor_user_id == 9
+        return SimpleNamespace(id=22, status="ready")
+
+    monkeypatch.setattr(scenario.sim_service, "patch_scenario_version", fake_patch)
+
+    payload = ScenarioVersionPatchRequest(
+        storylineMd="Story v2",
+        taskPrompts=[
+            {"dayIndex": 2, "title": "Updated Task", "description": "Updated wording"}
+        ],
+        rubric={"dayWeights": {"2": 30}},
+        notes="Keep candidate constraints explicit",
+    )
+    response = await scenario.patch_scenario_version(
+        simulation_id=8,
+        scenario_version_id=22,
+        payload=payload,
+        db=object(),
+        user=SimpleNamespace(id=9, role="recruiter"),
+    )
+
+    assert captured["updates"] == {
+        "storyline_md": "Story v2",
+        "task_prompts_json": [
+            {"dayIndex": 2, "title": "Updated Task", "description": "Updated wording"}
+        ],
+        "rubric_json": {"dayWeights": {"2": 30}},
+        "focus_notes": "Keep candidate constraints explicit",
+    }
+    assert response.scenarioVersionId == 22
+    assert response.status == "ready"
+
+
 def test_scenario_routes_are_registered_once():
     expected = [
         ("POST", "/api/simulations/{simulation_id}/scenario/regenerate"),
@@ -148,6 +199,7 @@ def test_scenario_routes_are_registered_once():
             "/api/simulations/{simulation_id}/scenario/{scenario_version_id}/approve",
         ),
         ("PATCH", "/api/simulations/{simulation_id}/scenario/active"),
+        ("PATCH", "/api/simulations/{simulation_id}/scenario/{scenario_version_id}"),
     ]
 
     for method, path in expected:
