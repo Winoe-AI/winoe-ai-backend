@@ -126,6 +126,55 @@ async def async_client(db_session: AsyncSession):
         async def get_compare(self, repo_full_name: str, base: str, head: str):
             return {"ahead_by": 0, "behind_by": 0, "total_commits": 0, "files": []}
 
+        async def list_commits(
+            self, repo_full_name: str, *, sha: str | None = None, per_page: int = 30
+        ):
+            return []
+
+        async def get_ref(self, repo_full_name: str, ref: str):
+            return {"ref": ref, "object": {"sha": "head-sha-123"}}
+
+        async def get_commit(self, repo_full_name: str, commit_sha: str):
+            return {"sha": commit_sha, "tree": {"sha": "tree-sha-123"}}
+
+        async def create_blob(
+            self,
+            repo_full_name: str,
+            *,
+            content: str,
+            encoding: str = "utf-8",
+        ):
+            return {"sha": f"blob-{len(content.encode('utf-8'))}"}
+
+        async def create_tree(
+            self,
+            repo_full_name: str,
+            *,
+            tree: list[dict],
+            base_tree: str | None = None,
+        ):
+            return {"sha": "tree-sha-456", "tree": tree, "base_tree": base_tree}
+
+        async def create_commit(
+            self,
+            repo_full_name: str,
+            *,
+            message: str,
+            tree: str,
+            parents: list[str],
+        ):
+            return {"sha": "precommit-sha-789", "message": message, "tree": tree}
+
+        async def update_ref(
+            self,
+            repo_full_name: str,
+            *,
+            ref: str,
+            sha: str,
+            force: bool = False,
+        ):
+            return {"ref": ref, "object": {"sha": sha}, "force": force}
+
     async def override_get_session():
         yield db_session
 
@@ -257,6 +306,59 @@ def actions_stubber():
 
             async def get_compare(self, repo_full_name: str, base: str, head: str):
                 return {"ahead_by": 0, "behind_by": 0, "total_commits": 0, "files": []}
+
+            async def list_commits(
+                self,
+                repo_full_name: str,
+                *,
+                sha: str | None = None,
+                per_page: int = 30,
+            ):
+                return []
+
+            async def get_ref(self, repo_full_name: str, ref: str):
+                return {"ref": ref, "object": {"sha": "head-sha-123"}}
+
+            async def get_commit(self, repo_full_name: str, commit_sha: str):
+                return {"sha": commit_sha, "tree": {"sha": "tree-sha-123"}}
+
+            async def create_blob(
+                self,
+                repo_full_name: str,
+                *,
+                content: str,
+                encoding: str = "utf-8",
+            ):
+                return {"sha": f"blob-{len(content.encode('utf-8'))}"}
+
+            async def create_tree(
+                self,
+                repo_full_name: str,
+                *,
+                tree: list[dict],
+                base_tree: str | None = None,
+            ):
+                return {"sha": "tree-sha-456", "tree": tree, "base_tree": base_tree}
+
+            async def create_commit(
+                self,
+                repo_full_name: str,
+                *,
+                message: str,
+                tree: str,
+                parents: list[str],
+            ):
+                return {"sha": "precommit-sha-789", "message": message, "tree": tree}
+
+            async def update_ref(
+                self,
+                repo_full_name: str,
+                *,
+                ref: str,
+                sha: str,
+                force: bool = False,
+            ):
+                return {"ref": ref, "object": {"sha": sha}, "force": force}
 
         runner = StubActionsRunner(result, error)
         app.dependency_overrides[candidate_submissions.get_actions_runner] = (

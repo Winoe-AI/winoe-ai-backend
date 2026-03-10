@@ -3,6 +3,7 @@ from __future__ import annotations
 from .artifacts import ArtifactOperations
 from .compat import CompatOperations
 from .content import ContentOperations
+from .git_data import GitDataOperations
 from .repos import RepoOperations
 from .transport import GithubTransport
 from .workflows import WorkflowOperations
@@ -12,6 +13,7 @@ class GithubClient(
     RepoOperations,
     WorkflowOperations,
     ContentOperations,
+    GitDataOperations,
     ArtifactOperations,
     CompatOperations,
 ):

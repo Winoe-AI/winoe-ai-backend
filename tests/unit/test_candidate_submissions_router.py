@@ -53,6 +53,7 @@ def _stub_workspace():
         default_branch="main",
         id="ws1",
         base_template_sha="base",
+        precommit_sha=None,
         last_test_summary_json=None,
         latest_commit_sha=None,
         last_workflow_run_id=None,
@@ -98,6 +99,7 @@ async def test_init_codespace_success_path(monkeypatch, async_session):
     task = _stub_task()
     workspace = _stub_workspace()
     workspace.codespace_url = "https://codespaces.new/org/repo?quickstart=1"
+    workspace.precommit_sha = "precommit-sha-1"
 
     async def _return_task(*_a, **_k):
         return task
@@ -148,6 +150,8 @@ async def test_init_codespace_success_path(monkeypatch, async_session):
     )
     assert result.repoFullName == workspace.repo_full_name
     assert result.workspaceId == workspace.id
+    assert result.baseTemplateSha == "base"
+    assert result.precommitSha == "precommit-sha-1"
 
 
 @pytest.mark.asyncio
@@ -338,6 +342,7 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
     workspace = _stub_workspace()
     workspace.last_test_summary_json = "{not-json"
     workspace.codespace_url = "https://codespaces.new/org/repo?quickstart=1"
+    workspace.precommit_sha = "precommit-sha-2"
 
     async def _return_task(*_a, **_k):
         return task
@@ -364,6 +369,8 @@ async def test_codespace_status_invalid_summary(monkeypatch, async_session):
     assert resp.lastTestSummary is None
     assert resp.repoFullName == workspace.repo_full_name
     assert resp.codespaceUrl == "https://codespaces.new/org/repo?quickstart=1"
+    assert resp.baseTemplateSha == "base"
+    assert resp.precommitSha == "precommit-sha-2"
 
 
 @pytest.mark.asyncio

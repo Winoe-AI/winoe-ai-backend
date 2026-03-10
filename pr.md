@@ -1,131 +1,167 @@
 # Title
-Backend: Added scenario editor PATCH endpoint with audit trail and lock enforcement (Issue #208)
+Issue #209: Added PrecommitBundle persistence and applies scenario bundle during workspace provisioning
 
 ## TL;DR
-- Added `PATCH /api/simulations/{simulation_id}/scenario/{scenario_version_id}` for recruiter-owned scenario edits.
-- Added `scenario_edit_audit` persistence; every successful PATCH writes an audit row.
-- Enforced lock semantics: locked versions return `409 SCENARIO_LOCKED`.
-- Added owner guard and validation for editable payloads (`storylineMd`, `taskPrompts`, `rubric`, `notes`) with `422` on invalid payloads.
+- Added `PrecommitBundle` persistence keyed by `(scenario_version_id, template_key)`.
+- Workspace provisioning now looks up and applies a ready scenario bundle during repo creation.
+- Workspace responses now surface both `baseTemplateSha` and `precommitSha`.
+- No-bundle path is a successful no-op with internal diagnostics persisted.
+- Retries are idempotent and do not create duplicate specialization commits.
+- Lint and test suites passed, including targeted precommit/workspace coverage.
 
-## Problem
-Recruiters need small wording and structure edits to generated scenarios before approval (tasks, rubric, storyline, notes) without rerunning generation. Those edits need deterministic persistence and auditability so reviewer actions are traceable and fairness guarantees remain intact once a scenario is locked for candidate use.
+## Why / Problem
+Candidates in the same simulation need the same scenario-specialized repository baseline for fair evaluation. This change makes specialization deterministic by applying a canonical scenario bundle during workspace provisioning instead of starting from raw templates only.
 
 ## What changed
+- Added `app/repositories/precommit_bundles/*` for bundle persistence and lookup by scenario version + template key.
+- Updated workspace provisioning (`workspace_creation.py`, `workspace_existing.py`, `workspace_precommit_bundle.py`) to lookup/apply bundles and persist specialization outcomes.
+- Extended existing Codespace init/status payloads to include baseline SHA fields.
+- Added internal no-bundle diagnostics persistence on workspace rows for observability/debugging.
 
-### New endpoint
-- Added `PATCH /api/simulations/{simulation_id}/scenario/{scenario_version_id}` in `app/api/routers/simulations_routes/scenario.py`.
-- Response shape:
+## Data model and migrations
+- Migration: `202603100001_add_precommit_bundles_and_workspace_precommit_sha.py`
+- Migration: `202603100002_add_workspace_precommit_details_json.py`
+
+`PrecommitBundle` fields:
+- `scenario_version_id`
+- `template_key`
+- `status` (`draft|ready|disabled`)
+- storage pointer (`patch_text` and/or `storage_ref`)
+- `content_sha256`
+- `base_template_sha`
+- `applied_commit_sha`
+- timestamps (`created_at`, `updated_at`)
+
+Schema constraints/columns:
+- Unique constraint on `(scenario_version_id, template_key)`.
+- `Workspace.precommit_sha` added.
+- `Workspace.precommit_details_json` added.
+
+SHA semantics:
+- `PrecommitBundle.applied_commit_sha` is a canonical/provenance field for the bundle artifact.
+- `Workspace.precommit_sha` is the per-workspace specialization commit SHA actually applied to the candidate repository.
+
+## Provisioning flow changes
+1. Create workspace repository from template.
+2. Resolve scenario version from the candidate session (simulation-selected/locked version for that session).
+3. Lookup ready bundle by `(scenario_version_id, template_key)`.
+4. If found, apply file changes via Git Data operations (`create_blob`/`create_tree`/`create_commit`/`update_ref`) to produce exactly one specialization commit, then persist `workspace.precommit_sha`.
+5. If missing, continue provisioning successfully and persist internal no-bundle diagnostics.
+
+Persisted no-bundle details shape:
+
+```json
+{"reason":"bundle_not_found","scenarioVersionId":<id>,"state":"no_bundle","templateKey":"<template_key>"}
+```
+
+## API contract changes
+- No new public endpoints.
+- Additive response fields only on existing Codespace init/status payloads: `baseTemplateSha`, `precommitSha`.
+- `precommit_details_json` is internal diagnostics only and is not part of the public API response.
+
+## Idempotency and retry behavior
+- Persisted guard: if `workspace.precommit_sha` is already set, precommit apply is skipped.
+- Deterministic marker: specialization commit message includes a stable bundle marker (`bundle_id` + `checksum`).
+- Repo-state recovery/hydration: if marker commit already exists (including after ref-update conflict), existing SHA is recovered and reused.
+
+Retries therefore do not double-apply the bundle commit.
+
+## Observability and security
+- Structured logs added for bundle lookup/apply outcomes and resulting SHAs (with session/repo context).
+- Patch contents are not logged.
+- Payload/path safety is enforced (size validation and safe repo path checks).
+- Bundle-missing is treated as a no-op (`state=no_bundle`), not an error path.
+
+## Testing
+Commands that passed:
+
+```bash
+poetry run ruff check app tests
+poetry run ruff format --check app tests
+poetry run pytest --no-cov tests/unit/test_precommit_bundles_repository.py tests/unit/test_workspace_precommit_bundle.py tests/unit/test_workspace_creation.py tests/unit/test_workspace_existing.py tests/api/test_task_run.py
+poetry run pytest --no-cov
+poetry run pytest
+```
+
+Final results:
+- `1204 passed`
+- `99.01% coverage`
+
+Key test areas covered:
+- Repository uniqueness and ready-bundle lookup behavior.
+- Bundle apply and no-bundle provisioning paths.
+- Exact Codespace init/status response assertions for `baseTemplateSha` and `precommitSha`.
+- Idempotency, retry hydration, and ref-conflict recovery behavior.
+
+## Manual QA / Runtime Verification
+Overall QA verdict:
+- Manual/runtime QA for Issue #209 passed.
+- Strict evidence-backed verification was completed; Issue #209 is PR-ready.
+
+Runtime method used:
+- Localhost server startup was attempted first (`poetry run uvicorn app.api.main:app --host 127.0.0.1 --port 8014`).
+- Sandbox bind restriction prevented localhost verification (`operation not permitted`).
+- QA proceeded using an ASGI in-process harness.
+- The harness exercised the real FastAPI app/routes/services/repositories with an isolated QA DB.
+- Only external GitHub operations were stubbed.
+
+Scenarios verified:
+- A. Migration/schema baseline — PASS
+- B. Bundle exists apply path — PASS
+- C. No-bundle success path — PASS
+- D. Idempotent retry — PASS
+- E. Marker hydration / recovery — PASS
+- F. Init/status response contract — PASS
+- G. Uniqueness invariant — PASS
+- H. Observability/safety spot-check — PASS
+
+Key runtime findings:
+- `precommit_bundles` schema exists with required fields and unique `(scenario_version_id, template_key)` constraint.
+- `workspaces.precommit_sha` exists.
+- `workspaces.precommit_details_json` exists.
+- Bundle path produced exactly one specialization commit and persisted `precommitSha`.
+- No-bundle path succeeded and persisted internal diagnostics.
+- Retry did not create a duplicate specialization commit.
+- Marker hydration restored missing `workspace.precommit_sha` without creating a new commit.
+- Init/status payloads include `repoFullName`, `baseTemplateSha`, and `precommitSha`.
+- Duplicate bundle insert was rejected at DB layer.
+- GitHub 503 mapped to existing `GITHUB_UNAVAILABLE` behavior.
+
+Persisted no-bundle diagnostic example (from QA run):
 
 ```json
 {
-  "scenarioVersionId": 10,
-  "status": "ready"
+  "reason": "bundle_not_found",
+  "scenarioVersionId": 2,
+  "state": "no_bundle",
+  "templateKey": "python-fastapi"
 }
 ```
 
-### Editable fields (MVP)
-- `storylineMd` -> persisted as `storyline_md`
-- `taskPrompts` -> persisted as `task_prompts_json`
-- `rubric` -> persisted as `rubric_json`
-- `notes` -> persisted as `focus_notes` (internal only)
+The specific `scenarioVersionId` and `templateKey` values above are from the QA run example.
 
-### Validation
-- Request schema enforces patch-shape rules and non-empty patch payloads.
-- Service-layer validation enforces merged payload correctness and size constraints.
-- Invalid payloads return `422` (`SCENARIO_PATCH_INVALID` for service-layer validation failures).
+QA evidence bundle:
+- `.qa/issue209/manual_qa_20260310T133934Z`
+- `.qa/issue209/manual_qa_20260310T133934Z.zip`
+- Includes: `QA_REPORT.md`, `qa_result.json`, schema inspection output, request/response artifacts, DB snapshots, structured log excerpts.
 
-### Auth and ownership
-- Recruiter-only route.
-- Simulation owner-only mutation (`403` for non-owner).
+Environment limitation note:
+- `alembic upgrade head` on SQLite hit a historical migration limitation outside Issue #209 (documented during QA).
+- This was not treated as a regression in #209.
+- Schema/runtime verification still proceeded successfully through the isolated QA harness.
 
-### Lock behavior
-- If scenario version is locked (`status == locked` or `locked_at` set), PATCH returns `409 SCENARIO_LOCKED`.
+Based on implementation review plus strict manual/runtime QA evidence, Issue #209 is ready for PR raise.
 
-### Audit table + migration
-- Added model + migration for `scenario_edit_audit`.
-- Migration: `alembic/versions/202603090003_add_scenario_edit_audit.py`.
+## Risks / follow-ups
+- Assumes dependency behavior from #203 and #205.
+- `PrecommitBundle.applied_commit_sha` is provenance-oriented until future bundle-generation workflows use it more fully.
+- `precommit_details_json` requires migration rollout before diagnostics appear in all environments.
 
-## Behavior details
-- PATCH performs deterministic field replacement: each provided editable field fully replaces the stored value for that field.
-- External API uses `notes`; internal `focus_notes` storage is intentionally hidden from API contract.
-- Locked versions return `409 SCENARIO_LOCKED`.
-- Validation errors return `422`.
-- Missing simulation or scenario version returns `404`.
-- Non-owner access returns `403`.
-
-## Status model clarification
-- Persisted `ScenarioVersion.status` values are: `draft | generating | ready | locked`.
-- `ready_for_review` is a **Simulation** lifecycle state, not a persisted `ScenarioVersion.status` value.
-- Editability contract uses persisted sources:
-  - simulation status must be editable (`ready_for_review` or `active_inviting`)
-  - scenario version status must be `ready`
-  - lock still blocks edits (`locked_at`/`locked`)
-
-## Audit trail
-- New table: `scenario_edit_audit`.
-- Stored fields: `scenario_version_id`, `recruiter_id`, `patch_json`, `created_at` (plus `id`).
-- One audit row is created per successful PATCH.
-- Failed PATCH attempts do not create audit rows.
-
-## Testing
-### Automated verification
-- Targeted API coverage for endpoint behavior and contracts in `tests/api/test_scenario_versions.py`.
-- Targeted unit coverage for service logic, schema validation, and route normalization in:
-  - `tests/unit/test_scenario_versions_service.py`
-  - `tests/unit/test_scenario_patch_schemas.py`
-  - `tests/unit/test_simulations_scenario_routes_unit.py`
-- Full gate: `./precommit.sh` passed.
-- Final suite result: `1175 passed`.
-- Coverage: `99.08%`.
-- Migration verification:
-  - revision-range offline SQL generation succeeded for the new migration
-  - full offline `upgrade head --sql` is blocked by an unrelated historical migration issue in the repo
-
-### Manual runtime QA
-- Overall QA verdict: `PASS`.
-- Method:
-  - attempted real localhost `uvicorn` first
-  - localhost bind failed in sandbox with `[Errno 1] Operation not permitted`
-  - used ASGI in-process fallback against the real FastAPI app and a real isolated SQLite DB
-- Evidence bundle:
-  - `.qa/issue208/manual_qa_20260309_232511`
-  - `.qa/issue208/manual_qa_20260309_232511.zip`
-- Key artifacts:
-  - `.qa/issue208/manual_qa_20260309_232511/artifacts/manual_qa_report.md`
-  - `.qa/issue208/manual_qa_20260309_232511/artifacts/manual_qa_results.json`
-- Verified scenarios (all PASS):
-  - A baseline setup
-  - B patch success
-  - C GET reflection + notes contract
-  - D audit success path
-  - E failed patch no-audit
-  - F auth negative
-  - G not found negative
-  - H locked negative
-  - I status gate negative
-- Runtime truth verified:
-  - `Simulation.status=active_inviting` allows PATCH
-  - `Simulation.status=ready_for_review` allows PATCH
-  - `ScenarioVersion.status` must be `ready`
-  - lock blocks edits regardless
-- QA pass did not modify product code, tests, migrations, configs, or docs.
-
-## Files of interest
-- Router: `app/api/routers/simulations_routes/scenario.py`
-- Service: `app/services/simulations/scenario_versions.py`
-- Schema: `app/schemas/simulations.py`
-- Audit model: `app/repositories/scenario_edit_audits/models.py`
-- Migration: `alembic/versions/202603090003_add_scenario_edit_audit.py`
-- API tests: `tests/api/test_scenario_versions.py`
-- Unit tests:
-  - `tests/unit/test_scenario_versions_service.py`
-  - `tests/unit/test_scenario_patch_schemas.py`
-  - `tests/unit/test_simulations_scenario_routes_unit.py`
-
-## Risks / rollout notes
-- API/docs should reflect the clarified status mapping (`ScenarioVersion.status` vs `Simulation.status`).
-- Frontend should use `notes` (not internal `focus_notes`) for scenario edit flows.
-- Lock semantics remain the fairness boundary for post-invite immutability.
-
-## Screenshots / QA
-- Backend QA evidence captured in `.qa/issue208/manual_qa_20260309_232511` (and zipped in `.qa/issue208/manual_qa_20260309_232511.zip`); no UI screenshots for this backend-only change.
+## Rollout / demo checklist
+- Run both migrations.
+- Create/seed a ready bundle for a target scenario version.
+- Invite a candidate.
+- Verify candidate repo contains the specialization commit.
+- Verify API returns `baseTemplateSha` and `precommitSha`.
+- Retry provisioning and confirm no duplicate specialization commit.
+- Verify a no-bundle scenario still succeeds with `precommitSha = null`.

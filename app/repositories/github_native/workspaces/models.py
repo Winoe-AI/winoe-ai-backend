@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base
@@ -72,6 +72,8 @@ class Workspace(Base):
     repo_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     default_branch: Mapped[str | None] = mapped_column(String(120), nullable=True)
     base_template_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    precommit_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    precommit_details_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
