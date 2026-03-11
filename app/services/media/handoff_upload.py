@@ -236,6 +236,9 @@ async def get_handoff_status(
     submission_service.ensure_task_belongs(task, candidate_session)
     _ensure_handoff_task(task.type)
 
+    # Candidate status always reflects the latest handoff attempt for this
+    # candidate session + task, even when a previous completed attempt still
+    # exists via submission.recording_id.
     recording = await recordings_repo.get_latest_for_task_session(
         db,
         candidate_session_id=candidate_session.id,

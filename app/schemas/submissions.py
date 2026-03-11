@@ -113,6 +113,16 @@ class HandoffStatusRecordingOut(APIModel):
 
     recordingId: str
     status: str
+    downloadUrl: str | None = None
+
+
+class HandoffStatusTranscriptSegmentOut(APIModel):
+    """Timestamped transcript segment for candidate handoff status."""
+
+    id: str | None = None
+    startMs: int | None = None
+    endMs: int | None = None
+    text: str
 
 
 class HandoffStatusTranscriptOut(APIModel):
@@ -120,6 +130,8 @@ class HandoffStatusTranscriptOut(APIModel):
 
     status: str
     progress: int | None = None
+    text: str | None = None
+    segments: list[HandoffStatusTranscriptSegmentOut] | None = None
 
 
 class HandoffStatusResponse(APIModel):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
@@ -16,7 +17,10 @@ from app.domains.submissions.schemas import (
     HandoffUploadInitRequest,
     HandoffUploadInitResponse,
 )
-from app.integrations.storage_media import StorageMediaProvider
+from app.integrations.storage_media import StorageMediaProvider, resolve_signed_url_ttl
+from app.integrations.storage_media.base import StorageMediaError
+from app.repositories.recordings import repository as recordings_repo
+from app.repositories.transcripts.models import TRANSCRIPT_STATUS_READY
 from app.services.media.handoff_upload import (
     complete_handoff_upload,
     get_handoff_status,
@@ -25,6 +29,61 @@ from app.services.media.handoff_upload import (
 from app.services.media.keys import recording_public_id
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _coerce_optional_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            return int(stripped)
+    return None
+
+
+def _serialize_transcript_segments(raw_segments: object) -> list[dict[str, object]]:
+    if not isinstance(raw_segments, list):
+        return []
+
+    segments: list[dict[str, object]] = []
+    for item in raw_segments:
+        if not isinstance(item, dict):
+            continue
+        text = item.get("text")
+        if not isinstance(text, str):
+            continue
+        segment: dict[str, object] = {"text": text}
+        segment_id = item.get("id")
+        if segment_id is not None:
+            segment["id"] = str(segment_id)
+
+        start_ms = _coerce_optional_int(item.get("startMs"))
+        if start_ms is not None:
+            segment["startMs"] = start_ms
+        end_ms = _coerce_optional_int(item.get("endMs"))
+        if end_ms is not None:
+            segment["endMs"] = end_ms
+        segments.append(segment)
+    return segments
+
+
+def _build_transcript_status_payload(transcript) -> dict[str, object]:
+    text = None
+    segments = None
+    if transcript.status == TRANSCRIPT_STATUS_READY:
+        text = transcript.text
+        segments = _serialize_transcript_segments(transcript.segments_json)
+    return {
+        "status": transcript.status,
+        "progress": None,
+        "text": text,
+        "segments": segments,
+    }
 
 
 @router.post(
@@ -101,6 +160,9 @@ async def handoff_status_route(
         CandidateSession, Depends(candidate_session_from_headers)
     ],
     db: Annotated[AsyncSession, Depends(get_session)],
+    storage_provider: Annotated[
+        StorageMediaProvider, Depends(get_media_storage_provider)
+    ],
 ) -> HandoffStatusResponse:
     """Return current recording/transcript processing status for a handoff task."""
     recording, transcript = await get_handoff_status(
@@ -110,17 +172,31 @@ async def handoff_status_route(
     )
     recording_payload = None
     if recording is not None:
+        download_url = None
+        if recordings_repo.is_downloadable(recording):
+            expires_seconds = resolve_signed_url_ttl()
+            try:
+                download_url = storage_provider.create_signed_download_url(
+                    recording.storage_key,
+                    expires_seconds=expires_seconds,
+                )
+            except (StorageMediaError, ValueError) as exc:
+                logger.warning(
+                    "Failed to sign candidate handoff status download URL recordingId=%s taskId=%s candidateSessionId=%s",
+                    recording.id,
+                    task_id,
+                    candidate_session.id,
+                    exc_info=exc,
+                )
         recording_payload = {
             "recordingId": recording_public_id(recording.id),
             "status": recording.status,
+            "downloadUrl": download_url,
         }
 
     transcript_payload = None
     if transcript is not None:
-        transcript_payload = {
-            "status": transcript.status,
-            "progress": None,
-        }
+        transcript_payload = _build_transcript_status_payload(transcript)
 
     return HandoffStatusResponse(
         recording=recording_payload,

@@ -686,6 +686,46 @@ async def test_upsert_submission_recording_pointer_handles_integrity_race(
 
 
 @pytest.mark.asyncio
+async def test_upsert_submission_recording_pointer_re_raises_when_fallback_missing(
+    async_session, monkeypatch
+):
+    task, _, candidate_session = await _setup_handoff_context(
+        async_session,
+        "service-upsert-reraise@test.com",
+    )
+
+    async def _raise_integrity(*args, **kwargs):
+        del args, kwargs
+        raise IntegrityError("insert", {}, Exception("duplicate"))
+
+    async def _missing_submission(
+        db,
+        *,
+        candidate_session_id: int,
+        task_id: int,
+        for_update: bool = False,
+    ):
+        del db, candidate_session_id, task_id, for_update
+        return None
+
+    monkeypatch.setattr(submissions_repo, "create_handoff_submission", _raise_integrity)
+    monkeypatch.setattr(
+        submissions_repo,
+        "get_by_candidate_session_task",
+        _missing_submission,
+    )
+
+    with pytest.raises(IntegrityError):
+        await _upsert_submission_recording_pointer(
+            async_session,
+            candidate_session_id=candidate_session.id,
+            task_id=task.id,
+            recording_id=999,
+            submitted_at=datetime.now(UTC),
+        )
+
+
+@pytest.mark.asyncio
 async def test_resolve_company_id_raises_when_simulation_missing(async_session):
     task, _, candidate_session = await _setup_handoff_context(
         async_session,
