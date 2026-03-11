@@ -1,122 +1,86 @@
-# Issue #211: Day 4 Media Upload, Transcription, and Recruiter Retrieval
+# Issue #211 Follow-up: Candidate Handoff Status Contract Extension for Day 4
+
+## Title
+Extend candidate handoff status payload with preview URL and ready transcript content/segments
 
 ## TL;DR
-- Day 4 now supports end-to-end media flow: upload init, direct upload complete, transcription job execution, and recruiter evidence retrieval.
-- Completing upload updates `submission.recording_id` and enqueues durable `transcribe_recording`.
-- Worker persists transcript `text` plus timestamped `segments`, and updates recording/transcript lifecycle status.
-- Recruiter submission detail returns pointer-based handoff media/transcript data with short-lived signed download URLs.
-- Manual/runtime QA verdict is **PASS**, with A-K scenarios verified and evidence archived under `.qa/issue211/`.
+- Extended existing candidate `GET /api/tasks/{task_id}/handoff/status` response (no new endpoint) to include richer media/transcript contract.
+- Added signed candidate preview URL via `recording.downloadUrl` when the latest attempt is downloadable.
+- Added transcript `text` and typed timestamped `segments` when transcript status is `ready`.
+- If candidate URL signing fails, the endpoint now degrades gracefully with `downloadUrl: null` and warning logging.
 
-## Problem / Why
-Day 4 previously lacked a complete media evidence pipeline. Candidates could not finish a supported upload-to-transcript loop, and recruiters could not reliably retrieve playback and transcript evidence from submission detail. This change closes that gap for MVP Day 4 handoff.
+## Problem
+Candidate handoff status previously surfaced processing metadata only (recording/transcript status), but not the persisted preview URL or ready transcript content needed by frontend Day 4 flow. Frontend Issue #140 required candidate revisit/reload preview plus transcript rendering with timestamped segments. Without this contract extension, Day 4 candidate revisit UX could not fully render prior evidence state.
 
 ## What changed
+- Extended the existing candidate status endpoint; no new endpoint was introduced.
+- Candidate status payload now includes:
+  - `recording.downloadUrl`
+  - `transcript.text`
+  - `transcript.segments`
+- Transcript segments are now returned through a typed response schema (`HandoffStatusTranscriptSegmentOut`).
+- Added segment normalization/coercion for compatibility-safe serialization (drops invalid items, normalizes ids/timestamps).
+- URL signing failures now gracefully degrade to `downloadUrl: null` with warning logging instead of failing status polling.
+- Preserved latest-attempt semantics for candidate status resolution (status reflects most recent handoff attempt).
+- Preserved read-after-cutoff behavior for candidate status polling.
+- Upload init/complete behavior remains unchanged by this follow-up.
 
-### API endpoints
-- Added candidate endpoints:
-  - `POST /api/tasks/{task_id}/handoff/upload/init`
-  - `POST /api/tasks/{task_id}/handoff/upload/complete`
-  - `GET /api/tasks/{task_id}/handoff/status`
-- Extended `GET /api/submissions/{submission_id}` to include handoff recording + transcript data.
+## API / contract notes
+Candidate status response shape:
 
-### Schema / migration
-- Added `submissions.recording_id` (FK to `recording_assets.id`) and index `ix_submissions_recording_id`.
-- Added `transcripts.last_error` for failed transcription diagnostics.
-- Migration: `alembic/versions/202603110001_add_submission_recording_pointer_and_transcript_last_error.py`.
+```json
+{
+  "recording": {
+    "recordingId": "rec_123",
+    "status": "uploaded",
+    "downloadUrl": "https://..."
+  },
+  "transcript": {
+    "status": "ready",
+    "progress": null,
+    "text": "full transcript text",
+    "segments": [
+      {
+        "id": null,
+        "startMs": 0,
+        "endMs": 1250,
+        "text": "hello"
+      }
+    ]
+  }
+}
+```
 
-### Transcription job wiring
-- Upload complete enqueues durable `transcribe_recording` with idempotency key `transcribe_recording:{recording_id}`.
-- Worker handler:
-  - marks recording/transcript `processing`
-  - signs source URL and invokes transcription provider
-  - stores transcript `text`, `segments_json`, `model_name`
-  - marks `ready` on success or `failed` with `last_error` on failure
+- `downloadUrl` may be `null` if signing temporarily fails.
+- `text` and `segments` are populated only when transcript status is `ready`.
+- Contract remains candidate-owner scoped.
 
-### Recruiter retrieval payload
-- Recruiter detail returns:
-  - `recording` metadata + signed `downloadUrl` when downloadable
-  - `transcript` with `status`, `text`, `segments`/`segmentsJson`, `modelName`
-  - `handoff` convenience block with `recordingId`, `downloadUrl`, and nested transcript
-- Retrieval is based on `submission.recording_id` (pointer-based).
-
-### Resubmission behavior
-- New upload init creates a new `RecordingAsset` attempt.
-- Upload complete updates `submission.recording_id` to the new attempt.
-- Historical attempts remain persisted for audit traceability.
-- Candidate status resolves the latest attempt for the task/session.
-
-### Auth / security / error handling
-- Candidate init/complete enforce candidate auth, session ownership, handoff-task checks, and window gating.
-- Candidate status endpoint remains readable post-cutoff for submitted attempts.
-- Recruiter access enforces same-company authorization before media URL signing.
-- Signed URLs are short-lived.
-- Logging captures transitions and failures without logging signed URLs or transcript text.
-
-## Important behavior / contracts
-- Candidate upload init and complete are window-gated.
-- Candidate `GET /api/tasks/{task_id}/handoff/status` remains readable after submission even after cutoff.
-- Candidate status returns the latest attempt.
-- Recruiter detail resolves media from `submission.recording_id`.
-- Signed media URLs are generated only after recruiter authorization and are short-lived.
-- Transcription failures persist as `transcript.status=failed` (with `last_error`) and `recording.status=failed`.
-
-## Error handling
-- `TASK_WINDOW_CLOSED` (409) when init/complete is outside the allowed window.
-- `REQUEST_TOO_LARGE` (413) when uploaded object exceeds size limits (including complete-time validation).
-- `MEDIA_STORAGE_UNAVAILABLE` (502) for storage signing/metadata failures.
-- Transcription failures persist transcript `failed` state rather than failing the upload-complete API path.
+## Security / behavior notes
+- Candidate auth path is unchanged.
+- Candidate can access only their own handoff recording/transcript state.
+- Signed URLs remain short-lived.
+- No recruiter-only fields are exposed in candidate status.
+- Read access after cutoff remains available; write gating (init/complete) is unchanged.
 
 ## Testing
-- `poetry run pytest -q` -> **PASS** (`1296 passed`, coverage `99.00%`).
-- `poetry run ruff check .` -> **PASS**.
-- Migration smoke rerun -> **PASS**.
-- Targeted regression coverage includes:
-  - latest-attempt candidate status contract
-  - recruiter pointer-based media retrieval
-  - wrong-company recruiter denial before URL issuance
-  - oversize object complete-time 413 mapping
-  - post-cutoff status readability
+- Targeted API tests for candidate handoff status passed.
+- Targeted router/unit tests passed.
+- Service tests passed, including integrity-race fallback coverage.
+- Recruiter submission detail regression tests passed where touched.
+- Full `poetry run pytest -q` passed with coverage enforcement.
+- `./precommit.sh` passed.
 
-## Manual / Runtime QA
-- Verdict: **PASS**.
-- Runtime method: localhost server startup was blocked by sandbox bind restrictions; QA was executed via ASGI in-process fallback against real FastAPI app/routes/services/repos/worker codepaths.
-- Evidence bundle:
-  - `.qa/issue211/manual_qa_20260310_232634`
-  - `.qa/issue211/manual_qa_20260310_232634.zip`
-- Verified scenarios:
-  - A. upload init - PASS
-  - B. upload complete - PASS
-  - C. worker transcription execution - PASS
-  - D. recruiter retrieval - PASS
-  - E. resubmission semantics - PASS
-  - F. window gating - PASS
-  - G. unauthorized recruiter denied - PASS
-  - H. oversize enforcement - PASS
-  - I. storage failure mapping - PASS
-  - J. logging/security hygiene - PASS
-  - K. migration confidence - PASS
-
-## Migration / rollout notes
-- Schema change includes `submissions.recording_id` and `transcripts.last_error`.
-- Migration smoke rerun passed, providing confidence for upgrade/downgrade path.
-- No frontend changes are required in this issue.
+Final gate:
+- Exit code: `0`
+- Coverage: `99.01%`
 
 ## Risks / follow-ups
-- Transcription provider credentials/model configuration remain environment-specific operational setup in production.
+- Persisted preview depends on short-lived signed URLs.
+- `downloadUrl` may degrade to `null` on transient signing failures.
+- Transcript segment `id` is optional and may be `null`.
 
-## Reviewer notes
-- Core candidate upload flow:
-  - `app/api/routers/tasks/handoff_upload.py`
-  - `app/services/media/handoff_upload.py`
-- Transcription job/worker:
-  - `app/jobs/handlers/transcribe_recording.py`
-  - `app/jobs/worker.py`
-- Recruiter submission detail:
-  - `app/api/routers/submissions_routes/detail.py`
-- Migration:
-  - `alembic/versions/202603110001_add_submission_recording_pointer_and_transcript_last_error.py`
-- Key tests:
-  - `tests/api/test_handoff_upload_api.py`
-  - `tests/integration/test_handoff_transcription_integration.py`
-  - `tests/unit/test_submission_detail_media_route.py`
-  - `tests/unit/test_transcribe_recording_handler.py`
+## Frontend dependency note
+This backend follow-up unblocks frontend Issue #140 by providing candidate-facing status fields required for:
+- persisted preview on revisit/reload
+- transcript text rendering
+- timestamped segment rendering

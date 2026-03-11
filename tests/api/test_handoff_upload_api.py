@@ -365,7 +365,11 @@ async def test_handoff_status_returns_recording_and_transcript(
     body = status_response.json()
     assert body["recording"]["recordingId"] == recording_id
     assert body["recording"]["status"] == RECORDING_ASSET_STATUS_UPLOADED
+    assert body["recording"]["downloadUrl"] is not None
+    assert "download?" in body["recording"]["downloadUrl"]
     assert body["transcript"]["status"] == TRANSCRIPT_STATUS_PENDING
+    assert body["transcript"]["text"] is None
+    assert body["transcript"]["segments"] is None
 
 
 @pytest.mark.asyncio
@@ -443,7 +447,241 @@ async def test_handoff_status_uses_latest_attempt_when_resubmission_is_in_progre
     body = status_response.json()
     assert body["recording"]["recordingId"] == second_init.json()["recordingId"]
     assert body["recording"]["status"] == RECORDING_ASSET_STATUS_UPLOADING
+    assert body["recording"]["downloadUrl"] is None
     assert body["transcript"] is None
+
+
+@pytest.mark.asyncio
+async def test_handoff_status_includes_transcript_text_and_segments_when_ready(
+    async_client, async_session, candidate_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="handoff-status-ready@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    task = _handoff_task(tasks)
+    candidate_session = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    await async_session.commit()
+    headers = candidate_header_factory(candidate_session)
+
+    init_response = await async_client.post(
+        f"/api/tasks/{task.id}/handoff/upload/init",
+        headers=headers,
+        json={
+            "contentType": "video/mp4",
+            "sizeBytes": 1_536,
+            "filename": "status-ready.mp4",
+        },
+    )
+    assert init_response.status_code == 200, init_response.text
+    recording_id = init_response.json()["recordingId"]
+    recording = (
+        await async_session.execute(
+            select(RecordingAsset).where(
+                RecordingAsset.candidate_session_id == candidate_session.id,
+                RecordingAsset.task_id == task.id,
+            )
+        )
+    ).scalar_one()
+    _fake_storage_provider().set_object_metadata(
+        recording.storage_key,
+        content_type=recording.content_type,
+        size_bytes=recording.bytes,
+    )
+    complete_response = await async_client.post(
+        f"/api/tasks/{task.id}/handoff/upload/complete",
+        headers=headers,
+        json={"recordingId": recording_id},
+    )
+    assert complete_response.status_code == 200, complete_response.text
+
+    transcript = await transcripts_repo.get_by_recording_id(async_session, recording.id)
+    assert transcript is not None
+    await transcripts_repo.update_transcript(
+        async_session,
+        transcript=transcript,
+        status=TRANSCRIPT_STATUS_READY,
+        text="ready transcript text",
+        segments_json=[
+            {"startMs": 0, "endMs": 1250, "text": "ready"},
+            {"startMs": 1250, "endMs": 2500, "text": "transcript"},
+        ],
+        model_name="mock-stt-v1",
+        commit=True,
+    )
+
+    status_response = await async_client.get(
+        f"/api/tasks/{task.id}/handoff/status",
+        headers=headers,
+    )
+    assert status_response.status_code == 200, status_response.text
+    body = status_response.json()
+    assert body["recording"]["recordingId"] == recording_id
+    assert body["recording"]["downloadUrl"] is not None
+    assert body["transcript"]["status"] == TRANSCRIPT_STATUS_READY
+    assert body["transcript"]["text"] == "ready transcript text"
+    assert body["transcript"]["segments"] == [
+        {"id": None, "startMs": 0, "endMs": 1250, "text": "ready"},
+        {"id": None, "startMs": 1250, "endMs": 2500, "text": "transcript"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_handoff_status_is_candidate_scoped_and_does_not_leak_other_candidate_data(
+    async_client, async_session, candidate_header_factory
+):
+    recruiter = await create_recruiter(
+        async_session, email="handoff-status-scope@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    task = _handoff_task(tasks)
+    candidate_session_a = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="status-a@test.com",
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    candidate_session_b = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        invite_email="status-b@test.com",
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    await async_session.commit()
+
+    headers_a = candidate_header_factory(candidate_session_a)
+    init_response = await async_client.post(
+        f"/api/tasks/{task.id}/handoff/upload/init",
+        headers=headers_a,
+        json={
+            "contentType": "video/mp4",
+            "sizeBytes": 1_024,
+            "filename": "scope.mp4",
+        },
+    )
+    assert init_response.status_code == 200, init_response.text
+    recording = (
+        await async_session.execute(
+            select(RecordingAsset).where(
+                RecordingAsset.candidate_session_id == candidate_session_a.id,
+                RecordingAsset.task_id == task.id,
+            )
+        )
+    ).scalar_one()
+    _fake_storage_provider().set_object_metadata(
+        recording.storage_key,
+        content_type=recording.content_type,
+        size_bytes=recording.bytes,
+    )
+    complete_response = await async_client.post(
+        f"/api/tasks/{task.id}/handoff/upload/complete",
+        headers=headers_a,
+        json={"recordingId": init_response.json()["recordingId"]},
+    )
+    assert complete_response.status_code == 200, complete_response.text
+
+    other_status_response = await async_client.get(
+        f"/api/tasks/{task.id}/handoff/status",
+        headers=candidate_header_factory(candidate_session_b),
+    )
+    assert other_status_response.status_code == 200, other_status_response.text
+    body = other_status_response.json()
+    assert body["recording"] is None
+    assert body["transcript"] is None
+
+
+@pytest.mark.asyncio
+async def test_handoff_status_requires_candidate_session_headers(
+    async_client, async_session
+):
+    recruiter = await create_recruiter(
+        async_session, email="handoff-status-auth@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    task = _handoff_task(tasks)
+    await async_session.commit()
+
+    response = await async_client.get(
+        f"/api/tasks/{task.id}/handoff/status",
+        headers={"x-candidate-token": "candidate:missing-header@test.com"},
+    )
+    assert response.status_code == 401
+    assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_handoff_status_storage_failure_degrades_to_null_download_url(
+    async_client, async_session, candidate_header_factory, monkeypatch
+):
+    recruiter = await create_recruiter(
+        async_session, email="handoff-status-storage-failure@test.com"
+    )
+    sim, tasks = await create_simulation(async_session, created_by=recruiter)
+    task = _handoff_task(tasks)
+    candidate_session = await create_candidate_session(
+        async_session,
+        simulation=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    await async_session.commit()
+    headers = candidate_header_factory(candidate_session)
+
+    init_response = await async_client.post(
+        f"/api/tasks/{task.id}/handoff/upload/init",
+        headers=headers,
+        json={
+            "contentType": "video/mp4",
+            "sizeBytes": 1_024,
+            "filename": "status-storage-failure.mp4",
+        },
+    )
+    assert init_response.status_code == 200, init_response.text
+    recording = (
+        await async_session.execute(
+            select(RecordingAsset).where(
+                RecordingAsset.candidate_session_id == candidate_session.id,
+                RecordingAsset.task_id == task.id,
+            )
+        )
+    ).scalar_one()
+    _fake_storage_provider().set_object_metadata(
+        recording.storage_key,
+        content_type=recording.content_type,
+        size_bytes=recording.bytes,
+    )
+    complete_response = await async_client.post(
+        f"/api/tasks/{task.id}/handoff/upload/complete",
+        headers=headers,
+        json={"recordingId": init_response.json()["recordingId"]},
+    )
+    assert complete_response.status_code == 200, complete_response.text
+
+    provider = _fake_storage_provider()
+
+    def _raise_storage_error(*args, **kwargs):
+        del args, kwargs
+        raise StorageMediaError("storage down")
+
+    monkeypatch.setattr(provider, "create_signed_download_url", _raise_storage_error)
+
+    status_response = await async_client.get(
+        f"/api/tasks/{task.id}/handoff/status",
+        headers=headers,
+    )
+    assert status_response.status_code == 200, status_response.text
+    body = status_response.json()
+    assert body["recording"]["recordingId"] == init_response.json()["recordingId"]
+    assert body["recording"]["status"] == RECORDING_ASSET_STATUS_UPLOADED
+    assert body["recording"]["downloadUrl"] is None
+    assert body["transcript"]["status"] == TRANSCRIPT_STATUS_PENDING
 
 
 @pytest.mark.asyncio
@@ -592,7 +830,11 @@ async def test_handoff_status_remains_available_after_window_closes_for_submitte
     body = status_response.json()
     assert body["recording"]["recordingId"] == recording_id
     assert body["recording"]["status"] == RECORDING_ASSET_STATUS_UPLOADED
+    assert body["recording"]["downloadUrl"] is not None
+    assert "download?" in body["recording"]["downloadUrl"]
     assert body["transcript"]["status"] == TRANSCRIPT_STATUS_PENDING
+    assert body["transcript"]["text"] is None
+    assert body["transcript"]["segments"] is None
 
 
 @pytest.mark.asyncio
