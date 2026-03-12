@@ -6,6 +6,10 @@ from app.jobs.handlers.day_close_finalize_text import (
     DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
     handle_day_close_finalize_text,
 )
+from app.jobs.handlers.evaluation_run import (
+    EVALUATION_RUN_JOB_TYPE,
+    handle_evaluation_run,
+)
 from app.jobs.handlers.scenario_generation import (
     SCENARIO_GENERATION_JOB_TYPE,
     handle_scenario_generation,
@@ -24,6 +28,8 @@ __all__ = [
     "handle_day_close_enforcement",
     "DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE",
     "handle_day_close_finalize_text",
+    "EVALUATION_RUN_JOB_TYPE",
+    "handle_evaluation_run",
     "SIMULATION_CLEANUP_JOB_TYPE",
     "handle_simulation_cleanup",
     "SCENARIO_GENERATION_JOB_TYPE",

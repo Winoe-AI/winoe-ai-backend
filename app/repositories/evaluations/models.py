@@ -23,6 +23,10 @@ EVALUATION_RUN_STATUS_PENDING = "pending"
 EVALUATION_RUN_STATUS_RUNNING = "running"
 EVALUATION_RUN_STATUS_COMPLETED = "completed"
 EVALUATION_RUN_STATUS_FAILED = "failed"
+EVALUATION_RECOMMENDATION_HIRE = "hire"
+EVALUATION_RECOMMENDATION_STRONG_HIRE = "strong_hire"
+EVALUATION_RECOMMENDATION_NO_HIRE = "no_hire"
+EVALUATION_RECOMMENDATION_LEAN_HIRE = "lean_hire"
 
 EVALUATION_RUN_STATUSES = (
     EVALUATION_RUN_STATUS_PENDING,
@@ -30,10 +34,19 @@ EVALUATION_RUN_STATUSES = (
     EVALUATION_RUN_STATUS_COMPLETED,
     EVALUATION_RUN_STATUS_FAILED,
 )
+EVALUATION_RECOMMENDATIONS = (
+    EVALUATION_RECOMMENDATION_HIRE,
+    EVALUATION_RECOMMENDATION_STRONG_HIRE,
+    EVALUATION_RECOMMENDATION_NO_HIRE,
+    EVALUATION_RECOMMENDATION_LEAN_HIRE,
+)
 
 EVALUATION_RUN_STATUS_CHECK_CONSTRAINT_NAME = "ck_evaluation_runs_status"
 EVALUATION_RUN_COMPLETED_AT_CHECK_CONSTRAINT_NAME = (
     "ck_evaluation_runs_completed_after_started"
+)
+EVALUATION_RUN_RECOMMENDATION_CHECK_CONSTRAINT_NAME = (
+    "ck_evaluation_runs_recommendation"
 )
 EVALUATION_DAY_SCORE_DAY_INDEX_CHECK_CONSTRAINT_NAME = (
     "ck_evaluation_day_scores_day_index"
@@ -44,6 +57,11 @@ EVALUATION_DAY_SCORE_RUN_DAY_UNIQUE_CONSTRAINT_NAME = "uq_evaluation_day_scores_
 def _status_check_expr() -> str:
     allowed = ",".join(f"'{status}'" for status in EVALUATION_RUN_STATUSES)
     return f"status IN ({allowed})"
+
+
+def _recommendation_check_expr() -> str:
+    allowed = ",".join(f"'{value}'" for value in EVALUATION_RECOMMENDATIONS)
+    return f"recommendation IS NULL OR recommendation IN ({allowed})"
 
 
 class EvaluationRun(Base):
@@ -59,6 +77,10 @@ class EvaluationRun(Base):
             "completed_at IS NULL OR completed_at >= started_at",
             name=EVALUATION_RUN_COMPLETED_AT_CHECK_CONSTRAINT_NAME,
         ),
+        CheckConstraint(
+            _recommendation_check_expr(),
+            name=EVALUATION_RUN_RECOMMENDATION_CHECK_CONSTRAINT_NAME,
+        ),
         Index(
             "ix_evaluation_runs_candidate_session_scenario_version",
             "candidate_session_id",
@@ -69,6 +91,13 @@ class EvaluationRun(Base):
             "candidate_session_id",
             "started_at",
         ),
+        Index(
+            "ix_evaluation_runs_candidate_session_status_started_at",
+            "candidate_session_id",
+            "status",
+            "started_at",
+        ),
+        Index("ix_evaluation_runs_job_id", "job_id", unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -99,6 +128,17 @@ class EvaluationRun(Base):
     model_version: Mapped[str] = mapped_column(String(255), nullable=False)
     prompt_version: Mapped[str] = mapped_column(String(255), nullable=False)
     rubric_version: Mapped[str] = mapped_column(String(255), nullable=False)
+    job_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    basis_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    overall_fit_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    recommendation: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    generated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    raw_report_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     day2_checkpoint_sha: Mapped[str] = mapped_column(String(100), nullable=False)
     day3_final_sha: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -168,9 +208,15 @@ __all__ = [
     "EVALUATION_RUN_STATUS_RUNNING",
     "EVALUATION_RUN_STATUS_COMPLETED",
     "EVALUATION_RUN_STATUS_FAILED",
+    "EVALUATION_RECOMMENDATION_HIRE",
+    "EVALUATION_RECOMMENDATION_STRONG_HIRE",
+    "EVALUATION_RECOMMENDATION_NO_HIRE",
+    "EVALUATION_RECOMMENDATION_LEAN_HIRE",
     "EVALUATION_RUN_STATUSES",
+    "EVALUATION_RECOMMENDATIONS",
     "EVALUATION_RUN_STATUS_CHECK_CONSTRAINT_NAME",
     "EVALUATION_RUN_COMPLETED_AT_CHECK_CONSTRAINT_NAME",
+    "EVALUATION_RUN_RECOMMENDATION_CHECK_CONSTRAINT_NAME",
     "EVALUATION_DAY_SCORE_DAY_INDEX_CHECK_CONSTRAINT_NAME",
     "EVALUATION_DAY_SCORE_RUN_DAY_UNIQUE_CONSTRAINT_NAME",
 ]
