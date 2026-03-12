@@ -1,86 +1,58 @@
-# Issue #211 Patch 2: Added `_handoff_revisit_task(...)` in progress service to override computed current task
+# Issue #213: Add Evaluation Schema Persistence (Run Header, Day Scores, Evidence Pointers, Immutable Basis)
 
 ## Title
-Extend candidate handoff status payload with preview URL and ready transcript content/segments
+Add evaluation run/day-score persistence with immutable evidence basis, validated evidence pointers, and review-safe integration test relocation
 
 ## TL;DR
-- Extended existing candidate `GET /api/tasks/{task_id}/handoff/status` response (no new endpoint) to include richer media/transcript contract.
-- Added signed candidate preview URL via `recording.downloadUrl` when the latest attempt is downloadable.
-- Added transcript `text` and typed timestamped `segments` when transcript status is `ready`.
-- If candidate URL signing fails, the endpoint now degrades gracefully with `downloadUrl: null` and warning logging.
+- Added persistent evaluation schema via new `evaluation_runs` and `evaluation_day_scores` tables.
+- Each evaluation run now stores immutable basis references (`day2_checkpoint_sha`, `day3_final_sha`, `cutoff_commit_sha`, `transcript_reference`, `scenario_version_id`) plus model/prompt/rubric versions.
+- Added repository flows to create/read/list evaluation runs, atomically create runs with day scores, and validate evidence pointer structure/URLs.
+- Added evaluation service flows (`start_run`, `complete_run`, `fail_run`) with monotonic status transitions and audit-safe lifecycle logging.
+- Added migration smoke, repository/service unit tests, and DB-backed rerun integration coverage.
+- Relocated API/security/property tests under `tests/integration/...`; `main...HEAD` tracks these moves as `R100` renames.
+- Canonical QA is green: `poetry run pytest -q tests/unit tests/integration` => `1325 passed`, coverage `99.04%`; `poetry run ruff check .` passes.
+- Branch is PR-ready.
 
 ## Problem
-Candidate handoff status previously surfaced processing metadata only (recording/transcript status), but not the persisted preview URL or ready transcript content needed by frontend Day 4 flow. Frontend Issue #140 required candidate revisit/reload preview plus transcript rendering with timestamped segments. Without this contract extension, Day 4 candidate revisit UX could not fully render prior evidence state.
+Before this change, Tenon had no durable evaluation persistence model beyond FitProfile presence. That blocked reproducible reruns, evidence-backed per-day scoring, and auditable attribution of model/prompt/rubric/version inputs for recruiter-facing evaluation outputs.
 
 ## What changed
-- Extended the existing candidate status endpoint; no new endpoint was introduced.
-- Candidate status payload now includes:
-  - `recording.downloadUrl`
-  - `transcript.text`
-  - `transcript.segments`
-- Transcript segments are now returned through a typed response schema (`HandoffStatusTranscriptSegmentOut`).
-- Added segment normalization/coercion for compatibility-safe serialization (drops invalid items, normalizes ids/timestamps).
-- URL signing failures now gracefully degrade to `downloadUrl: null` with warning logging instead of failing status polling.
-- Preserved latest-attempt semantics for candidate status resolution (status reflects most recent handoff attempt).
-- Preserved read-after-cutoff behavior for candidate status polling.
-- Upload init/complete behavior remains unchanged by this follow-up.
+- Added Alembic migration `202603110002_add_evaluation_runs_and_day_scores.py` to create evaluation persistence tables, constraints, and indexes.
+- Added `app/repositories/evaluations/models.py` with `EvaluationRun` and `EvaluationDayScore` ORM entities and shared constraint/status constants.
+- Added `app/repositories/evaluations/repository.py` with run creation/read/list/exists methods, atomic create-with-day-scores behavior, duplicate day-score guards, and evidence pointer validation (`commit`/`transcript` shape checks, URL validation, timestamp guards).
+- Added `app/services/evaluations/runs.py` for evaluation lifecycle orchestration (`start_run`, `complete_run`, `fail_run`) including transition guards and audit-safe logs (run start/completion/failure, duration, linked job id).
+- Wired new models into domain imports (`app/domains/__init__.py`) and added `CandidateSession.evaluation_runs` relationship.
+- Added dedicated tests: `tests/unit/test_evaluation_migrations_smoke.py`, `tests/unit/test_evaluation_runs_repository.py`, `tests/unit/test_evaluation_runs_service.py`, and `tests/integration/test_evaluation_runs_integration.py`.
+- Relocated existing API/security/property suites from `tests/api|security|property/...` into `tests/integration/...` to make canonical integration execution explicit and mutation-free.
 
-## API / contract notes
-Candidate status response shape:
+## Data model / migration notes
+- `evaluation_runs` stores run header and immutable basis metadata: IDs/FKs (`candidate_session_id`, `scenario_version_id`), lifecycle fields (`status`, `started_at`, `completed_at`), evaluator versioning (`model_name`, `model_version`, `prompt_version`, `rubric_version`), optional `metadata_json`, and immutable refs (`day2_checkpoint_sha`, `day3_final_sha`, `cutoff_commit_sha`, `transcript_reference`).
+- `evaluation_day_scores` stores per-run day scoring rows: `run_id`, `day_index`, `score`, `rubric_results_json`, `evidence_pointers_json`, and `created_at`.
+- Enforced checks and uniqueness: run status enum check, `completed_at >= started_at`, day index `1..5`, and unique `(run_id, day_index)`.
+- Added query indexes for rerun/report retrieval paths: `evaluation_runs(candidate_session_id, scenario_version_id)`, `evaluation_runs(candidate_session_id, started_at)`, and `evaluation_day_scores(run_id)`.
+- No public evaluation endpoint was added in this branch; this is persistence + lifecycle foundation for upcoming Fit Profile API work.
 
-```json
-{
-  "recording": {
-    "recordingId": "rec_123",
-    "status": "uploaded",
-    "downloadUrl": "https://..."
-  },
-  "transcript": {
-    "status": "ready",
-    "progress": null,
-    "text": "full transcript text",
-    "segments": [
-      {
-        "id": null,
-        "startMs": 0,
-        "endMs": 1250,
-        "text": "hello"
-      }
-    ]
-  }
-}
-```
+## Testing / validation
+- `poetry run pytest -q tests/unit tests/integration`
+- Result: `1325 passed in 82.00s`
+- Coverage gate: passed (`Total coverage: 99.04%`)
+- `poetry run ruff check .`
+- Result: pass (exit code `0`)
+- Verified no pytest command-mutation hooks are present in repo code (`pytest_cmdline_main`, `pytest_cmdline_preparse`, `pytest_load_initial_conftests`, `pytest_addoption`).
+- Branch verification checkpoint was clean and review-safe.
+- Confirmed relocation is rename-tracked in PR diff: `git diff --name-status -M main...HEAD` shows moved tests as `R100`.
 
-- `downloadUrl` may be `null` if signing temporarily fails.
-- `text` and `segments` are populated only when transcript status is `ready`.
-- Contract remains candidate-owner scoped.
-
-## Security / behavior notes
-- Candidate auth path is unchanged.
-- Candidate can access only their own handoff recording/transcript state.
-- Signed URLs remain short-lived.
-- No recruiter-only fields are exposed in candidate status.
-- Read access after cutoff remains available; write gating (init/complete) is unchanged.
-
-## Testing
-- Targeted API tests for candidate handoff status passed.
-- Targeted router/unit tests passed.
-- Service tests passed, including integrity-race fallback coverage.
-- Recruiter submission detail regression tests passed where touched.
-- Full `poetry run pytest -q` passed with coverage enforcement.
-- `./precommit.sh` passed.
-
-Final gate:
-- Exit code: `0`
-- Coverage: `99.01%`
+## Patch integrity / reviewability
+- Working tree was clean at final verification checkpoint (`git status --short --untracked-files=all` returned no output).
+- No untracked relocation stray files remain.
+- Moved tests are represented as tracked renames (`R100`) in `main...HEAD` (34 rename entries), and `git diff --stat main...HEAD` reflects move-aware rename stats.
+- Iteration 4 was verification-only and introduced no new implementation code edits.
 
 ## Risks / follow-ups
-- Persisted preview depends on short-lived signed URLs.
-- `downloadUrl` may degrade to `null` on transient signing failures.
-- Transcript segment `id` is optional and may be `null`.
+- Recruiter-only read APIs and company-bound access enforcement for evaluation output are follow-up work (not introduced in this branch).
+- Scoring logic/model execution is intentionally out of scope here; this branch establishes persistence and lifecycle contracts.
+- Evidence URL authorization behavior depends on downstream report/presenter surface implementation.
 
-## Frontend dependency note
-This backend follow-up unblocks frontend Issue #140 by providing candidate-facing status fields required for:
-- persisted preview on revisit/reload
-- transcript text rendering
-- timestamped segment rendering
+## Final status
+- QA verdict: PASS
+- Ready for PR raise

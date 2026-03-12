@@ -4,6 +4,7 @@ from app.repositories.candidate_sessions.models import (
     CandidateSession,
 )
 from app.repositories.companies.models import Company
+from app.repositories.evaluations.models import EvaluationDayScore, EvaluationRun
 from app.repositories.github_native.workspaces.models import Workspace, WorkspaceGroup
 from app.repositories.jobs.models import Job
 from app.repositories.precommit_bundles.models import PrecommitBundle
@@ -24,6 +25,8 @@ __all__ = [
     "CandidateSession",
     "CandidateDayAudit",
     "Company",
+    "EvaluationDayScore",
+    "EvaluationRun",
     "Job",
     "PrecommitBundle",
     "RecordingAsset",
