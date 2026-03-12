@@ -6,6 +6,7 @@ from app.api.routers import (
     admin_templates,
     auth,
     candidate_sessions,
+    fit_profile,
     health,
     jobs,
     simulations,
@@ -29,6 +30,7 @@ def register_routers(app: FastAPI) -> None:
         tasks_codespaces.router, prefix=f"{prefix}/tasks", tags=["tasks"]
     )
     app.include_router(submissions.router, prefix=f"{prefix}")
+    app.include_router(fit_profile.router, prefix=f"{prefix}", tags=["fit_profile"])
 
 
 __all__ = ["register_routers"]

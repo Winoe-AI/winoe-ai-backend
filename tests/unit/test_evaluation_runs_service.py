@@ -197,6 +197,38 @@ async def test_complete_run_rejects_completed_at_before_started_at(async_session
 
 
 @pytest.mark.asyncio
+async def test_complete_run_rejects_generated_at_before_started_at(async_session):
+    candidate_session = await _seed_candidate_session(async_session)
+    started_at = datetime(2026, 3, 11, 12, 0, tzinfo=UTC)
+    started = await eval_service.start_run(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        scenario_version_id=candidate_session.scenario_version_id,
+        model_name="gpt-5-evaluator",
+        model_version="2026-03-11",
+        prompt_version="prompt.v4",
+        rubric_version="rubric.v2",
+        day2_checkpoint_sha="day2-sha",
+        day3_final_sha="day3-sha",
+        cutoff_commit_sha="cutoff-sha",
+        transcript_reference="transcript:hash:abcd",
+        started_at=started_at,
+    )
+
+    with pytest.raises(
+        eval_service.EvaluationRunStateError,
+        match="generated_at must be greater than or equal",
+    ):
+        await eval_service.complete_run(
+            async_session,
+            run_id=started.id,
+            day_scores=_day_scores_payload(),
+            completed_at=datetime(2026, 3, 11, 12, 1, tzinfo=UTC),
+            generated_at=datetime(2026, 3, 11, 11, 59, tzinfo=UTC),
+        )
+
+
+@pytest.mark.asyncio
 async def test_transition_rules_cover_invalid_paths(async_session):
     candidate_session = await _seed_candidate_session(async_session)
 
@@ -370,6 +402,53 @@ def test_datetime_helpers_and_linked_job_id_validation():
     normalized = eval_service._normalize_datetime(naive, field_name="completed_at")
     assert normalized.tzinfo is not None
     assert eval_service._linked_job_id("not-a-mapping") is None
+
+
+def test_internal_coercion_helpers_raise_validation_errors():
+    with pytest.raises(eval_service.EvaluationRunStateError, match="is required"):
+        eval_service._coerce_unit_interval_score(
+            None,
+            field_name="overall_fit_score",
+            required=True,
+        )
+    with pytest.raises(eval_service.EvaluationRunStateError, match="must be numeric"):
+        eval_service._coerce_unit_interval_score(
+            "bad",
+            field_name="overall_fit_score",
+            required=False,
+        )
+    with pytest.raises(eval_service.EvaluationRunStateError, match="must be finite"):
+        eval_service._coerce_unit_interval_score(
+            float("nan"),
+            field_name="overall_fit_score",
+            required=False,
+        )
+    with pytest.raises(
+        eval_service.EvaluationRunStateError, match="must be between 0 and 1"
+    ):
+        eval_service._coerce_unit_interval_score(
+            2,
+            field_name="overall_fit_score",
+            required=False,
+        )
+
+    with pytest.raises(
+        eval_service.EvaluationRunStateError,
+        match="recommendation is required",
+    ):
+        eval_service._coerce_recommendation(None, required=True)
+    with pytest.raises(
+        eval_service.EvaluationRunStateError,
+        match="non-empty string",
+    ):
+        eval_service._coerce_recommendation(" ", required=False)
+    with pytest.raises(
+        eval_service.EvaluationRunStateError, match="invalid recommendation"
+    ):
+        eval_service._coerce_recommendation("maybe", required=False)
+
+    with pytest.raises(eval_service.EvaluationRunStateError, match="must be an object"):
+        eval_service._coerce_raw_report_json(["bad"])  # type: ignore[arg-type]
 
 
 @pytest.mark.asyncio

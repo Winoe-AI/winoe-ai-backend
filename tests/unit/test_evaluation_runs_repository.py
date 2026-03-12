@@ -4,6 +4,7 @@ import math
 from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.repositories.evaluations import repository as eval_repo
 from app.repositories.evaluations.models import (
@@ -694,3 +695,130 @@ async def test_create_run_with_day_scores_commit_false_and_query_branches(
     )
     assert len(filtered) == 1
     assert filtered[0].id in {run_a.id, run_b.id, run_c.id}
+
+
+@pytest.mark.asyncio
+async def test_get_run_by_job_id_filters_by_session_and_for_update(async_session):
+    candidate_session = await _seed_candidate_session(async_session)
+    recruiter = await create_recruiter(async_session, email="eval-repo-jobid@test.com")
+    simulation, _ = await create_simulation(async_session, created_by=recruiter)
+    other_session = await create_candidate_session(
+        async_session,
+        simulation=simulation,
+        status="completed",
+    )
+    await async_session.commit()
+
+    first_job_id = "job-lookup-1"
+    first = await eval_repo.create_run_with_day_scores(
+        async_session,
+        candidate_session_id=candidate_session.id,
+        scenario_version_id=candidate_session.scenario_version_id,
+        status=EVALUATION_RUN_STATUS_COMPLETED,
+        model_name="gpt-5-evaluator",
+        model_version="2026-03-12",
+        prompt_version="prompt.v6",
+        rubric_version="rubric.v3",
+        day2_checkpoint_sha="day2-sha-a",
+        day3_final_sha="day3-sha-a",
+        cutoff_commit_sha="cutoff-sha-a",
+        transcript_reference="transcript:job:a",
+        job_id=first_job_id,
+        day_scores=_day_scores_payload(),
+    )
+    second_job_id = "job-lookup-2"
+    await eval_repo.create_run_with_day_scores(
+        async_session,
+        candidate_session_id=other_session.id,
+        scenario_version_id=other_session.scenario_version_id,
+        status=EVALUATION_RUN_STATUS_COMPLETED,
+        model_name="gpt-5-evaluator",
+        model_version="2026-03-12",
+        prompt_version="prompt.v6",
+        rubric_version="rubric.v3",
+        day2_checkpoint_sha="day2-sha-b",
+        day3_final_sha="day3-sha-b",
+        cutoff_commit_sha="cutoff-sha-b",
+        transcript_reference="transcript:job:b",
+        job_id=second_job_id,
+        day_scores=_day_scores_payload(),
+    )
+
+    any_run = await eval_repo.get_run_by_job_id(
+        async_session,
+        job_id=first_job_id,
+        for_update=True,
+    )
+    assert any_run is not None
+    assert any_run.id == first.id
+
+    only_first_session = await eval_repo.get_run_by_job_id(
+        async_session,
+        job_id=first_job_id,
+        candidate_session_id=candidate_session.id,
+    )
+    assert only_first_session is not None
+    assert only_first_session.candidate_session_id == candidate_session.id
+
+    not_in_other_session = await eval_repo.get_run_by_job_id(
+        async_session,
+        job_id=first_job_id,
+        candidate_session_id=other_session.id,
+    )
+    assert not_in_other_session is None
+
+    with pytest.raises(ValueError, match="job_id must be a non-empty string"):
+        await eval_repo.get_run_by_job_id(async_session, job_id=" ")
+
+
+@pytest.mark.asyncio
+async def test_create_run_duplicate_non_null_job_id_raises_integrity_error(
+    async_session,
+):
+    candidate_session = await _seed_candidate_session(async_session)
+    candidate_session_id = candidate_session.id
+    scenario_version_id = candidate_session.scenario_version_id
+    duplicate_job_id = "job-dup-1"
+
+    await eval_repo.create_run_with_day_scores(
+        async_session,
+        candidate_session_id=candidate_session_id,
+        scenario_version_id=scenario_version_id,
+        status=EVALUATION_RUN_STATUS_COMPLETED,
+        model_name="gpt-5-evaluator",
+        model_version="2026-03-12",
+        prompt_version="prompt.v6",
+        rubric_version="rubric.v3",
+        day2_checkpoint_sha="day2-sha-a",
+        day3_final_sha="day3-sha-a",
+        cutoff_commit_sha="cutoff-sha-a",
+        transcript_reference="transcript:job:a",
+        job_id=duplicate_job_id,
+        day_scores=_day_scores_payload(),
+    )
+
+    with pytest.raises(IntegrityError):
+        await eval_repo.create_run_with_day_scores(
+            async_session,
+            candidate_session_id=candidate_session_id,
+            scenario_version_id=scenario_version_id,
+            status=EVALUATION_RUN_STATUS_COMPLETED,
+            model_name="gpt-5-evaluator",
+            model_version="2026-03-12",
+            prompt_version="prompt.v6",
+            rubric_version="rubric.v3",
+            day2_checkpoint_sha="day2-sha-b",
+            day3_final_sha="day3-sha-b",
+            cutoff_commit_sha="cutoff-sha-b",
+            transcript_reference="transcript:job:b",
+            job_id=duplicate_job_id,
+            day_scores=_day_scores_payload(),
+        )
+    await async_session.rollback()
+
+    runs = await eval_repo.list_runs_for_candidate_session(
+        async_session,
+        candidate_session_id=candidate_session_id,
+    )
+    assert len(runs) == 1
+    assert runs[0].job_id == duplicate_job_id

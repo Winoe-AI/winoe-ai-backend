@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.repositories.evaluations.models import (
+    EVALUATION_RECOMMENDATIONS,
     EVALUATION_RUN_STATUS_COMPLETED,
     EVALUATION_RUN_STATUS_PENDING,
     EVALUATION_RUN_STATUS_RUNNING,
@@ -27,6 +28,14 @@ class EvidencePointerValidationError(ValueError):
 def _normalize_non_empty_str(value: Any, *, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string.")
+    return value.strip()
+
+
+def _normalize_optional_non_empty_str(value: Any, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field_name} must be a non-empty string when provided.")
     return value.strip()
 
 
@@ -57,6 +66,46 @@ def _coerce_metadata_json(
     if not isinstance(metadata_json, Mapping):
         raise ValueError("metadata_json must be an object when provided.")
     return dict(metadata_json)
+
+
+def _coerce_raw_report_json(
+    raw_report_json: Mapping[str, Any] | None,
+) -> dict[str, Any] | None:
+    if raw_report_json is None:
+        return None
+    if not isinstance(raw_report_json, Mapping):
+        raise ValueError("raw_report_json must be an object when provided.")
+    return dict(raw_report_json)
+
+
+def _coerce_unit_interval_score(
+    value: Any, *, field_name: str, required: bool = False
+) -> float | None:
+    if value is None:
+        if required:
+            raise ValueError(f"{field_name} is required.")
+        return None
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        raise ValueError(f"{field_name} must be numeric when provided.")
+    normalized = float(value)
+    if not math.isfinite(normalized):
+        raise ValueError(f"{field_name} must be finite.")
+    if normalized < 0.0 or normalized > 1.0:
+        raise ValueError(f"{field_name} must be between 0 and 1.")
+    return normalized
+
+
+def _coerce_recommendation(value: Any, *, required: bool = False) -> str | None:
+    if value is None:
+        if required:
+            raise ValueError("recommendation is required.")
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("recommendation must be a non-empty string when provided.")
+    normalized = value.strip().lower()
+    if normalized not in EVALUATION_RECOMMENDATIONS:
+        raise ValueError(f"invalid recommendation: {value}")
+    return normalized
 
 
 def _coerce_day_index(value: Any, *, field_path: str) -> int:
@@ -167,10 +216,14 @@ def validate_evidence_pointers(value: Any) -> list[dict[str, Any]]:
 
 def _normalize_day_score_payload(
     day_scores: Sequence[Mapping[str, Any]],
+    *,
+    allow_empty: bool,
 ) -> list[dict[str, Any]]:
     if isinstance(day_scores, str | bytes):
         raise ValueError("day_scores must be a sequence of objects.")
     if not day_scores:
+        if allow_empty:
+            return []
         raise ValueError("day_scores must include at least one day score.")
 
     normalized: list[dict[str, Any]] = []
@@ -219,6 +272,14 @@ async def create_run(
     day3_final_sha: str,
     cutoff_commit_sha: str,
     transcript_reference: str,
+    job_id: str | None = None,
+    basis_fingerprint: str | None = None,
+    overall_fit_score: float | None = None,
+    recommendation: str | None = None,
+    confidence: float | None = None,
+    generated_at: datetime | None = None,
+    raw_report_json: Mapping[str, Any] | None = None,
+    error_code: str | None = None,
     status: str = EVALUATION_RUN_STATUS_PENDING,
     started_at: datetime | None = None,
     completed_at: datetime | None = None,
@@ -257,6 +318,31 @@ async def create_run(
     ):
         raise ValueError("completed_at must be greater than or equal to started_at.")
 
+    normalized_generated_at = _normalize_datetime(
+        generated_at,
+        field_name="generated_at",
+        default_now=False,
+    )
+    if (
+        normalized_status
+        in {EVALUATION_RUN_STATUS_PENDING, EVALUATION_RUN_STATUS_RUNNING}
+        and normalized_generated_at is not None
+    ):
+        raise ValueError(
+            f"generated_at is not allowed when status is {normalized_status}."
+        )
+    if (
+        normalized_status == EVALUATION_RUN_STATUS_COMPLETED
+        and normalized_generated_at is None
+        and normalized_completed_at is not None
+    ):
+        normalized_generated_at = normalized_completed_at
+    if (
+        normalized_generated_at is not None
+        and normalized_generated_at < normalized_started_at
+    ):
+        raise ValueError("generated_at must be greater than or equal to started_at.")
+
     run = EvaluationRun(
         candidate_session_id=int(candidate_session_id),
         scenario_version_id=int(scenario_version_id),
@@ -275,6 +361,26 @@ async def create_run(
         rubric_version=_normalize_non_empty_str(
             rubric_version,
             field_name="rubric_version",
+        ),
+        job_id=_normalize_optional_non_empty_str(job_id, field_name="job_id"),
+        basis_fingerprint=_normalize_optional_non_empty_str(
+            basis_fingerprint,
+            field_name="basis_fingerprint",
+        ),
+        overall_fit_score=_coerce_unit_interval_score(
+            overall_fit_score,
+            field_name="overall_fit_score",
+        ),
+        recommendation=_coerce_recommendation(recommendation),
+        confidence=_coerce_unit_interval_score(
+            confidence,
+            field_name="confidence",
+        ),
+        generated_at=normalized_generated_at,
+        raw_report_json=_coerce_raw_report_json(raw_report_json),
+        error_code=_normalize_optional_non_empty_str(
+            error_code,
+            field_name="error_code",
         ),
         metadata_json=_coerce_metadata_json(metadata_json),
         day2_checkpoint_sha=_normalize_non_empty_str(
@@ -308,12 +414,22 @@ async def add_day_scores(
     *,
     run: EvaluationRun,
     day_scores: Sequence[Mapping[str, Any]],
+    allow_empty: bool = False,
     commit: bool = True,
 ) -> list[EvaluationDayScore]:
     if run.id is None:
         raise ValueError("run must be persisted before adding day scores.")
 
-    normalized_entries = _normalize_day_score_payload(day_scores)
+    normalized_entries = _normalize_day_score_payload(
+        day_scores,
+        allow_empty=allow_empty,
+    )
+    if not normalized_entries:
+        if commit:
+            await db.commit()
+        else:
+            await db.flush()
+        return []
     existing_day_indexes = set(
         (
             await db.execute(
@@ -368,6 +484,14 @@ async def create_run_with_day_scores(
     day3_final_sha: str,
     cutoff_commit_sha: str,
     transcript_reference: str,
+    job_id: str | None = None,
+    basis_fingerprint: str | None = None,
+    overall_fit_score: float | None = None,
+    recommendation: str | None = None,
+    confidence: float | None = None,
+    generated_at: datetime | None = None,
+    raw_report_json: Mapping[str, Any] | None = None,
+    error_code: str | None = None,
     day_scores: Sequence[Mapping[str, Any]],
     status: str = EVALUATION_RUN_STATUS_PENDING,
     started_at: datetime | None = None,
@@ -387,6 +511,14 @@ async def create_run_with_day_scores(
         day3_final_sha=day3_final_sha,
         cutoff_commit_sha=cutoff_commit_sha,
         transcript_reference=transcript_reference,
+        job_id=job_id,
+        basis_fingerprint=basis_fingerprint,
+        overall_fit_score=overall_fit_score,
+        recommendation=recommendation,
+        confidence=confidence,
+        generated_at=generated_at,
+        raw_report_json=raw_report_json,
+        error_code=error_code,
         status=status,
         started_at=started_at,
         completed_at=completed_at,
@@ -397,6 +529,7 @@ async def create_run_with_day_scores(
         db,
         run=run,
         day_scores=day_scores,
+        allow_empty=False,
         commit=False,
     )
     if commit:
@@ -417,6 +550,63 @@ async def get_run_by_id(
     if for_update:
         stmt = stmt.with_for_update()
     return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_run_by_job_id(
+    db: AsyncSession,
+    *,
+    job_id: str,
+    candidate_session_id: int | None = None,
+    for_update: bool = False,
+) -> EvaluationRun | None:
+    normalized_job_id = _normalize_non_empty_str(job_id, field_name="job_id")
+    stmt = (
+        select(EvaluationRun)
+        .options(selectinload(EvaluationRun.day_scores))
+        .where(EvaluationRun.job_id == normalized_job_id)
+        .order_by(EvaluationRun.started_at.desc(), EvaluationRun.id.desc())
+        .limit(1)
+    )
+    if candidate_session_id is not None:
+        stmt = stmt.where(
+            EvaluationRun.candidate_session_id == int(candidate_session_id)
+        )
+    if for_update:
+        stmt = stmt.with_for_update()
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_latest_run_for_candidate_session(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    statuses: Sequence[str] | None = None,
+) -> EvaluationRun | None:
+    stmt = (
+        select(EvaluationRun)
+        .options(selectinload(EvaluationRun.day_scores))
+        .where(EvaluationRun.candidate_session_id == candidate_session_id)
+        .order_by(EvaluationRun.started_at.desc(), EvaluationRun.id.desc())
+        .limit(1)
+    )
+    if statuses is not None:
+        normalized_statuses = {_normalize_status(value) for value in statuses}
+        if not normalized_statuses:
+            return None
+        stmt = stmt.where(EvaluationRun.status.in_(sorted(normalized_statuses)))
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
+async def get_latest_successful_run_for_candidate_session(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+) -> EvaluationRun | None:
+    return await get_latest_run_for_candidate_session(
+        db,
+        candidate_session_id=candidate_session_id,
+        statuses=[EVALUATION_RUN_STATUS_COMPLETED],
+    )
 
 
 async def list_runs_for_candidate_session(
@@ -458,7 +648,10 @@ __all__ = [
     "add_day_scores",
     "create_run",
     "create_run_with_day_scores",
+    "get_latest_run_for_candidate_session",
+    "get_latest_successful_run_for_candidate_session",
     "get_run_by_id",
+    "get_run_by_job_id",
     "has_runs_for_candidate_session",
     "list_runs_for_candidate_session",
     "validate_evidence_pointers",
