@@ -13,5 +13,7 @@ class GithubSettings(BaseSettings):
     GITHUB_ACTIONS_WORKFLOW_FILE: str = "tenon-ci.yml"
     GITHUB_REPO_PREFIX: str = "tenon-ws-"
     GITHUB_CLEANUP_ENABLED: bool = False
+    GITHUB_WEBHOOK_SECRET: str = ""
+    GITHUB_WEBHOOK_MAX_BODY_BYTES: int = 262_144
 
     model_config = SettingsConfigDict(extra="ignore", env_prefix="TENON_")

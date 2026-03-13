@@ -10,6 +10,10 @@ from app.jobs.handlers.evaluation_run import (
     EVALUATION_RUN_JOB_TYPE,
     handle_evaluation_run,
 )
+from app.jobs.handlers.github_workflow_artifact_parse import (
+    GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE,
+    handle_github_workflow_artifact_parse,
+)
 from app.jobs.handlers.scenario_generation import (
     SCENARIO_GENERATION_JOB_TYPE,
     handle_scenario_generation,
@@ -30,6 +34,8 @@ __all__ = [
     "handle_day_close_finalize_text",
     "EVALUATION_RUN_JOB_TYPE",
     "handle_evaluation_run",
+    "GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE",
+    "handle_github_workflow_artifact_parse",
     "SIMULATION_CLEANUP_JOB_TYPE",
     "handle_simulation_cleanup",
     "SCENARIO_GENERATION_JOB_TYPE",

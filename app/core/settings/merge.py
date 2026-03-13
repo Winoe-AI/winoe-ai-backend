@@ -31,6 +31,8 @@ _SECTIONS: dict[str, tuple[list[str], str]] = {
             "GITHUB_ACTIONS_WORKFLOW_FILE",
             "GITHUB_REPO_PREFIX",
             "GITHUB_CLEANUP_ENABLED",
+            "GITHUB_WEBHOOK_SECRET",
+            "GITHUB_WEBHOOK_MAX_BODY_BYTES",
         ],
         "TENON_",
     ),

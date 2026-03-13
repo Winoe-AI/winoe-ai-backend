@@ -46,6 +46,14 @@ class Submission(Base):
     checkpoint_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
     final_sha: Mapped[str | None] = mapped_column(String(100), nullable=True)
     workflow_run_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    workflow_run_attempt: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    workflow_run_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    workflow_run_conclusion: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
+    workflow_run_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     diff_summary_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     tests_passed: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tests_failed: Mapped[int | None] = mapped_column(Integer, nullable=True)
