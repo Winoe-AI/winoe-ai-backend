@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     GITHUB_ACTIONS_WORKFLOW_FILE: str | None = None
     GITHUB_REPO_PREFIX: str | None = None
     GITHUB_CLEANUP_ENABLED: bool | None = None
+    GITHUB_WEBHOOK_SECRET: str | None = None
+    GITHUB_WEBHOOK_MAX_BODY_BYTES: int | None = None
 
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)

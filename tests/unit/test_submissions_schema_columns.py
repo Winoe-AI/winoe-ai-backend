@@ -18,6 +18,10 @@ async def test_submissions_table_has_test_result_columns(db_engine):
         "checkpoint_sha",
         "final_sha",
         "workflow_run_id",
+        "workflow_run_attempt",
+        "workflow_run_status",
+        "workflow_run_conclusion",
+        "workflow_run_completed_at",
         "diff_summary_json",
     }
     assert required.issubset(names)
