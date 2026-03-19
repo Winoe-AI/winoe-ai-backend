@@ -15,22 +15,27 @@ set -euo pipefail
 #   6. Seeds before write tests and cleans up afterward
 #
 # Usage:
-#   ./qa_verifications/Database-QA/run_db_protocol_qa.sh
-#   ./qa_verifications/Database-QA/run_db_protocol_qa.sh --skip-migrations
-#   ./qa_verifications/Database-QA/run_db_protocol_qa.sh --skip-cleanup
-#   ./qa_verifications/Database-QA/run_db_protocol_qa.sh --allow-nonlocal
+#   ./qa_verifications/Database-Protocol-QA/run_db_protocol_qa.sh
+#   ./qa_verifications/Database-Protocol-QA/run_db_protocol_qa.sh --skip-migrations
+#   ./qa_verifications/Database-Protocol-QA/run_db_protocol_qa.sh --skip-cleanup
+#   ./qa_verifications/Database-Protocol-QA/run_db_protocol_qa.sh --allow-nonlocal
 ###############################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 ENV_FILE="$BACKEND_ROOT/.env"
 RESULTS_DIR="$SCRIPT_DIR/db_protocol_qa_latest"
-RESULTS_LOGS_DIR="$RESULTS_DIR/logs"
-RESULTS_SQL_DIR="$RESULTS_DIR/sql"
-SUMMARY_MD="$RESULTS_DIR/README.md"
-NEGATIVE_CHECKS_MD="$RESULTS_DIR/negative-checks.md"
+REPORT_MD="$RESULTS_DIR/db_protocol_qa_report.md"
+ARTIFACTS_DIR="$RESULTS_DIR/artifacts"
+RESULTS_LOGS_DIR="$ARTIFACTS_DIR/logs"
+RESULTS_SQL_DIR="$ARTIFACTS_DIR/sql"
+NEGATIVE_CHECKS_MD="$ARTIFACTS_DIR/negative-checks.md"
 RUN_STARTED_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-OVERALL_STATUS="GREEN"
+OVERALL_STATUS="PASS"
+RUN_MODE="full"
+RUN_STARTED_EPOCH="$(date +%s)"
+RUN_FINISHED_UTC=""
+FAILURE_NOTES=()
 
 SKIP_MIGRATIONS=0
 SKIP_CLEANUP=0
@@ -67,9 +72,9 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --skip-migrations) SKIP_MIGRATIONS=1; shift ;;
-    --skip-cleanup) SKIP_CLEANUP=1; shift ;;
-    --allow-nonlocal) ALLOW_NONLOCAL=1; shift ;;
+    --skip-migrations) SKIP_MIGRATIONS=1; RUN_MODE="custom"; shift ;;
+    --skip-cleanup) SKIP_CLEANUP=1; RUN_MODE="custom"; shift ;;
+    --allow-nonlocal) ALLOW_NONLOCAL=1; RUN_MODE="custom"; shift ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Unknown argument: $1"; usage; exit 1 ;;
   esac
@@ -82,23 +87,27 @@ require_cmd() {
   fi
 }
 
+record_failure() {
+  FAILURE_NOTES+=("$1")
+}
+
 init_summary_files() {
-  cat >"$SUMMARY_MD" <<EOF
-# Database QA Run Summary
+  cat >"$REPORT_MD" <<EOF
+# Database-Protocol QA Verification
+
+## Run Summary
 
 - Started (UTC): \`$RUN_STARTED_UTC\`
+- Finished (UTC): \`pending\`
+- Overall status: \`pending\`
+- Runner: \`./qa_verifications/Database-Protocol-QA/run_db_protocol_qa.sh\`
+- Run mode: \`$RUN_MODE\`
 - Database URL: \`$DB_URL\`
-- Backend root: \`$BACKEND_ROOT\`
-- Runner: \`$0\`
-- Options:
-  - \`--skip-migrations=$SKIP_MIGRATIONS\`
-  - \`--skip-cleanup=$SKIP_CLEANUP\`
-  - \`--allow-nonlocal=$ALLOW_NONLOCAL\`
 
 ## Artifact Layout
-- \`logs/\`: full command output for each step
-- \`sql/\`: SQL scripts generated and executed by this run
-- [negative-checks.md](negative-checks.md): negative-check evidence (expected vs observed errors)
+- \`artifacts/logs/\`: full command output for each step
+- \`artifacts/sql/\`: SQL scripts generated and executed by this run
+- \`artifacts/negative-checks.md\`: negative-check evidence (expected vs observed errors)
 
 ## Step Results
 | Step | Check Type | Status | Duration (s) | Expected Errors | Observed Errors | Log |
@@ -124,12 +133,18 @@ append_summary_row() {
 
   if [[ "$log_ref" != "-" ]]; then
     local base
+    local link_target
     base="$(basename "$log_ref")"
-    log_cell="[$base]($log_ref)"
+    if [[ "$log_ref" == artifacts/* ]]; then
+      link_target="$log_ref"
+    else
+      link_target="artifacts/$log_ref"
+    fi
+    log_cell="[$base]($link_target)"
   fi
 
   printf '| `%s` | `%s` | `%s` | %s | %s | %s | %s |\n' \
-    "$step" "$check_type" "$status" "$duration_s" "$expected_error_count" "$observed_error_count" "$log_cell" >>"$SUMMARY_MD"
+    "$step" "$check_type" "$status" "$duration_s" "$expected_error_count" "$observed_error_count" "$log_cell" >>"$REPORT_MD"
 }
 
 append_negative_check_details() {
@@ -137,7 +152,7 @@ append_negative_check_details() {
   local log_file="$2"
   local expected_error_count="$3"
   local observed_error_count="$4"
-  local rel_log="logs/$(basename "$log_file")"
+  local rel_log="artifacts/logs/$(basename "$log_file")"
   local errors
   errors="$(grep -n 'ERROR:' "$log_file" | sed -E 's|^[0-9]+:psql:.*/(sql/[^:]+):([0-9]+): ERROR: |\1:\2 ERROR: |' || true)"
 
@@ -161,14 +176,44 @@ append_negative_check_details() {
 }
 
 finalize_summary() {
-  local finished_utc
+  local finished_utc total_duration_s
   finished_utc="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  RUN_FINISHED_UTC="$finished_utc"
+  total_duration_s="$(( $(date +%s) - RUN_STARTED_EPOCH ))"
+
+  # Replace pending summary values with actual run results.
+  if [[ -f "$REPORT_MD" ]]; then
+    python3 - "$REPORT_MD" "$finished_utc" "$OVERALL_STATUS" <<'PY'
+from pathlib import Path
+import sys
+
+report = Path(sys.argv[1])
+finished = sys.argv[2]
+status = sys.argv[3]
+content = report.read_text(encoding="utf-8")
+content = content.replace("- Finished (UTC): `pending`", f"- Finished (UTC): `{finished}`", 1)
+content = content.replace("- Overall status: `pending`", f"- Overall status: `{status}`", 1)
+report.write_text(content, encoding="utf-8")
+PY
+  fi
+
   {
     echo ""
-    echo "## Overall"
-    echo "- Status: \`$OVERALL_STATUS\`"
+    echo "## Timing"
+    echo ""
+    echo "- Total duration (s): \`$total_duration_s\`"
+    echo "- Started (UTC): \`$RUN_STARTED_UTC\`"
     echo "- Finished (UTC): \`$finished_utc\`"
-  } >>"$SUMMARY_MD"
+    echo "- Per-step durations are listed in the Step Results table."
+    echo ""
+    echo "## Failures"
+    echo ""
+    if [[ "${#FAILURE_NOTES[@]}" -eq 0 ]]; then
+      echo "- None"
+    else
+      printf '%s\n' "${FAILURE_NOTES[@]}"
+    fi
+  } >>"$REPORT_MD"
 }
 
 run_cmd_step() {
@@ -195,8 +240,9 @@ run_cmd_step() {
     ok "${label} completed. Log: $log_file"
   else
     status="FAIL"
-    OVERALL_STATUS="RED"
+    OVERALL_STATUS="FAIL"
     append_summary_row "$label" "positive" "$status" "$duration_s" "0" "$error_count" "logs/$(basename "$log_file")"
+    record_failure "- Step \`$label\` failed. See \`artifacts/logs/$(basename "$log_file")\`."
     fail "${label} failed. See: $log_file"
     finalize_summary
     exit 1
@@ -230,16 +276,18 @@ run_sql_file() {
       ok "${label} completed. Log: $log_file"
     else
       status="FAIL"
-      OVERALL_STATUS="RED"
+      OVERALL_STATUS="FAIL"
       append_summary_row "$label" "positive" "$status" "$duration_s" "0" "$error_count" "logs/$(basename "$log_file")"
+      record_failure "- Step \`$label\` failed. See \`artifacts/logs/$(basename "$log_file")\`."
       fail "${label} failed. See: $log_file"
       finalize_summary
       exit 1
     fi
   else
     if [[ -z "$expected_error_count" ]]; then
-      OVERALL_STATUS="RED"
+      OVERALL_STATUS="FAIL"
       append_summary_row "$label" "negative" "FAIL" "$duration_s" "unset" "$error_count" "logs/$(basename "$log_file")"
+      record_failure "- Step \`$label\` misconfigured negative-check expectation."
       fail "Negative check misconfigured for ${label}: expected error count not provided."
       finalize_summary
       exit 1
@@ -253,8 +301,9 @@ run_sql_file() {
       ok "${label} completed. Negative check matched expected errors (${expected_error_count}). Log: $log_file"
     else
       status="FAIL"
-      OVERALL_STATUS="RED"
+      OVERALL_STATUS="FAIL"
       append_summary_row "$label" "negative" "$status" "$duration_s" "$expected_error_count" "$error_count" "logs/$(basename "$log_file")"
+      record_failure "- Step \`$label\` failed negative-check assertion (expected $expected_error_count, observed $error_count). See \`artifacts/logs/$(basename "$log_file")\`."
       fail "${label} failed negative-check assertion (expected ${expected_error_count} errors, observed ${error_count}). See: $log_file"
       finalize_summary
       exit 1
@@ -2281,8 +2330,9 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 rm -rf "$RESULTS_DIR"
-mkdir -p "$RESULTS_DIR" "$RESULTS_LOGS_DIR" "$RESULTS_SQL_DIR"
+mkdir -p "$RESULTS_DIR" "$ARTIFACTS_DIR" "$RESULTS_LOGS_DIR" "$RESULTS_SQL_DIR"
 ok "Results directory: $RESULTS_DIR"
+ok "Artifacts directory: $ARTIFACTS_DIR"
 
 set -a
 # shellcheck source=/dev/null
@@ -2367,6 +2417,6 @@ headr "Done"
 finalize_summary
 ok "Database QA pass completed."
 ok "Final Result: $OVERALL_STATUS"
-info "Logs are in: $RESULTS_DIR"
-info "Summary: $SUMMARY_MD"
+info "Artifacts are in: $ARTIFACTS_DIR"
+info "Report: $REPORT_MD"
 info "Negative-check report: $NEGATIVE_CHECKS_MD"

@@ -47,9 +47,7 @@ async def get_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> User:
     """Return the current recruiter-facing user."""
-    return await _resolve_current_user(
-        request, db, credentials, require_recruiter=True
-    )
+    return await _resolve_current_user(request, db, credentials, require_recruiter=True)
 
 
 async def get_authenticated_user(

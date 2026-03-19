@@ -23,10 +23,12 @@ from app.services.candidate_sessions import fetch_owned as fetch_owned_service
 from app.services.candidate_sessions import invites as invites_service
 from app.services.candidate_sessions import ownership as ownership_service
 from app.services.candidate_sessions import status as status_service
-from app.services.submissions import codespace_urls
-from app.services.submissions import rate_limits
-from app.services.submissions import submission_progress
-from app.services.submissions import task_rules
+from app.services.submissions import (
+    codespace_urls,
+    rate_limits,
+    submission_progress,
+    task_rules,
+)
 from app.services.submissions.use_cases import codespace_init as codespace_init_service
 from app.services.submissions.use_cases import submit_task as submit_task_service
 
@@ -64,7 +66,9 @@ async def test_claim_invite_with_principal_skips_commit_when_no_changes(monkeypa
     monkeypatch.setattr(
         claims_service, "ensure_candidate_ownership", lambda *_args, **_kwargs: False
     )
-    monkeypatch.setattr(claims_service, "mark_in_progress", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        claims_service, "mark_in_progress", lambda *_args, **_kwargs: None
+    )
 
     loaded = await claims_service.claim_invite_with_principal(
         db,
@@ -79,7 +83,9 @@ async def test_claim_invite_with_principal_skips_commit_when_no_changes(monkeypa
 
 
 @pytest.mark.asyncio
-async def test_fetch_owned_session_skips_commit_for_existing_claim_no_updates(monkeypatch):
+async def test_fetch_owned_session_skips_commit_for_existing_claim_no_updates(
+    monkeypatch,
+):
     now = datetime.now(UTC)
     db = _DummyDB()
     candidate_session = SimpleNamespace(candidate_auth0_sub="auth0|already")
@@ -125,7 +131,9 @@ async def test_fetch_owned_session_skips_commit_after_lock_when_no_updates(monke
         return candidate_session
 
     monkeypatch.setattr(fetch_owned_service.cs_repo, "get_by_id", _get_by_id)
-    monkeypatch.setattr(fetch_owned_service.cs_repo, "get_by_id_for_update", _get_by_id_for_update)
+    monkeypatch.setattr(
+        fetch_owned_service.cs_repo, "get_by_id_for_update", _get_by_id_for_update
+    )
     monkeypatch.setattr(
         fetch_owned_service, "ensure_can_access", lambda cs, *_args, **_kwargs: cs
     )
@@ -152,7 +160,9 @@ async def test_fetch_owned_session_skips_commit_after_lock_when_no_updates(monke
 
 def test_mark_in_progress_preserves_existing_started_at():
     existing_started_at = datetime(2026, 1, 1, tzinfo=UTC)
-    candidate_session = SimpleNamespace(status="not_started", started_at=existing_started_at)
+    candidate_session = SimpleNamespace(
+        status="not_started", started_at=existing_started_at
+    )
 
     status_service.mark_in_progress(candidate_session, now=datetime.now(UTC))
 
@@ -223,7 +233,9 @@ async def test_invite_list_reuses_cached_tasks_per_simulation(monkeypatch):
         return {"sessionId": cs.id, "taskCount": len(tasks)}
 
     monkeypatch.setattr(invites_service.cs_repo, "list_for_email", _list_for_email)
-    monkeypatch.setattr(invites_service.cs_repo, "tasks_for_simulation", _tasks_for_simulation)
+    monkeypatch.setattr(
+        invites_service.cs_repo, "tasks_for_simulation", _tasks_for_simulation
+    )
     monkeypatch.setattr(invites_service, "last_submission_map", _last_submission_map)
     monkeypatch.setattr(invites_service, "build_invite_item", _build_invite_item)
 
@@ -263,7 +275,9 @@ async def test_ensure_canonical_workspace_url_noop_when_equal_but_not_marked_can
         codespace_url=canonical,
     )
 
-    monkeypatch.setattr(codespace_urls, "is_canonical_codespace_url", lambda _url: False)
+    monkeypatch.setattr(
+        codespace_urls, "is_canonical_codespace_url", lambda _url: False
+    )
 
     resolved = await codespace_urls.ensure_canonical_workspace_url(db, workspace)
 
@@ -298,9 +312,13 @@ async def test_ensure_not_duplicate_noop_when_repository_returns_none(monkeypatc
 
 
 @pytest.mark.asyncio
-async def test_progress_after_submission_skips_commit_for_already_completed(monkeypatch):
+async def test_progress_after_submission_skips_commit_for_already_completed(
+    monkeypatch,
+):
     db = _DummyDB()
-    candidate_session = SimpleNamespace(status="completed", completed_at=datetime.now(UTC))
+    candidate_session = SimpleNamespace(
+        status="completed", completed_at=datetime.now(UTC)
+    )
 
     async def _snapshot(_db, _candidate_session):
         return (
@@ -384,7 +402,9 @@ async def test_submit_task_skips_code_submission_for_non_code_task(monkeypatch):
 
     monkeypatch.setattr(submit_task_service, "apply_rate_limit", _apply_rate_limit)
     monkeypatch.setattr(submit_task_service, "validate_submission_flow", _validate)
-    monkeypatch.setattr(submit_task_service, "run_code_submission", _run_code_submission)
+    monkeypatch.setattr(
+        submit_task_service, "run_code_submission", _run_code_submission
+    )
     monkeypatch.setattr(
         submit_task_service.submission_service,
         "is_code_task",
@@ -399,7 +419,13 @@ async def test_submit_task_skips_code_submission_for_non_code_task(monkeypatch):
         _progress_after_submission,
     )
 
-    task_loaded, submission, completed, total, is_complete = await submit_task_service.submit_task(
+    (
+        task_loaded,
+        submission,
+        completed,
+        total,
+        is_complete,
+    ) = await submit_task_service.submit_task(
         db,
         candidate_session=candidate_session,
         task_id=33,
@@ -452,7 +478,12 @@ async def test_init_codespace_skips_username_commit_when_unchanged(monkeypatch):
         lambda repo_full_name: f"https://codespaces.new/{repo_full_name}",
     )
 
-    loaded_workspace, built_url, canonical_url, loaded_task = await codespace_init_service.init_codespace(
+    (
+        loaded_workspace,
+        built_url,
+        canonical_url,
+        loaded_task,
+    ) = await codespace_init_service.init_codespace(
         db,
         candidate_session=candidate_session,
         task_id=99,

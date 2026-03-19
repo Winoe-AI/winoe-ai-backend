@@ -59,6 +59,10 @@ poetry_run ruff check . --fix
 echo "➡️  Formatting backend with Ruff..."
 poetry_run ruff format .
 
+echo "🧽 Resetting coverage data..."
+find "$ROOT_DIR" -maxdepth 1 -type f \( -name ".coverage" -o -name ".coverage.*" \) -delete
+poetry_run coverage erase
+
 echo "🧪 Pytest..."
 poetry_run pytest -v --maxfail=1
 

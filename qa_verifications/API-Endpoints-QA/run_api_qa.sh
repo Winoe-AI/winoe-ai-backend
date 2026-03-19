@@ -30,10 +30,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 COLLECTION="$SCRIPT_DIR/tenon-backend-qa-postman-collection.json"
 ENVIRONMENT="$SCRIPT_DIR/tenon-backend-qa-postman-environment.json"
-ARTIFACTS_DIR="$SCRIPT_DIR/api_qa_latest"
-MARKDOWN_REPORT="$ARTIFACTS_DIR/api_qa_report.md"
-TMP_REPORT_JSON="$ARTIFACTS_DIR/.newman_report.json"
-HTML_REPORT="$ARTIFACTS_DIR/api_qa_report.html"
+LATEST_DIR="$SCRIPT_DIR/api_qa_latest"
+REPORT_MD="$LATEST_DIR/api_endpoints_qa_report.md"
+ARTIFACTS_DIR="$LATEST_DIR/artifacts"
+LOG_DIR="$ARTIFACTS_DIR/logs"
+TMP_REPORT_JSON="$ARTIFACTS_DIR/newman_report.json"
+HTML_REPORT="$ARTIFACTS_DIR/newman_report.html"
+CONTRACT_LOG="$LOG_DIR/00_collection_contract.log"
+NEWMAN_LOG="$LOG_DIR/01_newman_run.log"
+RUN_STARTED_UTC="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 # ─── Defaults (match runBackend.sh seed data) ────────────────────────────────
 BASE_URL="${BASE_URL:-http://localhost:8000}"
@@ -136,9 +141,14 @@ else
     exit 1
 fi
 
+# Recreate latest directory so each run overwrites prior artifacts.
+rm -rf "$LATEST_DIR"
+mkdir -p "$LOG_DIR"
+
 header "Collection Contract Checks"
 info "Validating endpoint coverage and Postman test scripts..."
-if python3 - "$COLLECTION" "$BASE_URL" <<'PY'
+set +e
+python3 - "$COLLECTION" "$BASE_URL" <<'PY' | tee "$CONTRACT_LOG"
 import json
 import re
 import sys
@@ -276,16 +286,14 @@ if missing_routes:
 if missing_post_scripts or missing_status_assertions or missing_routes:
     sys.exit(2)
 PY
-then
+CONTRACT_RC=${PIPESTATUS[0]}
+set -e
+if [[ $CONTRACT_RC -eq 0 ]]; then
     ok "Collection contract checks passed"
 else
     fail "Collection contract checks failed"
     exit 1
 fi
-
-# Recreate artifact directory so each run overwrites prior artifacts
-rm -rf "$ARTIFACTS_DIR"
-mkdir -p "$ARTIFACTS_DIR"
 
 # ─── Build Newman command ────────────────────────────────────────────────────
 header "Configuration"
@@ -297,6 +305,8 @@ info "Run mode:         ${RUN_MODE}"
 info "Request delay:    ${DELAY_MS}ms"
 info "Request timeout:  ${TIMEOUT_MS}ms"
 info "Artifacts:        ${ARTIFACTS_DIR}"
+info "Report:           ${REPORT_MD}"
+info "Newman log:       ${NEWMAN_LOG}"
 [[ $BAIL -eq 1 ]] && info "Bail on failure:  YES"
 [[ $VERBOSE -eq 1 ]] && info "Verbose mode:     YES"
 
@@ -374,20 +384,39 @@ esac
 header "Running Tests"
 
 EXIT_CODE=0
-newman "${NEWMAN_ARGS[@]}" || EXIT_CODE=$?
+set +e
+newman "${NEWMAN_ARGS[@]}" 2>&1 | tee "$NEWMAN_LOG"
+EXIT_CODE=${PIPESTATUS[0]}
+set -e
 
 # ─── Report Summary ──────────────────────────────────────────────────────────
 header "Results"
 
 if [[ -f "$TMP_REPORT_JSON" ]]; then
-    python3 - "$TMP_REPORT_JSON" "$MARKDOWN_REPORT" <<'PY'
+    python3 - \
+        "$TMP_REPORT_JSON" \
+        "$REPORT_MD" \
+        "$RUN_STARTED_UTC" \
+        "$RUN_MODE" \
+        "$BASE_URL" \
+        "$EXIT_CODE" \
+        "$CONTRACT_LOG" \
+        "$NEWMAN_LOG" \
+        "$HTML_REPORT" <<'PY'
 import json
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 json_path = Path(sys.argv[1])
-markdown_path = Path(sys.argv[2])
+report_path = Path(sys.argv[2])
+run_started_utc = sys.argv[3]
+run_mode = sys.argv[4]
+base_url = sys.argv[5]
+exit_code = int(sys.argv[6])
+contract_log = Path(sys.argv[7])
+newman_log = Path(sys.argv[8])
+html_report = Path(sys.argv[9])
 
 with json_path.open(encoding="utf-8") as f:
     report = json.load(f)
@@ -457,6 +486,15 @@ for failure in run.get("failures", []):
         }
     )
 
+overall_status = "PASS" if exit_code == 0 and failed_tests == 0 else "FAIL"
+finished_utc = datetime.now(UTC).isoformat()
+
+def rel_path(path: Path) -> str:
+    return path.relative_to(report_path.parent).as_posix()
+
+def md_cell(text: str) -> str:
+    return text.replace("|", r"\|").replace("\n", " ")
+
 # Console summary (keeps current UX)
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
@@ -480,13 +518,48 @@ if failure_items:
         if item["message"]:
             print(f"    {item['message'][:200]}")
 
-# Markdown artifact with JSON blocks
+# Markdown artifact with a uniform layout used by all QA runners.
+newman_detail = (
+    f"requests={passed_req}/{total_req} passed, "
+    f"assertions={passed_tests}/{total_tests} passed, "
+    f"duration={duration_s:.1f}s"
+)
+html_report_line = (
+    "- `artifacts/newman_report.html`: Newman HTML report"
+    if html_report.exists()
+    else "- `artifacts/newman_report.html`: not generated"
+)
+
 markdown_lines = [
-    "# API QA Latest",
+    "# API-Endpoints QA Verification",
     "",
-    f"_Generated (UTC): {datetime.now(UTC).isoformat()}_",
+    "## Run Summary",
+    f"- Started (UTC): `{run_started_utc}`",
+    f"- Finished (UTC): `{finished_utc}`",
+    f"- Overall status: `{overall_status}`",
+    f"- Runner: `./qa_verifications/API-Endpoints-QA/run_api_qa.sh`",
+    f"- Run mode: `{run_mode}`",
+    f"- Base URL: `{base_url}`",
     "",
-    "## Summary",
+    "## Artifact Layout",
+    "- `artifacts/logs/`: contract + Newman CLI output",
+    "- `artifacts/newman_report.json`: Newman raw JSON report",
+    html_report_line,
+    "",
+    "## Step Results",
+    "| Step | Status | Log | Details |",
+    "|---|---|---|---|",
+    (
+        f"| `00_collection_contract` | `PASS` | "
+        f"[{contract_log.name}]({rel_path(contract_log)}) | "
+        f"{md_cell('Validated collection test scripts and OpenAPI endpoint coverage.')} |"
+    ),
+    (
+        f"| `01_newman_run` | `{overall_status}` | "
+        f"[{newman_log.name}]({rel_path(newman_log)}) | {md_cell(newman_detail)} |"
+    ),
+    "",
+    "## Newman Summary",
     "```json",
     json.dumps(summary, indent=2),
     "```",
@@ -503,15 +576,48 @@ markdown_lines = [
     "",
 ]
 
-markdown_path.write_text("\n".join(markdown_lines), encoding="utf-8")
+rendered = "\n".join(markdown_lines)
+report_path.write_text(rendered, encoding="utf-8")
 PY
 
-    echo -e "${CYAN}Markdown report:${NC}  $MARKDOWN_REPORT"
-    rm -f "$TMP_REPORT_JSON"
+    echo -e "${CYAN}Report:${NC}           $REPORT_MD"
+    echo -e "${CYAN}Newman JSON:${NC}      $TMP_REPORT_JSON"
 
     if [[ -f "$HTML_REPORT" ]]; then
         echo -e "${CYAN}HTML report:${NC}      $HTML_REPORT"
     fi
+else
+    warn "Newman JSON report missing; writing fallback summary."
+    {
+        echo "# API-Endpoints QA Verification"
+        echo
+        echo "## Run Summary"
+        echo "- Started (UTC): \`$RUN_STARTED_UTC\`"
+        echo "- Finished (UTC): \`$(date -u +"%Y-%m-%dT%H:%M:%SZ")\`"
+        echo "- Overall status: \`FAIL\`"
+        echo "- Runner: \`./qa_verifications/API-Endpoints-QA/run_api_qa.sh\`"
+        echo "- Run mode: \`$RUN_MODE\`"
+        echo "- Base URL: \`$BASE_URL\`"
+        echo
+        echo "## Artifact Layout"
+        echo "- \`artifacts/logs/\`: contract + Newman CLI output"
+        echo "- \`artifacts/newman_report.json\`: not generated"
+        echo "- \`artifacts/newman_report.html\`: optional"
+        echo
+        echo "## Step Results"
+        echo "| Step | Status | Log | Details |"
+        echo "|---|---|---|---|"
+        echo "| \`00_collection_contract\` | \`PASS\` | [$(basename "$CONTRACT_LOG")](artifacts/logs/$(basename "$CONTRACT_LOG")) | Validated collection test scripts and OpenAPI endpoint coverage. |"
+        echo "| \`01_newman_run\` | \`FAIL\` | [$(basename "$NEWMAN_LOG")](artifacts/logs/$(basename "$NEWMAN_LOG")) | Newman exited before producing a JSON report. |"
+        echo
+        echo "## Timing"
+        echo "- Started (UTC): \`$RUN_STARTED_UTC\`"
+        echo "- Finished (UTC): \`$(date -u +"%Y-%m-%dT%H:%M:%SZ")\`"
+        echo
+        echo "## Failures"
+        echo "- Newman exited before producing \`artifacts/newman_report.json\`."
+    } >"$REPORT_MD"
+    echo -e "${CYAN}Report:${NC}           $REPORT_MD"
 fi
 
 echo ""

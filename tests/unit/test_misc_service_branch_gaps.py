@@ -20,9 +20,11 @@ from app.services.evaluations import runs as evaluation_runs
 from app.services.media import keys as media_keys
 from app.services.media import privacy as media_privacy
 from app.services.notifications.email_sender import EmailSender
-from app.services.simulations import candidates_compare
-from app.services.simulations import invite_factory
-from app.services.simulations import scenario_payload_builder
+from app.services.simulations import (
+    candidates_compare,
+    invite_factory,
+    scenario_payload_builder,
+)
 from app.services.simulations import update as simulations_update
 
 
@@ -46,7 +48,9 @@ class _DummyDB:
         self.rollbacks += 1
 
 
-def test_resolve_create_invite_callable_falls_back_when_service_callable_missing(monkeypatch):
+def test_resolve_create_invite_callable_falls_back_when_service_callable_missing(
+    monkeypatch,
+):
     from app.domains.simulations import service as simulations_service
     from app.services.simulations.invite_create import create_invite
 
@@ -107,7 +111,9 @@ def test_parse_recording_public_id_rejects_zero_digit_form():
 
 
 @pytest.mark.asyncio
-async def test_delete_recording_asset_without_transcript_skips_transcript_mark(monkeypatch):
+async def test_delete_recording_asset_without_transcript_skips_transcript_mark(
+    monkeypatch,
+):
     db = _DummyDB()
     candidate_session = SimpleNamespace(id=55)
     recording = SimpleNamespace(id=10, candidate_session_id=55, storage_key="k")
@@ -127,7 +133,9 @@ async def test_delete_recording_asset_without_transcript_skips_transcript_mark(m
     async def _mark_transcript_deleted(*_args, **_kwargs):
         calls["mark_transcript_deleted"] += 1
 
-    monkeypatch.setattr(media_privacy.settings.storage_media, "MEDIA_DELETE_ENABLED", True)
+    monkeypatch.setattr(
+        media_privacy.settings.storage_media, "MEDIA_DELETE_ENABLED", True
+    )
     monkeypatch.setattr(
         media_privacy.recordings_repo, "get_by_id_for_update", _get_by_id_for_update
     )
@@ -165,7 +173,9 @@ def test_display_name_falls_back_for_non_string_candidate_name():
     assert resolved == "Candidate A"
 
 
-def test_build_scenario_generation_payload_omits_optional_recruiter_context(monkeypatch):
+def test_build_scenario_generation_payload_omits_optional_recruiter_context(
+    monkeypatch,
+):
     simulation = SimpleNamespace(
         id=1,
         template_key="python-fastapi",
@@ -178,9 +188,13 @@ def test_build_scenario_generation_payload_omits_optional_recruiter_context(monk
         ai_eval_enabled_by_day=None,
     )
 
-    monkeypatch.setattr(scenario_payload_builder, "normalize_role_level", lambda _value: None)
     monkeypatch.setattr(
-        scenario_payload_builder, "build_simulation_company_context", lambda _value: None
+        scenario_payload_builder, "normalize_role_level", lambda _value: None
+    )
+    monkeypatch.setattr(
+        scenario_payload_builder,
+        "build_simulation_company_context",
+        lambda _value: None,
     )
     monkeypatch.setattr(
         scenario_payload_builder,
@@ -250,7 +264,9 @@ async def test_fail_run_allows_metadata_and_error_message_omitted(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_update_simulation_without_notice_or_day_changes_skips_change_logs(monkeypatch):
+async def test_update_simulation_without_notice_or_day_changes_skips_change_logs(
+    monkeypatch,
+):
     simulation = SimpleNamespace(
         id=45,
         ai_notice_version="notice-v1",
@@ -285,7 +301,9 @@ async def test_update_simulation_without_notice_or_day_changes_skips_change_logs
         "require_owned_simulation_with_tasks",
         _require_owned_with_tasks,
     )
-    monkeypatch.setattr(simulations_update, "resolve_simulation_ai_fields", _resolve_fields)
+    monkeypatch.setattr(
+        simulations_update, "resolve_simulation_ai_fields", _resolve_fields
+    )
 
     updated_simulation, updated_tasks = await simulations_update.update_simulation(
         db,

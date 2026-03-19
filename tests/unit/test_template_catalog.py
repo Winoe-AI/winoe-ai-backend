@@ -107,11 +107,10 @@ def test_canonical_key_from_repo_handles_missing_and_late_match(monkeypatch):
         },
     )
 
+    assert template_catalog_service._canonical_key_from_repo("org/second") == "second"
     assert (
-        template_catalog_service._canonical_key_from_repo("org/second")
-        == "second"
+        template_catalog_service._canonical_key_from_repo("org/does-not-exist") is None
     )
-    assert template_catalog_service._canonical_key_from_repo("org/does-not-exist") is None
 
 
 def test_build_template_key_aliases_skips_blank_repo_and_unknown_legacy_rewrite(

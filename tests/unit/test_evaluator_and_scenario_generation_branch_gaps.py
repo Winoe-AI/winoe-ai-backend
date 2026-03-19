@@ -9,8 +9,7 @@ Targets:
 
 from __future__ import annotations
 
-from app.services.evaluations import evaluator
-from app.services.evaluations import fit_profile_pipeline
+from app.services.evaluations import evaluator, fit_profile_pipeline
 from app.services.simulations import scenario_generation
 
 
@@ -88,7 +87,11 @@ def test_evaluator_day4_transcript_segments_include_excerpt_and_scoring_bonus():
         day_index=4,
         transcript_reference="transcript:99",
         transcript_segments=[
-            {"startMs": 10, "endMs": 25, "text": "Discussed tradeoffs and rollout plan."}
+            {
+                "startMs": 10,
+                "endMs": 25,
+                "text": "Discussed tradeoffs and rollout plan.",
+            }
         ],
     )
 
@@ -132,7 +135,9 @@ def test_evaluator_build_day_evidence_covers_optional_false_paths():
     assert evidence_day1[0]["kind"] == "reflection"
 
     # Day 2/3: commit/diff optional values missing.
-    day2 = _day_input(day_index=2, commit_sha=None, cutoff_commit_sha=None, diff_summary={})
+    day2 = _day_input(
+        day_index=2, commit_sha=None, cutoff_commit_sha=None, diff_summary={}
+    )
     evidence_day2 = evaluator._build_day_evidence(day2)
     assert evidence_day2[0]["kind"] in {"reflection", "test"}
 
@@ -161,12 +166,22 @@ def test_apply_generated_task_updates_covers_invalid_and_blank_inputs():
         type(
             "Task",
             (),
-            {"day_index": 1, "title": "Original 1", "description": "Original 1", "max_score": 5},
+            {
+                "day_index": 1,
+                "title": "Original 1",
+                "description": "Original 1",
+                "max_score": 5,
+            },
         )(),
         type(
             "Task",
             (),
-            {"day_index": 2, "title": "Original 2", "description": "Original 2", "max_score": 7},
+            {
+                "day_index": 2,
+                "title": "Original 2",
+                "description": "Original 2",
+                "max_score": 7,
+            },
         )(),
     ]
 

@@ -42,13 +42,18 @@ class _FakeDB:
 
 
 def test_segment_text_returns_none_for_empty_keys():
-    assert fit_profile_pipeline._segment_text(
-        {"text": "   ", "content": None, "excerpt": ""}
-    ) is None
+    assert (
+        fit_profile_pipeline._segment_text(
+            {"text": "   ", "content": None, "excerpt": ""}
+        )
+        is None
+    )
 
 
 @pytest.mark.asyncio
-async def test_resolve_day4_transcript_handles_deleted_submission_recording(monkeypatch):
+async def test_resolve_day4_transcript_handles_deleted_submission_recording(
+    monkeypatch,
+):
     db = _FakeDB(get_value=SimpleNamespace(id=7))
     monkeypatch.setattr(
         fit_profile_pipeline.recordings_repo,

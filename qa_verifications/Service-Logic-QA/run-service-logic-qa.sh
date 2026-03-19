@@ -18,28 +18,38 @@ set -euo pipefail
 # (overwritten on each run)
 #
 # Usage:
-#   ./run-service-logic-qa.sh
-#   ./run-service-logic-qa.sh --skip-combined
-#   ./run-service-logic-qa.sh --branch-min 97
-#   ./run-service-logic-qa.sh --no-strict
+#   ./qa_verifications/Service-Logic-QA/run-service-logic-qa.sh
+#   ./qa_verifications/Service-Logic-QA/run-service-logic-qa.sh --skip-combined
+#   ./qa_verifications/Service-Logic-QA/run-service-logic-qa.sh --branch-min 97
+#   ./qa_verifications/Service-Logic-QA/run-service-logic-qa.sh --no-strict
 ###############################################################################
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 QA_ROOT="$BACKEND_ROOT/qa_verifications/Service-Logic-QA"
 RESULTS_DIR="$QA_ROOT/service_logic_qa_latest"
-LOG_DIR="$RESULTS_DIR/logs"
+REPORT_MD="$RESULTS_DIR/service_logic_qa_report.md"
+ARTIFACTS_DIR="$RESULTS_DIR/artifacts"
+LOG_DIR="$ARTIFACTS_DIR/logs"
 
 SKIP_COMBINED=0
 STRICT_ENFORCEMENT=1
 BRANCH_MIN=99
-STRICT_STATUS="not-run"
+STRICT_STATUS="NOT_RUN"
 STRICT_SOURCE_JSON=""
 STRICT_REPORT_FILE=""
-OVERALL_STATUS="pass"
-STEP_01_STATUS="not-run"
-STEP_02_STATUS="not-run"
-STEP_03_STATUS="not-run"
+RUN_MODE="full"
+OVERALL_STATUS="PASS"
+STEP_01_STATUS="NOT_RUN"
+STEP_02_STATUS="NOT_RUN"
+STEP_03_STATUS="NOT_RUN"
+STEP_01_DURATION_S="0"
+STEP_02_DURATION_S="0"
+STEP_03_DURATION_S="0"
+STEP_04_DURATION_S="0"
+RUN_FINISHED_UTC=""
+LAST_STEP_DURATION_S="0"
+RUN_STARTED_EPOCH="0"
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -70,15 +80,18 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-combined)
       SKIP_COMBINED=1
+      RUN_MODE="custom"
       shift
       ;;
     --branch-min)
       [[ $# -lt 2 ]] && { fail "--branch-min requires a value"; exit 1; }
       BRANCH_MIN="$2"
+      RUN_MODE="custom"
       shift 2
       ;;
     --no-strict)
       STRICT_ENFORCEMENT=0
+      RUN_MODE="custom"
       shift
       ;;
     -h|--help)
@@ -113,6 +126,7 @@ run_step() {
   set -e
   end_ts="$(date +%s)"
   duration=$((end_ts - start_ts))
+  LAST_STEP_DURATION_S="$duration"
   if [[ $rc -ne 0 ]]; then
     fail "$label failed (exit=$rc, duration=${duration}s). See $log_file"
     return $rc
@@ -134,13 +148,17 @@ extract_summary_line() {
   rg -n "={3,} .* (passed|failed|error|errors|skipped)" "$log_file" | tail -n 1 | sed 's/^[0-9]*://' || true
 }
 
+md_escape_cell() {
+  printf '%s' "$1" | tr '\n' ' ' | sed 's/|/\\|/g'
+}
+
 strict_validate_coverage() {
   local coverage_json="$1"
-  STRICT_REPORT_FILE="$RESULTS_DIR/strict-validation.txt"
+  STRICT_REPORT_FILE="$ARTIFACTS_DIR/strict-validation.txt"
   STRICT_SOURCE_JSON="$coverage_json"
 
   if [[ ! -f "$coverage_json" ]]; then
-    STRICT_STATUS="fail"
+    STRICT_STATUS="FAIL"
     fail "Strict validation failed: coverage JSON not found: $coverage_json"
     return 1
   fi
@@ -272,66 +290,117 @@ report_path.write_text(
 )
 PY
   then
-    STRICT_STATUS="fail"
+    STRICT_STATUS="FAIL"
     fail "Strict validation failed (report: $STRICT_REPORT_FILE)."
     return 1
   fi
 
-  STRICT_STATUS="pass"
+  STRICT_STATUS="PASS"
   ok "Strict validation passed (report: $STRICT_REPORT_FILE)."
   return 0
 }
 
 write_run_summary() {
-  local summary_md="$RESULTS_DIR/README.md"
+  local summary_md="$REPORT_MD"
   local started_utc="$1"
   local finished_utc
+  local total_duration_s
+  local step_01_detail step_02_detail step_03_detail
+  local step_03_log strict_status strict_log strict_detail
+  local failure_lines=()
   finished_utc="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+  RUN_FINISHED_UTC="$finished_utc"
+  total_duration_s="$(( $(date +%s) - RUN_STARTED_EPOCH ))"
+  step_01_detail="$(extract_summary_line "$LOG_DIR/01-existing-tests.log")"
+  step_02_detail="$(extract_summary_line "$LOG_DIR/02-existing-coverage.log")"
+  step_03_detail="$(extract_summary_line "$LOG_DIR/03-combined-coverage.log")"
+
+  if [[ $SKIP_COMBINED -eq 0 ]]; then
+    step_03_log="[03-combined-coverage.log](artifacts/logs/03-combined-coverage.log)"
+  else
+    STEP_03_STATUS="SKIPPED"
+    step_03_log="-"
+    step_03_detail="Skipped by --skip-combined"
+  fi
+
+  if [[ $STRICT_ENFORCEMENT -eq 1 ]]; then
+    strict_status="$STRICT_STATUS"
+    if [[ -f "$STRICT_REPORT_FILE" ]]; then
+      strict_log="[strict-validation.txt](artifacts/strict-validation.txt)"
+    else
+      strict_log="-"
+    fi
+    strict_detail="branch_min=${BRANCH_MIN}, source=$(basename "$STRICT_SOURCE_JSON")"
+  else
+    strict_status="SKIPPED"
+    strict_log="-"
+    strict_detail="Disabled by --no-strict"
+  fi
+
+  if [[ "$STEP_01_STATUS" == "FAIL" ]]; then
+    failure_lines+=("- Step \`01_existing_tests\` failed. See \`artifacts/logs/01-existing-tests.log\`.")
+  fi
+  if [[ "$STEP_02_STATUS" == "FAIL" ]]; then
+    failure_lines+=("- Step \`02_existing_coverage\` failed. See \`artifacts/logs/02-existing-coverage.log\`.")
+  fi
+  if [[ "$STEP_03_STATUS" == "FAIL" ]]; then
+    failure_lines+=("- Step \`03_combined_coverage\` failed. See \`artifacts/logs/03-combined-coverage.log\`.")
+  fi
+  if [[ "$strict_status" == "FAIL" ]]; then
+    failure_lines+=("- Step \`04_strict_validation\` failed. See \`artifacts/strict-validation.txt\`.")
+  fi
 
   {
-    echo "# Service & Logic QA Runner Results"
+    echo "# Service-Logic QA Verification"
+    echo
+    echo "## Run Summary"
     echo
     echo "- Started (UTC): \`$started_utc\`"
     echo "- Finished (UTC): \`$finished_utc\`"
     echo "- Overall status: \`$OVERALL_STATUS\`"
-    echo "- Backend root: \`$BACKEND_ROOT\`"
-    echo "- Runner: \`$0\`"
+    echo "- Runner: \`./qa_verifications/Service-Logic-QA/run-service-logic-qa.sh\`"
+    echo "- Run mode: \`$RUN_MODE\`"
     echo
-    echo "## Commands"
+    echo "## Artifact Layout"
     echo
-    echo "1. \`poetry run pytest -o addopts=''\`"
-    echo "2. \`poetry run pytest -o addopts='' --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=json:$RESULTS_DIR/coverage-existing.json\`"
+    echo "- \`artifacts/logs/\`: pytest command logs"
+    echo "- \`artifacts/coverage-existing.json\`: coverage from existing tests run"
     if [[ $SKIP_COMBINED -eq 0 ]]; then
-      echo "3. \`poetry run pytest -o addopts='' tests --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=json:$RESULTS_DIR/coverage-combined.json\`"
+      echo "- \`artifacts/coverage-combined.json\`: coverage from combined tests run"
     else
-      echo "3. Skipped (\`--skip-combined\`)"
+      echo "- \`artifacts/coverage-combined.json\`: skipped (\`--skip-combined\`)"
     fi
-    echo
-    echo "## Summary"
-    echo
-    echo "- Existing tests: [$STEP_01_STATUS] $(extract_summary_line "$LOG_DIR/01-existing-tests.log")"
-    echo "- Existing coverage run: [$STEP_02_STATUS] $(extract_summary_line "$LOG_DIR/02-existing-coverage.log")"
-    if [[ $SKIP_COMBINED -eq 0 ]]; then
-      echo "- Combined coverage run: [$STEP_03_STATUS] $(extract_summary_line "$LOG_DIR/03-combined-coverage.log")"
-    fi
-    if [[ $STRICT_ENFORCEMENT -eq 1 ]]; then
-      echo "- Strict validation: $STRICT_STATUS"
+    if [[ -f "$STRICT_REPORT_FILE" ]]; then
+      echo "- \`artifacts/strict-validation.txt\`: strict gate report"
     else
-      echo "- Strict validation: skipped (\`--no-strict\`)"
+      echo "- \`artifacts/strict-validation.txt\`: not generated"
     fi
+    echo "- Branch minimum (%): \`$BRANCH_MIN\`"
+    echo "- Strict enforcement: \`$STRICT_ENFORCEMENT\`"
     echo
-    echo "## Artifacts"
+    echo "## Step Results"
     echo
-    echo "- Logs: \`$LOG_DIR\`"
-    echo "- Existing coverage JSON: \`$RESULTS_DIR/coverage-existing.json\`"
-    if [[ $SKIP_COMBINED -eq 0 ]]; then
-      echo "- Combined coverage JSON: \`$RESULTS_DIR/coverage-combined.json\`"
-    fi
-    if [[ -n "$STRICT_REPORT_FILE" ]]; then
-      echo "- Strict validation report: \`$STRICT_REPORT_FILE\`"
-      if [[ -n "$STRICT_SOURCE_JSON" ]]; then
-        echo "- Strict validation source JSON: \`$STRICT_SOURCE_JSON\`"
-      fi
+    echo "| Step | Status | Log | Details |"
+    echo "|---|---|---|---|"
+    echo "| \`01_existing_tests\` | \`$STEP_01_STATUS\` | [01-existing-tests.log](artifacts/logs/01-existing-tests.log) | $(md_escape_cell "$step_01_detail") |"
+    echo "| \`02_existing_coverage\` | \`$STEP_02_STATUS\` | [02-existing-coverage.log](artifacts/logs/02-existing-coverage.log) | $(md_escape_cell "$step_02_detail") |"
+    echo "| \`03_combined_coverage\` | \`$STEP_03_STATUS\` | $step_03_log | $(md_escape_cell "$step_03_detail") |"
+    echo "| \`04_strict_validation\` | \`$strict_status\` | $strict_log | $(md_escape_cell "$strict_detail") |"
+    echo
+    echo "## Timing"
+    echo
+    echo "- Total duration (s): \`$total_duration_s\`"
+    echo "- 01_existing_tests duration (s): \`$STEP_01_DURATION_S\`"
+    echo "- 02_existing_coverage duration (s): \`$STEP_02_DURATION_S\`"
+    echo "- 03_combined_coverage duration (s): \`$STEP_03_DURATION_S\`"
+    echo "- 04_strict_validation duration (s): \`$STEP_04_DURATION_S\`"
+    echo
+    echo "## Failures"
+    echo
+    if [[ "${#failure_lines[@]}" -eq 0 ]]; then
+      echo "- None"
+    else
+      printf '%s\n' "${failure_lines[@]}"
     fi
   } >"$summary_md"
 }
@@ -350,6 +419,7 @@ main() {
   mkdir -p "$LOG_DIR"
   local started_utc
   started_utc="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+  RUN_STARTED_EPOCH="$(date +%s)"
 
   headr "Service & Logic QA"
   info "Results directory: $RESULTS_DIR"
@@ -359,57 +429,69 @@ main() {
   if ! run_step \
     "01-existing-tests" \
     "poetry run pytest -o addopts=''"; then
-    STEP_01_STATUS="fail"
-    OVERALL_STATUS="fail"
+    STEP_01_DURATION_S="$LAST_STEP_DURATION_S"
+    STEP_01_STATUS="FAIL"
+    OVERALL_STATUS="FAIL"
   else
-    STEP_01_STATUS="pass"
+    STEP_01_DURATION_S="$LAST_STEP_DURATION_S"
+    STEP_01_STATUS="PASS"
   fi
 
   if ! run_step \
     "02-existing-coverage" \
-    "poetry run pytest -o addopts='' --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=json:$RESULTS_DIR/coverage-existing.json"; then
-    STEP_02_STATUS="fail"
-    OVERALL_STATUS="fail"
+    "poetry run pytest -o addopts='' --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=json:$ARTIFACTS_DIR/coverage-existing.json"; then
+    STEP_02_DURATION_S="$LAST_STEP_DURATION_S"
+    STEP_02_STATUS="FAIL"
+    OVERALL_STATUS="FAIL"
   else
-    STEP_02_STATUS="pass"
+    STEP_02_DURATION_S="$LAST_STEP_DURATION_S"
+    STEP_02_STATUS="PASS"
   fi
 
   if [[ $SKIP_COMBINED -eq 0 ]]; then
     if ! run_step \
       "03-combined-coverage" \
-      "poetry run pytest -o addopts='' tests --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=json:$RESULTS_DIR/coverage-combined.json"; then
-      STEP_03_STATUS="fail"
-      OVERALL_STATUS="fail"
+      "poetry run pytest -o addopts='' tests --cov=app --cov-branch --cov-report=term-missing --cov-report=xml --cov-report=json:$ARTIFACTS_DIR/coverage-combined.json"; then
+      STEP_03_DURATION_S="$LAST_STEP_DURATION_S"
+      STEP_03_STATUS="FAIL"
+      OVERALL_STATUS="FAIL"
     else
-      STEP_03_STATUS="pass"
+      STEP_03_DURATION_S="$LAST_STEP_DURATION_S"
+      STEP_03_STATUS="PASS"
     fi
   else
     warn "Skipping combined run by flag."
-    STEP_03_STATUS="skipped"
+    STEP_03_DURATION_S="0"
+    STEP_03_STATUS="SKIPPED"
   fi
 
   if [[ $STRICT_ENFORCEMENT -eq 1 ]]; then
+    local strict_start_ts strict_end_ts
+    strict_start_ts="$(date +%s)"
     local strict_source_json
     if [[ $SKIP_COMBINED -eq 0 ]]; then
-      strict_source_json="$RESULTS_DIR/coverage-combined.json"
+      strict_source_json="$ARTIFACTS_DIR/coverage-combined.json"
     else
-      strict_source_json="$RESULTS_DIR/coverage-existing.json"
+      strict_source_json="$ARTIFACTS_DIR/coverage-existing.json"
     fi
     if ! strict_validate_coverage "$strict_source_json"; then
-      OVERALL_STATUS="fail"
+      OVERALL_STATUS="FAIL"
     fi
+    strict_end_ts="$(date +%s)"
+    STEP_04_DURATION_S="$((strict_end_ts - strict_start_ts))"
   else
-    STRICT_STATUS="skipped"
+    STRICT_STATUS="SKIPPED"
+    STEP_04_DURATION_S="0"
   fi
 
   write_run_summary "$started_utc"
-  if [[ "$OVERALL_STATUS" == "fail" ]]; then
+  if [[ "$OVERALL_STATUS" == "FAIL" ]]; then
     fail "Service & Logic QA completed with failures."
-    info "Summary: $RESULTS_DIR/README.md"
+    info "Report: $REPORT_MD"
     exit 1
   fi
   ok "Service & Logic QA completed."
-  info "Summary: $RESULTS_DIR/README.md"
+  info "Report: $REPORT_MD"
 }
 
 main "$@"
