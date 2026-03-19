@@ -223,3 +223,6 @@ ai_flow_boot_script.sh
 
 # Service & Logic QA generated artifacts
 /qa_verifications/Service-Logic-QA/service_logic_qa_latest/
+
+# Database QA generated artifacts
+/qa_verifications/Database-Protocol-QA/db_protocol_qa_latest
