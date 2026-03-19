@@ -6,6 +6,7 @@ Create Date: 2026-03-19 00:30:00.000000
 """
 
 from __future__ import annotations
+
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -506,7 +507,11 @@ def upgrade() -> None:
         for item in sa.inspect(bind).get_unique_constraints("workspaces")
         if item.get("name")
     }
-    if "uq_workspaces_workspace_group_id" not in unique_constraint_names:
+    workspace_index_names = _index_names(bind, "workspaces")
+    if (
+        "uq_workspaces_workspace_group_id" not in unique_constraint_names
+        and "uq_workspaces_workspace_group_id" not in workspace_index_names
+    ):
         op.create_unique_constraint(
             "uq_workspaces_workspace_group_id",
             "workspaces",
