@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -16,6 +17,7 @@ from app.repositories.submissions import repository as submissions_repo
 from app.repositories.transcripts import repository as transcripts_repo
 from app.repositories.transcripts.models import TRANSCRIPT_STATUS_PENDING
 from app.services.media.handoff_upload import (
+    _load_task_with_company_or_404,
     _resolve_company_id,
     _upsert_submission_recording_pointer,
     complete_handoff_upload,
@@ -713,43 +715,20 @@ async def test_upsert_submission_recording_pointer_handles_integrity_race(
         recording_id=first.id,
     )
 
-    original_get = submissions_repo.get_by_candidate_session_task
-    state = {"count": 0}
-
-    async def _racy_get(
-        db,
-        *,
-        candidate_session_id: int,
-        task_id: int,
-        for_update: bool = False,
-    ):
-        state["count"] += 1
-        if state["count"] == 1:
-            return None
-        return await original_get(
-            db,
-            candidate_session_id=candidate_session_id,
-            task_id=task_id,
-            for_update=for_update,
-        )
-
-    async def _raise_integrity(*args, **kwargs):
+    async def _upsert(*args, **kwargs):
         del args, kwargs
-        raise IntegrityError("insert", {}, Exception("duplicate"))
+        return existing.id
 
-    monkeypatch.setattr(submissions_repo, "get_by_candidate_session_task", _racy_get)
-    monkeypatch.setattr(submissions_repo, "create_handoff_submission", _raise_integrity)
+    monkeypatch.setattr(submissions_repo, "upsert_handoff_submission", _upsert)
 
-    resolved, changed = await _upsert_submission_recording_pointer(
+    resolved_id = await _upsert_submission_recording_pointer(
         async_session,
         candidate_session_id=candidate_session.id,
         task_id=task.id,
         recording_id=second.id,
         submitted_at=datetime.now(UTC),
     )
-    assert changed is True
-    assert resolved.id == existing.id
-    assert resolved.recording_id == second.id
+    assert resolved_id == existing.id
 
 
 @pytest.mark.asyncio
@@ -777,43 +756,20 @@ async def test_upsert_submission_recording_pointer_integrity_race_no_change(
         recording_id=first.id,
     )
 
-    original_get = submissions_repo.get_by_candidate_session_task
-    state = {"count": 0}
-
-    async def _racy_get(
-        db,
-        *,
-        candidate_session_id: int,
-        task_id: int,
-        for_update: bool = False,
-    ):
-        state["count"] += 1
-        if state["count"] == 1:
-            return None
-        return await original_get(
-            db,
-            candidate_session_id=candidate_session_id,
-            task_id=task_id,
-            for_update=for_update,
-        )
-
-    async def _raise_integrity(*args, **kwargs):
+    async def _upsert(*args, **kwargs):
         del args, kwargs
-        raise IntegrityError("insert", {}, Exception("duplicate"))
+        return existing.id
 
-    monkeypatch.setattr(submissions_repo, "get_by_candidate_session_task", _racy_get)
-    monkeypatch.setattr(submissions_repo, "create_handoff_submission", _raise_integrity)
+    monkeypatch.setattr(submissions_repo, "upsert_handoff_submission", _upsert)
 
-    resolved, changed = await _upsert_submission_recording_pointer(
+    resolved_id = await _upsert_submission_recording_pointer(
         async_session,
         candidate_session_id=candidate_session.id,
         task_id=task.id,
         recording_id=first.id,
         submitted_at=datetime.now(UTC),
     )
-    assert resolved.id == existing.id
-    assert changed is False
-    assert resolved.recording_id == first.id
+    assert resolved_id == existing.id
 
 
 @pytest.mark.asyncio
@@ -829,22 +785,7 @@ async def test_upsert_submission_recording_pointer_re_raises_when_fallback_missi
         del args, kwargs
         raise IntegrityError("insert", {}, Exception("duplicate"))
 
-    async def _missing_submission(
-        db,
-        *,
-        candidate_session_id: int,
-        task_id: int,
-        for_update: bool = False,
-    ):
-        del db, candidate_session_id, task_id, for_update
-        return None
-
-    monkeypatch.setattr(submissions_repo, "create_handoff_submission", _raise_integrity)
-    monkeypatch.setattr(
-        submissions_repo,
-        "get_by_candidate_session_task",
-        _missing_submission,
-    )
+    monkeypatch.setattr(submissions_repo, "upsert_handoff_submission", _raise_integrity)
 
     with pytest.raises(IntegrityError):
         await _upsert_submission_recording_pointer(
@@ -872,6 +813,70 @@ async def test_resolve_company_id_raises_when_simulation_missing(async_session):
         )
     assert exc_info.value.status_code == 500
     assert exc_info.value.detail == "Simulation metadata unavailable"
+
+
+@pytest.mark.asyncio
+async def test_load_task_with_company_or_404_not_found_raises():
+    class _Result:
+        def one_or_none(self):
+            return None
+
+    class _FakeDB:
+        async def execute(self, _stmt):
+            return _Result()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _load_task_with_company_or_404(_FakeDB(), task_id=999)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "Task not found"
+
+
+@pytest.mark.asyncio
+async def test_load_task_with_company_or_404_rejects_non_integer_company_id():
+    class _Result:
+        def one_or_none(self):
+            return SimpleNamespace(id=1), "oops"
+
+    class _FakeDB:
+        async def execute(self, _stmt):
+            return _Result()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await _load_task_with_company_or_404(_FakeDB(), task_id=1)
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Simulation metadata unavailable"
+
+
+@pytest.mark.asyncio
+async def test_resolve_company_id_uses_loaded_simulation_company_id(async_session):
+    task, _, candidate_session = await _setup_handoff_context(
+        async_session,
+        "service-company-loaded@test.com",
+    )
+    candidate_session.__dict__["simulation"] = SimpleNamespace(company_id=1234)
+
+    resolved = await _resolve_company_id(
+        async_session,
+        candidate_session=candidate_session,
+        simulation_id=task.simulation_id,
+    )
+    assert resolved == 1234
+
+
+@pytest.mark.asyncio
+async def test_resolve_company_id_queries_and_returns_int(async_session):
+    task, _, candidate_session = await _setup_handoff_context(
+        async_session,
+        "service-company-query@test.com",
+    )
+    candidate_session.__dict__.pop("simulation", None)
+
+    resolved = await _resolve_company_id(
+        async_session,
+        candidate_session=candidate_session,
+        simulation_id=task.simulation_id,
+    )
+    assert isinstance(resolved, int)
 
 
 @pytest.mark.asyncio

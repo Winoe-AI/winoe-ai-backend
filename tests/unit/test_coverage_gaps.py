@@ -336,7 +336,10 @@ def test_sqlalchemy_hooks_after_execute_handles_missing_stats():
     event_impl = EventImpl()
     engine = SimpleNamespace(sync_engine=object())
     perf_ctx = SimpleNamespace(get=lambda: None)
-    perf_module = SimpleNamespace(perf_logging_enabled=lambda: True)
+    perf_module = SimpleNamespace(
+        perf_logging_enabled=lambda: True,
+        perf_sql_fingerprints_enabled=lambda: False,
+    )
     sqlalchemy_hooks.register_listeners(
         engine,
         event_impl=event_impl,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +24,12 @@ async def invite_list_for_principal(
     now = datetime.now(UTC)
     session_ids = [cs.id for cs in sessions]
     last_submitted_map = await last_submission_map(db, session_ids)
+    completed_ids_map: dict[int, set[int]] = {}
+    if session_ids and hasattr(db, "execute"):
+        completed_ids_map = await cs_repo.completed_task_ids_bulk(db, session_ids)
     tasks_cache: dict[int, list[Task]] = {}
+    invite_item_parameters = inspect.signature(build_invite_item).parameters
+    supports_completed_ids = "completed_ids" in invite_item_parameters
 
     async def _tasks_for_simulation(simulation_id: int) -> list[Task]:
         if simulation_id not in tasks_cache:
@@ -33,13 +39,18 @@ async def invite_list_for_principal(
         return tasks_cache[simulation_id]
 
     for cs in sessions:
+        build_kwargs = {
+            "now": now,
+            "last_submitted_map": last_submitted_map,
+            "tasks_loader": _tasks_for_simulation,
+        }
+        if supports_completed_ids:
+            build_kwargs["completed_ids"] = completed_ids_map.get(cs.id, set())
         items.append(
             await build_invite_item(
                 db,
                 cs,
-                now=now,
-                last_submitted_map=last_submitted_map,
-                tasks_loader=_tasks_for_simulation,
+                **build_kwargs,
             )
         )
     return items

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import time
 from datetime import UTC, datetime
 from urllib.error import HTTPError
 from urllib.parse import quote, urlsplit
 from urllib.request import Request, urlopen
 
+from app.core import perf
 from app.integrations.storage_media.base import (
     StorageMediaError,
     StorageObjectMetadata,
@@ -90,6 +92,7 @@ class S3StorageMediaProvider:
             extra_headers={},
         )
         request = Request(signed_head_url, method="HEAD")
+        started = time.perf_counter()
         try:
             with urlopen(request, timeout=5) as response:
                 content_length_raw = response.headers.get("Content-Length")
@@ -131,6 +134,10 @@ class S3StorageMediaProvider:
             raise StorageMediaError(
                 "Failed to inspect storage object metadata"
             ) from exc
+        finally:
+            perf.record_external_wait(
+                "storage", (time.perf_counter() - started) * 1000.0
+            )
 
     def delete_object(self, key: str) -> None:
         signed_delete_url = self._presign(
@@ -140,6 +147,7 @@ class S3StorageMediaProvider:
             extra_headers={},
         )
         request = Request(signed_delete_url, method="DELETE")
+        started = time.perf_counter()
         try:
             with urlopen(request, timeout=5):
                 return
@@ -152,6 +160,10 @@ class S3StorageMediaProvider:
             ) from exc
         except OSError as exc:
             raise StorageMediaError("Failed to delete storage object") from exc
+        finally:
+            perf.record_external_wait(
+                "storage", (time.perf_counter() - started) * 1000.0
+            )
 
     def _presign(
         self,

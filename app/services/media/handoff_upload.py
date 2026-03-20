@@ -5,12 +5,11 @@ from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import MEDIA_STORAGE_UNAVAILABLE, REQUEST_TOO_LARGE, ApiError
 from app.core.settings import settings
-from app.domains import CandidateSession, RecordingAsset, Simulation, Transcript
+from app.domains import CandidateSession, RecordingAsset, Simulation, Task, Transcript
 from app.domains.candidate_sessions import service as cs_service
 from app.domains.submissions import service_candidate as submission_service
 from app.integrations.storage_media import StorageMediaProvider, resolve_signed_url_ttl
@@ -113,7 +112,7 @@ async def complete_handoff_upload(
     recording_id_value: str,
     storage_provider: StorageMediaProvider,
 ) -> RecordingAsset:
-    task = await submission_service.load_task_or_404(db, task_id)
+    task, company_id = await _load_task_with_company_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     _ensure_handoff_task(task.type)
     cs_service.require_active_window(candidate_session, task)
@@ -173,18 +172,12 @@ async def complete_handoff_upload(
     )
 
     now = datetime.now(UTC)
-    submission, submission_changed = await _upsert_submission_recording_pointer(
+    submission_id = await _upsert_submission_recording_pointer(
         db,
         candidate_session_id=candidate_session.id,
         task_id=task.id,
         recording_id=recording.id,
         submitted_at=now,
-    )
-
-    company_id = await _resolve_company_id(
-        db,
-        candidate_session=candidate_session,
-        simulation_id=task.simulation_id,
     )
     job = await jobs_repo.create_or_get_idempotent(
         db,
@@ -203,7 +196,6 @@ async def complete_handoff_upload(
     )
 
     await db.commit()
-    await db.refresh(recording)
 
     logger.info(
         "Recording upload completed recordingId=%s candidateSessionId=%s taskId=%s status=%s",
@@ -219,13 +211,12 @@ async def complete_handoff_upload(
             transcript.id,
             transcript.status,
         )
-    if submission_changed:
-        logger.info(
-            "Handoff submission recording pointer updated submissionId=%s taskId=%s recordingId=%s",
-            submission.id,
-            task.id,
-            recording.id,
-        )
+    logger.info(
+        "Handoff submission recording pointer updated submissionId=%s taskId=%s recordingId=%s",
+        submission_id,
+        task.id,
+        recording.id,
+    )
     logger.info(
         "Transcription job ensured recordingId=%s jobId=%s jobType=%s",
         recording.id,
@@ -268,49 +259,38 @@ async def _upsert_submission_recording_pointer(
     task_id: int,
     recording_id: int,
     submitted_at: datetime,
-):
-    existing = await submissions_repo.get_by_candidate_session_task(
+) -> int:
+    return await submissions_repo.upsert_handoff_submission(
         db,
         candidate_session_id=candidate_session_id,
         task_id=task_id,
-        for_update=True,
+        recording_id=recording_id,
+        submitted_at=submitted_at,
     )
-    if existing is not None:
-        changed = False
-        if existing.recording_id != recording_id:
-            existing.recording_id = recording_id
-            existing.submitted_at = submitted_at
-            changed = True
-        if changed:
-            await db.flush()
-        return existing, changed
 
-    try:
-        async with db.begin_nested():
-            created = await submissions_repo.create_handoff_submission(
-                db,
-                candidate_session_id=candidate_session_id,
-                task_id=task_id,
-                recording_id=recording_id,
-                submitted_at=submitted_at,
-                commit=False,
-            )
-        return created, True
-    except IntegrityError:
-        fallback = await submissions_repo.get_by_candidate_session_task(
-            db,
-            candidate_session_id=candidate_session_id,
-            task_id=task_id,
-            for_update=True,
+
+async def _load_task_with_company_or_404(
+    db: AsyncSession, task_id: int
+) -> tuple[Task, int]:
+    row = (
+        await db.execute(
+            select(Task, Simulation.company_id)
+            .join(Simulation, Simulation.id == Task.simulation_id)
+            .where(Task.id == task_id)
         )
-        if fallback is None:
-            raise
-        changed = fallback.recording_id != recording_id
-        if changed:
-            fallback.recording_id = recording_id
-            fallback.submitted_at = submitted_at
-            await db.flush()
-        return fallback, changed
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Task not found",
+        )
+    task, company_id = row
+    if not isinstance(company_id, int):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Simulation metadata unavailable",
+        )
+    return task, company_id
 
 
 async def _resolve_company_id(

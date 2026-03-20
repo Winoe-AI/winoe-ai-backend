@@ -11,7 +11,6 @@ from app.api.routers.simulations_routes.invite_resend_logic import resend_invite
 from app.core.auth.current_user import get_current_user
 from app.core.auth.roles import ensure_recruiter_or_none
 from app.core.db import get_session
-from app.domains.simulations import service as sim_service
 from app.services.email import EmailService
 
 router = APIRouter()
@@ -30,8 +29,6 @@ async def resend_candidate_invite(
     email_service: Annotated[EmailService, Depends(get_email_service)],
 ):
     ensure_recruiter_or_none(user)
-    simulation = await sim_service.require_owned_simulation(db, simulation_id, user.id)
-    sim_service.require_simulation_invitable(simulation)
     cs = await resend_invite(
         simulation_id=simulation_id,
         candidate_session_id=candidate_session_id,

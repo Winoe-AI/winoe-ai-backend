@@ -22,5 +22,4 @@ async def record_rate_limit(db, candidate_session, now: datetime) -> EmailSendRe
     candidate_session.invite_email_last_attempt_at = now
     candidate_session.invite_email_error = "Rate limited"
     await db.commit()
-    await db.refresh(candidate_session)
     return EmailSendResult(status="rate_limited", error="Rate limited")

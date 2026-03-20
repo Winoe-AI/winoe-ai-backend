@@ -200,10 +200,5 @@ async def create_simulation_with_tasks(
     )
     await db.commit()
 
-    await db.refresh(sim)
-    for task in created_tasks:
-        await db.refresh(task)
-    await db.refresh(scenario_job)
-
     created_tasks.sort(key=lambda task: task.day_index)
     return sim, created_tasks, scenario_job

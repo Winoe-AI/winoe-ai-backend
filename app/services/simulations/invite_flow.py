@@ -29,10 +29,12 @@ async def create_or_resend_invite(
         db, simulation_id=simulation_id, invite_email=invite_email
     )
     if existing:
+        setattr(existing, "_invite_newly_created", False)
         if existing.status == CANDIDATE_SESSION_STATUS_COMPLETED:
             raise InviteRejectedError()
         if _invite_is_expired(existing, now=now):
             refreshed = await _refresh_invite_token(db, existing, now=now)
+            setattr(refreshed, "_invite_newly_created", False)
             return refreshed, "created"
         return existing, "resent"
 
@@ -52,9 +54,11 @@ async def create_or_resend_invite(
             raise
         kwargs.pop("scenario_version_id", None)
         created, was_created = await create_invite_fn(**kwargs)
+    setattr(created, "_invite_newly_created", bool(was_created))
     if created.status == CANDIDATE_SESSION_STATUS_COMPLETED:
         raise InviteRejectedError()
     if _invite_is_expired(created, now=now):
         refreshed = await _refresh_invite_token(db, created, now=now)
+        setattr(refreshed, "_invite_newly_created", bool(was_created))
         return refreshed, "created"
     return created, "created" if was_created else "resent"

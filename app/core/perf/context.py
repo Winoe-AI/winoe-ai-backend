@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextvars import ContextVar, Token
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -10,6 +10,30 @@ class PerfStats:
 
     db_count: int = 0
     db_time_ms: float = 0.0
+    sql_fingerprint_counts: dict[str, int] = field(default_factory=dict)
+    sql_fingerprint_time_ms: dict[str, float] = field(default_factory=dict)
+    external_call_counts: dict[str, int] = field(default_factory=dict)
+    external_wait_ms: dict[str, float] = field(default_factory=dict)
+
+    def record_sql(self, fingerprint: str, elapsed_ms: float) -> None:
+        normalized = (fingerprint or "").strip()
+        if not normalized:
+            return
+        self.sql_fingerprint_counts[normalized] = (
+            self.sql_fingerprint_counts.get(normalized, 0) + 1
+        )
+        self.sql_fingerprint_time_ms[normalized] = (
+            self.sql_fingerprint_time_ms.get(normalized, 0.0) + float(elapsed_ms)
+        )
+
+    def record_external_wait(self, provider: str, elapsed_ms: float) -> None:
+        normalized_provider = (provider or "").strip().lower() or "unknown"
+        self.external_call_counts[normalized_provider] = (
+            self.external_call_counts.get(normalized_provider, 0) + 1
+        )
+        self.external_wait_ms[normalized_provider] = (
+            self.external_wait_ms.get(normalized_provider, 0.0) + float(elapsed_ms)
+        )
 
 
 def start_request_stats(perf_ctx: ContextVar) -> Token:

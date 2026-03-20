@@ -22,9 +22,14 @@ async def submit_task(
     actions_runner,
 ):
     apply_rate_limit(candidate_session.id, "submit")
-    task, content_json = await validate_submission_flow(
+    validation_result = await validate_submission_flow(
         db, candidate_session, task_id, payload
     )
+    if len(validation_result) == 2:
+        task, content_json = validation_result
+        task_list = None
+    else:
+        task, content_json, task_list = validation_result
     now = datetime.now(UTC)
     actions_result = diff_summary_json = workspace = None
     if submission_service.is_code_task(task):
@@ -32,6 +37,8 @@ async def submit_task(
             db=db,
             candidate_session_id=candidate_session.id,
             task_id=task.id,
+            task_day_index=getattr(task, "day_index", None),
+            task_type=getattr(task, "type", None),
             payload=payload,
             github_client=github_client,
             actions_runner=actions_runner,
@@ -48,6 +55,6 @@ async def submit_task(
         diff_summary_json=diff_summary_json,
     )
     completed, total, is_complete = await submission_service.progress_after_submission(
-        db, candidate_session, now=now
+        db, candidate_session, now=now, tasks=task_list
     )
     return task, submission, completed, total, is_complete

@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool | None = None
     MAX_REQUEST_BODY_BYTES: int = 1_048_576
     DEBUG_PERF: bool = False
+    PERF_SPANS_ENABLED: bool = False
+    PERF_SQL_FINGERPRINTS_ENABLED: bool = False
+    PERF_SPAN_SAMPLE_RATE: float = 1.0
     TRUSTED_PROXY_CIDRS: list[str] | str = Field(default_factory=list)
     DEMO_MODE: bool = False
     DEMO_ADMIN_ALLOWLIST_EMAILS: list[str] | str = Field(default_factory=list)
@@ -124,6 +127,19 @@ class Settings(BaseSettings):
     @classmethod
     def _coerce_csrf_lists(cls, value):
         return parse_env_list(value)
+
+    @field_validator("PERF_SPAN_SAMPLE_RATE", mode="before")
+    @classmethod
+    def _coerce_perf_span_sample_rate(cls, value):
+        try:
+            sampled = float(value)
+        except (TypeError, ValueError):
+            return 1.0
+        if sampled < 0.0:
+            return 0.0
+        if sampled > 1.0:
+            return 1.0
+        return sampled
 
     @model_validator(mode="before")
     def _merge_legacy(cls, values: dict) -> dict:

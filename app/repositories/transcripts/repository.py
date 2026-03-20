@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import delete, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.transcripts.models import Transcript
@@ -60,6 +61,26 @@ async def get_or_create_transcript(
     status: str,
     commit: bool = True,
 ) -> tuple[Transcript, bool]:
+    if not commit:
+        try:
+            async with db.begin_nested():
+                created = await create_transcript(
+                    db,
+                    recording_id=recording_id,
+                    status=status,
+                    commit=False,
+                )
+            return created, True
+        except IntegrityError:
+            existing = await get_by_recording_id(
+                db,
+                recording_id,
+                include_deleted=True,
+            )
+            if existing is None:  # pragma: no cover - defensive guard
+                raise
+            return existing, False
+
     existing = await get_by_recording_id(
         db,
         recording_id,

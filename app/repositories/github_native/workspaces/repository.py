@@ -1,32 +1,62 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from dataclasses import dataclass
+
+from sqlalchemy import and_, exists, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.github.workspaces.workspace import Workspace, WorkspaceGroup
 from app.repositories.github_native.workspaces.workspace_keys import (
+    CODING_WORKSPACE_KEY,
     resolve_workspace_key,
 )
 from app.repositories.tasks.models import Task
 
 
+@dataclass(slots=True)
+class WorkspaceResolution:
+    workspace_key: str | None
+    uses_grouped_workspace: bool
+    workspace_group: WorkspaceGroup | None = None
+    workspace_group_checked: bool = False
+
+
 async def get_by_session_and_task(
-    db: AsyncSession, *, candidate_session_id: int, task_id: int
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    task_id: int,
+    task_day_index: int | None = None,
+    task_type: str | None = None,
+    workspace_resolution: WorkspaceResolution | None = None,
 ) -> Workspace | None:
     """Fetch an existing workspace for a candidate session + task."""
-    workspace_key = await _resolve_workspace_key_for_task_id(db, task_id=task_id)
-    if await session_uses_grouped_workspace(
+    resolution = workspace_resolution or await resolve_workspace_resolution(
         db,
         candidate_session_id=candidate_session_id,
-        workspace_key=workspace_key,
-    ):
-        grouped = await get_by_session_and_workspace_key(
-            db,
-            candidate_session_id=candidate_session_id,
-            workspace_key=workspace_key,
-        )
-        if grouped is not None:
-            return grouped
+        task_id=task_id,
+        task_day_index=task_day_index,
+        task_type=task_type,
+    )
+
+    if resolution.uses_grouped_workspace:
+        if resolution.workspace_group is not None:
+            grouped = await get_by_workspace_group_id(
+                db, workspace_group_id=resolution.workspace_group.id
+            )
+            if grouped is not None:
+                return grouped
+        elif resolution.workspace_key and not (
+            resolution.workspace_group_checked and resolution.workspace_group is None
+        ):
+            grouped = await get_by_session_and_workspace_key(
+                db,
+                candidate_session_id=candidate_session_id,
+                workspace_key=resolution.workspace_key,
+            )
+            if grouped is not None:
+                return grouped
+        return None
 
     stmt = select(Workspace).where(
         Workspace.candidate_session_id == candidate_session_id,
@@ -70,21 +100,59 @@ async def session_uses_grouped_workspace(
     db: AsyncSession, *, candidate_session_id: int, workspace_key: str | None
 ) -> bool:
     """Decide whether this session should resolve/provision via workspace groups."""
-    if not workspace_key:
-        return False
-
-    existing_group = await get_workspace_group(
+    resolution = await resolve_workspace_resolution(
         db,
         candidate_session_id=candidate_session_id,
         workspace_key=workspace_key,
     )
-    if existing_group is not None:
-        return True
+    return resolution.uses_grouped_workspace
 
-    return not await _session_has_legacy_workspace_for_key(
+
+async def resolve_workspace_resolution(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    workspace_key: str | None = None,
+    task_id: int | None = None,
+    task_day_index: int | None = None,
+    task_type: str | None = None,
+) -> WorkspaceResolution:
+    resolved_key = workspace_key
+    if resolved_key is None:
+        if task_day_index is not None and task_type is not None:
+            resolved_key = resolve_workspace_key(
+                day_index=task_day_index,
+                task_type=task_type,
+            )
+        elif task_id is not None:
+            resolved_key = await _resolve_workspace_key_for_task_id(db, task_id=task_id)
+
+    if not resolved_key:
+        return WorkspaceResolution(
+            workspace_key=resolved_key,
+            uses_grouped_workspace=False,
+            workspace_group=None,
+            workspace_group_checked=False,
+        )
+
+    existing_group, has_legacy_workspace = await _workspace_key_state(
         db,
         candidate_session_id=candidate_session_id,
-        workspace_key=workspace_key,
+        workspace_key=resolved_key,
+    )
+    if existing_group is not None:
+        return WorkspaceResolution(
+            workspace_key=resolved_key,
+            uses_grouped_workspace=True,
+            workspace_group=existing_group,
+            workspace_group_checked=True,
+        )
+
+    return WorkspaceResolution(
+        workspace_key=resolved_key,
+        uses_grouped_workspace=not has_legacy_workspace,
+        workspace_group=None,
+        workspace_group_checked=True,
     )
 
 
@@ -109,6 +177,8 @@ async def create_workspace_group(
     default_branch: str | None,
     base_template_sha: str | None,
     created_at,
+    commit: bool = True,
+    refresh: bool = True,
 ) -> WorkspaceGroup:
     group = WorkspaceGroup(
         candidate_session_id=candidate_session_id,
@@ -120,8 +190,12 @@ async def create_workspace_group(
         created_at=created_at,
     )
     db.add(group)
-    await db.commit()
-    await db.refresh(group)
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+    if refresh:
+        await db.refresh(group)
     return group
 
 
@@ -136,9 +210,12 @@ async def create_workspace(
     repo_id: int | None,
     default_branch: str | None,
     base_template_sha: str | None,
+    codespace_url: str | None = None,
     precommit_sha: str | None = None,
     precommit_details_json: str | None = None,
     created_at,
+    commit: bool = True,
+    refresh: bool = True,
 ) -> Workspace:
     """Persist a workspace record."""
     ws = Workspace(
@@ -150,13 +227,18 @@ async def create_workspace(
         repo_id=repo_id,
         default_branch=default_branch,
         base_template_sha=base_template_sha,
+        codespace_url=codespace_url,
         precommit_sha=precommit_sha,
         precommit_details_json=precommit_details_json,
         created_at=created_at,
     )
     db.add(ws)
-    await db.commit()
-    await db.refresh(ws)
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+    if refresh:
+        await db.refresh(ws)
     return ws
 
 
@@ -165,12 +247,18 @@ async def set_precommit_sha(
     *,
     workspace: Workspace,
     precommit_sha: str,
+    commit: bool = True,
+    refresh: bool = True,
 ) -> Workspace:
     workspace.precommit_sha = precommit_sha
     # A resolved precommit SHA supersedes any prior no-bundle diagnostic snapshot.
     workspace.precommit_details_json = None
-    await db.commit()
-    await db.refresh(workspace)
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+    if refresh:
+        await db.refresh(workspace)
     return workspace
 
 
@@ -179,10 +267,16 @@ async def set_precommit_details(
     *,
     workspace: Workspace,
     precommit_details_json: str,
+    commit: bool = True,
+    refresh: bool = True,
 ) -> Workspace:
     workspace.precommit_details_json = precommit_details_json
-    await db.commit()
-    await db.refresh(workspace)
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+    if refresh:
+        await db.refresh(workspace)
     return workspace
 
 
@@ -196,25 +290,49 @@ async def _resolve_workspace_key_for_task_id(
     return resolve_workspace_key(day_index=row.day_index, task_type=row.type)
 
 
-async def _session_has_legacy_workspace_for_key(
-    db: AsyncSession, *, candidate_session_id: int, workspace_key: str
-) -> bool:
-    """Legacy rows are task-scoped coding workspaces with no workspace_group_id."""
-    stmt = (
-        select(Task.day_index, Task.type)
+def _legacy_workspace_exists_expr(
+    *, candidate_session_id: int, workspace_key: str
+):
+    if workspace_key != CODING_WORKSPACE_KEY:
+        return literal(False)
+
+    return exists(
+        select(literal(1))
         .select_from(Workspace)
         .join(Task, Workspace.task_id == Task.id)
         .where(
             Workspace.candidate_session_id == candidate_session_id,
             Workspace.workspace_group_id.is_(None),
+            Task.day_index.in_((2, 3)),
+            Task.type.in_(("code", "debug")),
         )
     )
-    rows = (await db.execute(stmt)).all()
-    for row in rows:
-        legacy_workspace_key = resolve_workspace_key(
-            day_index=row.day_index,
-            task_type=row.type,
+
+
+async def _workspace_key_state(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    workspace_key: str,
+) -> tuple[WorkspaceGroup | None, bool]:
+    anchor = select(literal(1).label("anchor")).subquery()
+    legacy_exists = _legacy_workspace_exists_expr(
+        candidate_session_id=candidate_session_id,
+        workspace_key=workspace_key,
+    )
+    stmt = (
+        select(WorkspaceGroup, legacy_exists.label("has_legacy_workspace"))
+        .select_from(anchor)
+        .outerjoin(
+            WorkspaceGroup,
+            and_(
+                WorkspaceGroup.candidate_session_id == candidate_session_id,
+                WorkspaceGroup.workspace_key == workspace_key,
+            ),
         )
-        if legacy_workspace_key == workspace_key:
-            return True
-    return False
+    )
+    row = (await db.execute(stmt)).first()
+    if row is None:
+        return None, False
+    group, has_legacy_workspace = row
+    return group, bool(has_legacy_workspace)

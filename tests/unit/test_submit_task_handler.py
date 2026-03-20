@@ -52,3 +52,45 @@ async def test_handle_submit_task_uses_pinned_cutoff_commit_basis(monkeypatch):
     assert response.commitSha == response.cutoffCommitSha
     assert response.commitSha != submission.commit_sha
     assert response.evalBasisRef == "refs/heads/main@cutoff"
+
+
+@pytest.mark.asyncio
+async def test_handle_submit_task_normalizes_naive_cutoff_timestamp(monkeypatch):
+    task = SimpleNamespace(id=22, day_index=2)
+    submission = SimpleNamespace(
+        id=99,
+        submitted_at=datetime(2026, 3, 8, 15, 0, tzinfo=UTC),
+        commit_sha="sha",
+        checkpoint_sha=None,
+        final_sha=None,
+    )
+    day_audit = SimpleNamespace(
+        cutoff_commit_sha=None,
+        cutoff_at=datetime(2026, 3, 8, 14, 0),
+        eval_basis_ref=None,
+    )
+
+    async def _fake_submit_task(*_args, **_kwargs):
+        return task, submission, 1, 5, False
+
+    async def _fake_get_day_audit(*_args, **_kwargs):
+        return day_audit
+
+    monkeypatch.setattr(submit_task_handler, "submit_task", _fake_submit_task)
+    monkeypatch.setattr(
+        submit_task_handler.cs_repo,
+        "get_day_audit",
+        _fake_get_day_audit,
+    )
+
+    response = await submit_task_handler.handle_submit_task(
+        task_id=task.id,
+        payload=SubmissionCreateRequest(contentText=None),
+        candidate_session=SimpleNamespace(id=7),
+        db=object(),
+        github_client=object(),
+        actions_runner=object(),
+    )
+
+    assert response.cutoffAt is not None
+    assert response.cutoffAt.tzinfo is UTC

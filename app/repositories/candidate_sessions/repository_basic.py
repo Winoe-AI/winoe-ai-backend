@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import contains_eager
 from sqlalchemy.sql import Select
 
 from app.domains import CandidateSession
@@ -25,7 +25,7 @@ def _build_get_by_id_stmt(session_id: int) -> Select:
             CandidateSession.id == session_id,
             _not_terminated_simulation_clause(),
         )
-        .options(selectinload(CandidateSession.simulation))
+        .options(contains_eager(CandidateSession.simulation))
     )
 
 

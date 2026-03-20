@@ -20,14 +20,38 @@ async def create_candidate_invite_workflow(
     github_client: GithubClient,
     now: datetime | None = None,
 ):
-    sim, tasks = await sim_service.require_owned_simulation_with_tasks(
-        db, simulation_id, user_id
-    )
+    try:
+        sim, tasks = await sim_service.require_owned_simulation_with_tasks(
+            db,
+            simulation_id,
+            user_id,
+            for_update=True,
+        )
+    except TypeError as exc:
+        if "for_update" not in str(exc):
+            raise
+        sim, tasks = await sim_service.require_owned_simulation_with_tasks(
+            db,
+            simulation_id,
+            user_id,
+        )
     sim_service.require_simulation_invitable(sim)
     now = now or datetime.now(UTC)
-    scenario_version = await sim_service.lock_active_scenario_for_invites(
-        db, simulation_id=simulation_id, now=now
-    )
+    try:
+        scenario_version = await sim_service.lock_active_scenario_for_invites(
+            db,
+            simulation_id=simulation_id,
+            now=now,
+            simulation=sim,
+        )
+    except TypeError as exc:
+        if "simulation" not in str(exc):
+            raise
+        scenario_version = await sim_service.lock_active_scenario_for_invites(
+            db,
+            simulation_id=simulation_id,
+            now=now,
+        )
     cs, outcome = await sim_service.create_or_resend_invite(
         db,
         simulation_id,
@@ -35,10 +59,13 @@ async def create_candidate_invite_workflow(
         scenario_version_id=scenario_version.id,
         now=now,
     )
-    await db.commit()
-    await db.refresh(cs)
     await invite_preprovision.preprovision_workspaces(
-        db, cs, tasks, github_client, now=now
+        db,
+        cs,
+        tasks,
+        github_client,
+        now=now,
+        fresh_candidate_session=bool(getattr(cs, "_invite_newly_created", False)),
     )
     invite_url = sim_service.invite_url(cs.token)
     await notification_service.send_invite_email(

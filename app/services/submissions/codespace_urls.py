@@ -21,7 +21,13 @@ def is_canonical_codespace_url(url: str | None) -> bool:
     return query.get("quickstart") == ["1"]
 
 
-async def ensure_canonical_workspace_url(db, workspace) -> str:
+async def ensure_canonical_workspace_url(
+    db,
+    workspace,
+    *,
+    commit: bool = True,
+    refresh: bool = True,
+) -> str:
     """Persist and return the canonical codespace URL for a workspace."""
     canonical = canonical_codespace_url(workspace.repo_full_name)
     url = workspace.codespace_url
@@ -29,6 +35,10 @@ async def ensure_canonical_workspace_url(db, workspace) -> str:
         return url
     if url != canonical:
         workspace.codespace_url = canonical
-        await db.commit()
-        await db.refresh(workspace)
+        if commit:
+            await db.commit()
+        else:
+            await db.flush()
+        if refresh:
+            await db.refresh(workspace)
     return canonical

@@ -19,12 +19,19 @@ async def run_code_submission(
     db: AsyncSession,
     candidate_session_id: int,
     task_id: int,
+    task_day_index: int | None = None,
+    task_type: str | None = None,
     payload,
     github_client: GithubClient,
     actions_runner,
 ) -> tuple[ActionsRunResult | None, str | None, Workspace | None]:
     workspace, branch = await fetch_workspace_and_branch(
-        db, candidate_session_id, task_id, payload
+        db,
+        candidate_session_id,
+        task_id,
+        payload,
+        task_day_index=task_day_index,
+        task_type=task_type,
     )
     try:
         actions_result = await submission_service.run_actions_tests(

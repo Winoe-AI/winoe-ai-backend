@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 from sqlalchemy.sql import Select
 
 from app.domains import CandidateSession
@@ -20,12 +20,12 @@ def _not_terminated_simulation_clause():
 def _build_get_by_token_stmt(token: str) -> Select:
     return (
         select(CandidateSession)
-        .join(Simulation, Simulation.id == CandidateSession.simulation_id)
+        .join(CandidateSession.simulation)
         .where(
             CandidateSession.token == token,
             _not_terminated_simulation_clause(),
         )
-        .options(selectinload(CandidateSession.simulation))
+        .options(joinedload(CandidateSession.simulation))
     )
 
 

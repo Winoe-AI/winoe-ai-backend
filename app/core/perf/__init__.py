@@ -7,7 +7,12 @@ from sqlalchemy import event as sa_event
 
 from app.core.settings import settings
 
-from .config import perf_logging_enabled
+from .config import (
+    perf_logging_enabled,
+    perf_span_sample_rate,
+    perf_spans_enabled,
+    perf_sql_fingerprints_enabled,
+)
 from .context import (
     PerfStats,
     clear_request_stats,
@@ -15,7 +20,7 @@ from .context import (
     start_request_stats,
 )
 from .middleware import _request_id_from_scope, create_request_perf_middleware
-from .sqlalchemy_hooks import register_listeners
+from .sqlalchemy_hooks import normalize_sql_statement, register_listeners
 
 _perf_ctx: ContextVar[PerfStats | None] = ContextVar("perf_ctx", default=None)
 _listeners_attached = False
@@ -38,6 +43,13 @@ def _get_perf_ctx():
     return _perf_ctx
 
 
+def record_external_wait(provider: str, elapsed_ms: float) -> None:
+    stats = _perf_ctx.get()
+    if stats is None:
+        return
+    stats.record_external_wait(provider, elapsed_ms)
+
+
 RequestPerfMiddleware = create_request_perf_middleware(_get_perf_ctx)
 
 
@@ -56,6 +68,11 @@ __all__ = [
     "RequestPerfMiddleware",
     "attach_sqlalchemy_listeners",
     "perf_logging_enabled",
+    "perf_spans_enabled",
+    "perf_sql_fingerprints_enabled",
+    "perf_span_sample_rate",
+    "record_external_wait",
+    "normalize_sql_statement",
     "_perf_ctx",
     "_start_request_stats",
     "_get_request_stats",

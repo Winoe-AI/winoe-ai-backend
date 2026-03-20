@@ -22,8 +22,7 @@ from app.core.errors import (
 )
 from app.domains.notifications import service as notification_service
 from app.services.candidate_sessions.day_close_jobs import (
-    enqueue_day_close_enforcement_jobs,
-    enqueue_day_close_finalize_text_jobs,
+    enqueue_day_close_jobs,
 )
 from app.services.candidate_sessions.email import normalize_email
 from app.services.candidate_sessions.fetch_token import fetch_by_token_for_update
@@ -170,107 +169,93 @@ async def schedule_candidate_session(
     candidate_session = None
     simulation_for_email = None
 
-    async with db.begin_nested():
-        try:
-            candidate_session = await fetch_by_token_for_update(
-                db, token, now=resolved_now
-            )
-        except HTTPException as exc:
-            if exc.status_code == status.HTTP_410_GONE:
-                # Repo convention: expired invite tokens surface as HTTP 410.
-                # This endpoint keeps that status and adds INVITE_TOKEN_EXPIRED for machine handling.
-                raise ApiError(
-                    status_code=status.HTTP_410_GONE,
-                    detail=str(exc.detail),
-                    error_code=INVITE_TOKEN_EXPIRED,
-                    retryable=False,
-                ) from exc
-            raise
-        changed = _require_claimed_ownership(candidate_session, principal)
+    try:
+        candidate_session = await fetch_by_token_for_update(db, token, now=resolved_now)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_410_GONE:
+            # Repo convention: expired invite tokens surface as HTTP 410.
+            # This endpoint keeps that status and adds INVITE_TOKEN_EXPIRED for machine handling.
+            raise ApiError(
+                status_code=status.HTTP_410_GONE,
+                detail=str(exc.detail),
+                error_code=INVITE_TOKEN_EXPIRED,
+                retryable=False,
+            ) from exc
+        raise
+    changed = _require_claimed_ownership(candidate_session, principal)
 
-        lock_timestamp = getattr(candidate_session, "schedule_locked_at", None)
-        if lock_timestamp is not None:
-            if not _schedule_matches(
-                candidate_session=candidate_session,
-                scheduled_start_at=scheduled_start_at_utc,
-                candidate_timezone=normalized_timezone,
-            ):
-                raise ApiError(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="Schedule has already been set for this session.",
-                    error_code=SCHEDULE_ALREADY_SET,
-                    retryable=False,
-                )
-            if not getattr(candidate_session, "day_windows_json", None):
-                simulation = candidate_session.simulation
-                window_start, window_end = _default_window_times(simulation)
-                day_windows = derive_day_windows(
-                    scheduled_start_at_utc=scheduled_start_at_utc,
-                    candidate_tz=normalized_timezone,
-                    day_window_start_local=window_start,
-                    day_window_end_local=window_end,
-                    overrides=getattr(simulation, "day_window_overrides_json", None),
-                    overrides_enabled=bool(
-                        getattr(simulation, "day_window_overrides_enabled", False)
-                    ),
-                    total_days=5,
-                )
-                candidate_session.day_windows_json = serialize_day_windows(day_windows)
-                changed = True
-                await enqueue_day_close_finalize_text_jobs(
-                    db,
-                    candidate_session=candidate_session,
-                    commit=False,
-                )
-                await enqueue_day_close_enforcement_jobs(
-                    db,
-                    candidate_session=candidate_session,
-                    commit=False,
-                )
-        else:
+    lock_timestamp = getattr(candidate_session, "schedule_locked_at", None)
+    if lock_timestamp is not None:
+        if not _schedule_matches(
+            candidate_session=candidate_session,
+            scheduled_start_at=scheduled_start_at_utc,
+            candidate_timezone=normalized_timezone,
+        ):
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Schedule has already been set for this session.",
+                error_code=SCHEDULE_ALREADY_SET,
+                retryable=False,
+            )
+        if not getattr(candidate_session, "day_windows_json", None):
             simulation = candidate_session.simulation
             window_start, window_end = _default_window_times(simulation)
-            try:
-                day_windows = derive_day_windows(
-                    scheduled_start_at_utc=scheduled_start_at_utc,
-                    candidate_tz=normalized_timezone,
-                    day_window_start_local=window_start,
-                    day_window_end_local=window_end,
-                    overrides=getattr(simulation, "day_window_overrides_json", None),
-                    overrides_enabled=bool(
-                        getattr(simulation, "day_window_overrides_enabled", False)
-                    ),
-                    total_days=5,
-                )
-            except ValueError as exc:
-                raise ApiError(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail="Unable to derive schedule day windows.",
-                    error_code=SCHEDULE_INVALID_WINDOW,
-                    retryable=False,
-                ) from exc
-
-            candidate_session.scheduled_start_at = scheduled_start_at_utc
-            candidate_session.candidate_timezone = normalized_timezone
+            day_windows = derive_day_windows(
+                scheduled_start_at_utc=scheduled_start_at_utc,
+                candidate_tz=normalized_timezone,
+                day_window_start_local=window_start,
+                day_window_end_local=window_end,
+                overrides=getattr(simulation, "day_window_overrides_json", None),
+                overrides_enabled=bool(
+                    getattr(simulation, "day_window_overrides_enabled", False)
+                ),
+                total_days=5,
+            )
             candidate_session.day_windows_json = serialize_day_windows(day_windows)
-            candidate_session.schedule_locked_at = resolved_now
-            simulation_for_email = simulation
             changed = True
-            schedule_created = True
-            await enqueue_day_close_finalize_text_jobs(
+            await enqueue_day_close_jobs(
                 db,
                 candidate_session=candidate_session,
                 commit=False,
             )
-            await enqueue_day_close_enforcement_jobs(
-                db,
-                candidate_session=candidate_session,
-                commit=False,
+    else:
+        simulation = candidate_session.simulation
+        window_start, window_end = _default_window_times(simulation)
+        try:
+            day_windows = derive_day_windows(
+                scheduled_start_at_utc=scheduled_start_at_utc,
+                candidate_tz=normalized_timezone,
+                day_window_start_local=window_start,
+                day_window_end_local=window_end,
+                overrides=getattr(simulation, "day_window_overrides_json", None),
+                overrides_enabled=bool(
+                    getattr(simulation, "day_window_overrides_enabled", False)
+                ),
+                total_days=5,
             )
+        except ValueError as exc:
+            raise ApiError(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Unable to derive schedule day windows.",
+                error_code=SCHEDULE_INVALID_WINDOW,
+                retryable=False,
+            ) from exc
+
+        candidate_session.scheduled_start_at = scheduled_start_at_utc
+        candidate_session.candidate_timezone = normalized_timezone
+        candidate_session.day_windows_json = serialize_day_windows(day_windows)
+        candidate_session.schedule_locked_at = resolved_now
+        simulation_for_email = simulation
+        changed = True
+        schedule_created = True
+        await enqueue_day_close_jobs(
+            db,
+            candidate_session=candidate_session,
+            commit=False,
+        )
 
     if changed:
         await db.commit()
-        await db.refresh(candidate_session)
 
     if schedule_created:
         logger.info(

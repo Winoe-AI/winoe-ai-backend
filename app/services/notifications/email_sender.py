@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import time
 
+from app.core import perf
 from app.integrations.notifications.email_provider import (
     EmailMessage,
     EmailProvider,
@@ -24,11 +26,21 @@ class EmailSender:
         last_error: EmailSendError | None = None
         for attempt in range(self.max_attempts):
             try:
-                message_id = await self.provider.send(
-                    EmailMessage(
-                        to=to, subject=subject, text=text, html=html, sender=self.sender
+                started = time.perf_counter()
+                try:
+                    message_id = await self.provider.send(
+                        EmailMessage(
+                            to=to,
+                            subject=subject,
+                            text=text,
+                            html=html,
+                            sender=self.sender,
+                        )
                     )
-                )
+                finally:
+                    perf.record_external_wait(
+                        "email", (time.perf_counter() - started) * 1000.0
+                    )
                 return EmailSendResult(status="sent", message_id=message_id)
             except EmailSendError as exc:
                 last_error = exc

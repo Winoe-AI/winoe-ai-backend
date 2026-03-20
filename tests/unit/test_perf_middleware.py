@@ -23,6 +23,7 @@ def test_request_id_from_scope_handles_invalid_bytes(monkeypatch):
 @pytest.mark.asyncio
 async def test_perf_middleware_injects_request_id_and_logs(caplog, monkeypatch):
     monkeypatch.setattr(perf.settings, "DEBUG_PERF", True)
+    monkeypatch.setattr(perf.settings, "PERF_SPANS_ENABLED", False)
     caplog.set_level(logging.INFO, logger="app.core.perf")
 
     app = FastAPI()
@@ -49,8 +50,38 @@ async def test_perf_middleware_injects_request_id_and_logs(caplog, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_perf_middleware_emits_structured_spans(caplog, monkeypatch):
+    monkeypatch.setattr(perf.settings, "DEBUG_PERF", False)
+    monkeypatch.setattr(perf.settings, "PERF_SPANS_ENABLED", True)
+    monkeypatch.setattr(perf.settings, "PERF_SPAN_SAMPLE_RATE", 1.0)
+    caplog.set_level(logging.INFO, logger="app.core.perf")
+
+    app = FastAPI()
+
+    @app.get("/ping")
+    async def _ping():
+        return {"ok": True}
+
+    app.add_middleware(perf.RequestPerfMiddleware)
+
+    transport = ASGITransport(app=app, client=("127.0.0.1", 1234))
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        resp = await client.get("/ping", headers={"X-Request-Id": "span-me"})
+
+    assert resp.status_code == 200
+    record = next(r for r in caplog.records if r.message == "perf_request")
+    assert record.request_span["requestId"] == "span-me"
+    assert record.request_span["route"] == "/ping"
+    assert record.sql_span["count"] == 0
+    assert record.external_span["totalCalls"] == 0
+
+    monkeypatch.setattr(perf.settings, "PERF_SPANS_ENABLED", False)
+
+
+@pytest.mark.asyncio
 async def test_perf_middleware_noop_when_debug_disabled(monkeypatch):
     monkeypatch.setattr(perf.settings, "DEBUG_PERF", False)
+    monkeypatch.setattr(perf.settings, "PERF_SPANS_ENABLED", False)
     app = FastAPI()
 
     @app.get("/ping")
@@ -153,3 +184,12 @@ def test_sqlalchemy_listeners_early_return_paths(monkeypatch):
     monkeypatch.setattr(perf, "_perf_ctx", DummyPerfCtx())
     ctx_start = SimpleNamespace(_tenon_perf_start=time.perf_counter())
     captured["after_cursor_execute"](None, None, None, None, ctx_start, None)
+
+
+def test_sql_normalization_reduces_literal_noise():
+    normalized = perf.normalize_sql_statement(
+        "SELECT * FROM tasks WHERE id = 42 AND email='Jane@Example.com'"
+    )
+    assert "42" not in normalized
+    assert "jane@example.com" not in normalized
+    assert "?" in normalized

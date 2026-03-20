@@ -35,6 +35,7 @@ from app.services.candidate_sessions.day_close_jobs import (
     day_close_finalize_text_idempotency_key,
     enqueue_day_close_enforcement_jobs,
     enqueue_day_close_finalize_text_jobs,
+    enqueue_day_close_jobs,
 )
 from app.services.candidate_sessions.schedule_gates import (
     TaskWindow,
@@ -67,6 +68,7 @@ __all__ = [
     "build_day_close_finalize_text_payload",
     "day_close_enforcement_idempotency_key",
     "day_close_finalize_text_idempotency_key",
+    "enqueue_day_close_jobs",
     "enqueue_day_close_enforcement_jobs",
     "enqueue_day_close_finalize_text_jobs",
     "TaskWindow",

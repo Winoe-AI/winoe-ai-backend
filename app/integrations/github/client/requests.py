@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
 
 import httpx
+
+from app.core import perf
 
 from .errors import GithubError, raise_for_status
 from .transport import GithubTransport
@@ -19,6 +22,7 @@ async def request_json(
     json: dict | None = None,
     expect_body: bool = True,
 ) -> dict:
+    started = time.perf_counter()
     try:
         resp = await transport.client().request(method, path, params=params, json=json)
     except httpx.HTTPError as exc:  # pragma: no cover - network
@@ -27,6 +31,8 @@ async def request_json(
             extra={"url": f"{transport.base_url}{path}", "error": str(exc)},
         )
         raise GithubError("GitHub request failed") from exc
+    finally:
+        perf.record_external_wait("github", (time.perf_counter() - started) * 1000.0)
 
     raise_for_status(str(resp.url), resp)
     if not expect_body:
@@ -42,6 +48,7 @@ async def request_json(
 async def get_bytes(
     transport: GithubTransport, path: str, params: dict | None = None
 ) -> bytes:
+    started = time.perf_counter()
     try:
         resp = await transport.client().get(path, params=params, follow_redirects=True)
     except httpx.HTTPError as exc:  # pragma: no cover - network
@@ -50,6 +57,8 @@ async def get_bytes(
             extra={"url": f"{transport.base_url}{path}", "error": str(exc)},
         )
         raise GithubError("GitHub request failed") from exc
+    finally:
+        perf.record_external_wait("github", (time.perf_counter() - started) * 1000.0)
 
     raise_for_status(str(resp.url), resp)
     return resp.content

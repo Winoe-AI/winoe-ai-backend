@@ -226,3 +226,6 @@ ai_flow_boot_script.sh
 
 # Database QA generated artifacts
 /qa_verifications/Database-Protocol-QA/db_protocol_qa_latest
+
+# Code Quality generated artifacts
+/code-quality

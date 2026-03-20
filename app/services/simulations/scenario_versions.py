@@ -427,18 +427,21 @@ async def lock_active_scenario_for_invites(
     *,
     simulation_id: int,
     now: datetime | None = None,
+    simulation: Simulation | None = None,
 ) -> ScenarioVersion:
     lock_at = now or datetime.now(UTC)
-    simulation = (
-        await db.execute(
-            select(Simulation).where(Simulation.id == simulation_id).with_for_update()
-        )
-    ).scalar_one_or_none()
-    if simulation is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found"
-        )
-    if simulation.active_scenario_version_id is None:
+    locked_simulation = simulation
+    if locked_simulation is None:
+        locked_simulation = (
+            await db.execute(
+                select(Simulation).where(Simulation.id == simulation_id).with_for_update()
+            )
+        ).scalar_one_or_none()
+        if locked_simulation is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Simulation not found"
+            )
+    if locked_simulation.active_scenario_version_id is None:
         raise ApiError(
             status_code=status.HTTP_409_CONFLICT,
             detail="Simulation has no active scenario version.",
@@ -447,9 +450,9 @@ async def lock_active_scenario_for_invites(
             details={},
         )
     active = await scenario_repo.get_by_id(
-        db, simulation.active_scenario_version_id, for_update=True
+        db, locked_simulation.active_scenario_version_id, for_update=True
     )
-    if active is None or active.simulation_id != simulation.id:
+    if active is None or active.simulation_id != locked_simulation.id:
         raise ApiError(
             status_code=status.HTTP_409_CONFLICT,
             detail="Simulation has no active scenario version.",
@@ -471,7 +474,7 @@ async def lock_active_scenario_for_invites(
     active.locked_at = lock_at
     logger.info(
         "Scenario version locked simulationId=%s scenarioVersionId=%s lockedAt=%s",
-        simulation.id,
+        locked_simulation.id,
         active.id,
         active.locked_at.isoformat() if active.locked_at else None,
     )

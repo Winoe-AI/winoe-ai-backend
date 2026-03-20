@@ -92,6 +92,7 @@ async def test_provision_workspace_non_group_path(monkeypatch):
         "repo_id": 123,
         "default_branch": "main",
         "base_template_sha": "base-sha",
+        "codespace_url": "https://codespaces.new/org/repo?quickstart=1",
         "created_at": now,
     }
 
@@ -442,6 +443,7 @@ async def test_provision_workspace_coding_task_uses_legacy_path_when_grouping_di
         "repo_id": 456,
         "default_branch": "main",
         "base_template_sha": "base-sha",
+        "codespace_url": "https://codespaces.new/org/day3?quickstart=1",
         "created_at": now,
     }
 

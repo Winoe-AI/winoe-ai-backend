@@ -44,5 +44,4 @@ async def record_send_result(
         candidate_session.invite_email_error = sanitize_error(result.error)
 
     await db.commit()
-    await db.refresh(candidate_session)
     return result

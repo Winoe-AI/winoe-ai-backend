@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import time
 from hashlib import sha256
 from urllib.parse import urlencode
 
+from app.core import perf
 from app.integrations.storage_media.base import (
     StorageObjectMetadata,
     ensure_safe_storage_key,
@@ -29,6 +31,7 @@ class FakeStorageMediaProvider:
         size_bytes: int,
         expires_seconds: int,
     ) -> str:
+        started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
         token = self._token(
             "upload",
@@ -46,17 +49,34 @@ class FakeStorageMediaProvider:
                 "sig": token,
             }
         )
-        return f"{self._base_url}/upload?{query}"
+        try:
+            return f"{self._base_url}/upload?{query}"
+        finally:
+            perf.record_external_wait(
+                "storage", (time.perf_counter() - started) * 1000.0
+            )
 
     def create_signed_download_url(self, key: str, expires_seconds: int) -> str:
+        started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
         token = self._token("download", safe_key, str(expires_seconds))
         query = urlencode({"key": safe_key, "expiresIn": expires_seconds, "sig": token})
-        return f"{self._base_url}/download?{query}"
+        try:
+            return f"{self._base_url}/download?{query}"
+        finally:
+            perf.record_external_wait(
+                "storage", (time.perf_counter() - started) * 1000.0
+            )
 
     def get_object_metadata(self, key: str) -> StorageObjectMetadata | None:
+        started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
-        return self._objects.get(safe_key)
+        try:
+            return self._objects.get(safe_key)
+        finally:
+            perf.record_external_wait(
+                "storage", (time.perf_counter() - started) * 1000.0
+            )
 
     def set_object_metadata(
         self,
@@ -73,8 +93,14 @@ class FakeStorageMediaProvider:
         )
 
     def delete_object(self, key: str) -> None:
+        started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
-        self._objects.pop(safe_key, None)
+        try:
+            self._objects.pop(safe_key, None)
+        finally:
+            perf.record_external_wait(
+                "storage", (time.perf_counter() - started) * 1000.0
+            )
 
     def _token(self, *parts: str) -> str:
         raw = "|".join((*parts, self._signing_secret))

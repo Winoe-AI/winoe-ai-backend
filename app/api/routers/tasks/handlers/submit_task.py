@@ -37,11 +37,13 @@ async def handle_submit_task(
     except GithubError as exc:
         raise map_github_error(exc) from exc
 
-    day_audit = await cs_repo.get_day_audit(
-        db,
-        candidate_session_id=candidate_session.id,
-        day_index=task.day_index,
-    )
+    day_audit = None
+    if int(getattr(task, "day_index", 0)) in {2, 3}:
+        day_audit = await cs_repo.get_day_audit(
+            db,
+            candidate_session_id=candidate_session.id,
+            day_index=task.day_index,
+        )
     cutoff_commit_sha = getattr(day_audit, "cutoff_commit_sha", None)
     resolved_commit_sha = cutoff_commit_sha or getattr(submission, "commit_sha", None)
     cutoff_at = getattr(day_audit, "cutoff_at", None)

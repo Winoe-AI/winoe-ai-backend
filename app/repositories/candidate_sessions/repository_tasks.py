@@ -24,4 +24,26 @@ async def completed_task_ids(db: AsyncSession, candidate_session_id: int) -> set
     return set(completed_res.scalars().all())
 
 
-__all__ = ["tasks_for_simulation", "completed_task_ids"]
+async def completed_task_ids_bulk(
+    db: AsyncSession, candidate_session_ids: list[int]
+) -> dict[int, set[int]]:
+    if not candidate_session_ids:
+        return {}
+
+    stmt = (
+        select(Submission.candidate_session_id, Submission.task_id)
+        .where(Submission.candidate_session_id.in_(candidate_session_ids))
+        .distinct()
+    )
+    rows = (await db.execute(stmt)).all()
+    result: dict[int, set[int]] = {
+        int(session_id): set() for session_id in candidate_session_ids
+    }
+    for candidate_session_id, task_id in rows:
+        if candidate_session_id is None or task_id is None:
+            continue
+        result.setdefault(int(candidate_session_id), set()).add(int(task_id))
+    return result
+
+
+__all__ = ["tasks_for_simulation", "completed_task_ids", "completed_task_ids_bulk"]

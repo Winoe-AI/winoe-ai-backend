@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy import and_, func, insert, or_, select, tuple_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,6 +21,17 @@ from app.repositories.jobs.models import (
 
 MAX_JOB_PAYLOAD_BYTES = 64 * 1024
 MAX_JOB_ERROR_CHARS = 2_048
+
+
+@dataclass(slots=True)
+class IdempotentJobSpec:
+    job_type: str
+    idempotency_key: str
+    payload_json: dict[str, Any]
+    candidate_session_id: int | None = None
+    max_attempts: int = 5
+    correlation_id: str | None = None
+    next_run_at: datetime | None = None
 
 
 def _runnable_filter(now, *, stale_before):
@@ -178,6 +190,88 @@ def _apply_idempotent_job_updates(
     job.next_run_at = next_run_at or datetime.now(UTC)
 
 
+def _normalize_many_specs(
+    specs: list[IdempotentJobSpec],
+) -> list[IdempotentJobSpec]:
+    normalized_specs: list[IdempotentJobSpec] = []
+    for spec in specs:
+        normalized_type, normalized_key = _normalize_idempotent_create_inputs(
+            job_type=spec.job_type,
+            idempotency_key=spec.idempotency_key,
+            max_attempts=spec.max_attempts,
+        )
+        _validate_payload_size(spec.payload_json)
+        normalized_specs.append(
+            IdempotentJobSpec(
+                job_type=normalized_type,
+                idempotency_key=normalized_key,
+                payload_json=spec.payload_json,
+                candidate_session_id=spec.candidate_session_id,
+                max_attempts=spec.max_attempts,
+                correlation_id=spec.correlation_id,
+                next_run_at=spec.next_run_at,
+            )
+        )
+    return normalized_specs
+
+
+def _job_from_spec(*, company_id: int, spec: IdempotentJobSpec) -> Job:
+    return Job(
+        job_type=spec.job_type,
+        status=JOB_STATUS_QUEUED,
+        attempt=0,
+        max_attempts=spec.max_attempts,
+        idempotency_key=spec.idempotency_key,
+        payload_json=spec.payload_json,
+        result_json=None,
+        last_error=None,
+        next_run_at=spec.next_run_at or datetime.now(UTC),
+        locked_at=None,
+        locked_by=None,
+        correlation_id=spec.correlation_id,
+        company_id=company_id,
+        candidate_session_id=spec.candidate_session_id,
+    )
+
+
+def _job_insert_row(*, company_id: int, spec: IdempotentJobSpec) -> dict[str, Any]:
+    return {
+        "job_type": spec.job_type,
+        "status": JOB_STATUS_QUEUED,
+        "attempt": 0,
+        "max_attempts": spec.max_attempts,
+        "idempotency_key": spec.idempotency_key,
+        "payload_json": spec.payload_json,
+        "result_json": None,
+        "last_error": None,
+        "next_run_at": spec.next_run_at or datetime.now(UTC),
+        "locked_at": None,
+        "locked_by": None,
+        "correlation_id": spec.correlation_id,
+        "company_id": company_id,
+        "candidate_session_id": spec.candidate_session_id,
+    }
+
+
+async def _load_idempotent_jobs_for_keys(
+    db: AsyncSession,
+    *,
+    company_id: int,
+    keys: list[tuple[str, str]],
+) -> dict[tuple[str, str], Job]:
+    if not keys:
+        return {}
+    rows = (
+        await db.execute(
+            select(Job).where(
+                Job.company_id == company_id,
+                tuple_(Job.job_type, Job.idempotency_key).in_(keys),
+            )
+        )
+    ).scalars()
+    return {(row.job_type, row.idempotency_key): row for row in rows}
+
+
 async def create_or_get_idempotent(
     db: AsyncSession,
     *,
@@ -199,15 +293,6 @@ async def create_or_get_idempotent(
 
     _validate_payload_size(payload_json)
 
-    existing = await _load_idempotent_job(
-        db,
-        company_id=company_id,
-        job_type=normalized_type,
-        idempotency_key=normalized_key,
-    )
-    if existing is not None:
-        return existing
-
     job = Job(
         job_type=normalized_type,
         status=JOB_STATUS_QUEUED,
@@ -224,6 +309,32 @@ async def create_or_get_idempotent(
         company_id=company_id,
         candidate_session_id=candidate_session_id,
     )
+    if not commit:
+        try:
+            async with db.begin_nested():
+                db.add(job)
+                await db.flush()
+        except IntegrityError:
+            existing = await _load_idempotent_job(
+                db,
+                company_id=company_id,
+                job_type=normalized_type,
+                idempotency_key=normalized_key,
+            )
+            if existing is None:
+                raise
+            return existing
+        return job
+
+    existing = await _load_idempotent_job(
+        db,
+        company_id=company_id,
+        job_type=normalized_type,
+        idempotency_key=normalized_key,
+    )
+    if existing is not None:
+        return existing
+
     if commit:
         db.add(job)
         try:
@@ -241,22 +352,6 @@ async def create_or_get_idempotent(
             return existing
         await db.refresh(job)
         return job
-
-    try:
-        async with db.begin_nested():
-            db.add(job)
-            await db.flush()
-    except IntegrityError:
-        existing = await _load_idempotent_job(
-            db,
-            company_id=company_id,
-            job_type=normalized_type,
-            idempotency_key=normalized_key,
-        )
-        if existing is None:
-            raise
-        return existing
-    return job
 
 
 async def create_or_update_idempotent(
@@ -333,6 +428,99 @@ async def create_or_update_idempotent(
         else:
             await db.flush()
     return job
+
+
+async def create_or_update_many_idempotent(
+    db: AsyncSession,
+    *,
+    company_id: int,
+    jobs: list[IdempotentJobSpec],
+    commit: bool = True,
+) -> list[Job]:
+    normalized_specs = _normalize_many_specs(jobs)
+    if not normalized_specs:
+        return []
+
+    keys = [(spec.job_type, spec.idempotency_key) for spec in normalized_specs]
+    existing_map = await _load_idempotent_jobs_for_keys(
+        db,
+        company_id=company_id,
+        keys=keys,
+    )
+    new_specs: list[IdempotentJobSpec] = []
+
+    for spec in normalized_specs:
+        key = (spec.job_type, spec.idempotency_key)
+        existing = existing_map.get(key)
+        if existing is None:
+            new_specs.append(spec)
+            continue
+        if _is_mutable_idempotent_job(existing):
+            _apply_idempotent_job_updates(
+                existing,
+                payload_json=spec.payload_json,
+                candidate_session_id=spec.candidate_session_id,
+                max_attempts=spec.max_attempts,
+                correlation_id=spec.correlation_id,
+                next_run_at=spec.next_run_at,
+            )
+
+    if new_specs:
+        insert_rows = [_job_insert_row(company_id=company_id, spec=spec) for spec in new_specs]
+        try:
+            await db.execute(insert(Job), insert_rows)
+        except IntegrityError:
+            # Concurrent inserts can race this batch path. Fall back to per-key
+            # recovery while preserving idempotent behavior for each spec.
+            for spec in new_specs:
+                key = (spec.job_type, spec.idempotency_key)
+                existing = await _load_idempotent_job(
+                    db,
+                    company_id=company_id,
+                    job_type=spec.job_type,
+                    idempotency_key=spec.idempotency_key,
+                )
+                if existing is not None:
+                    existing_map[key] = existing
+                    continue
+
+                job = _job_from_spec(company_id=company_id, spec=spec)
+                try:
+                    async with db.begin_nested():
+                        db.add(job)
+                        await db.flush()
+                except IntegrityError:
+                    existing = await _load_idempotent_job(
+                        db,
+                        company_id=company_id,
+                        job_type=spec.job_type,
+                        idempotency_key=spec.idempotency_key,
+                    )
+                    if existing is None:
+                        raise
+                    existing_map[key] = existing
+                    continue
+                existing_map[key] = job
+        else:
+            created_map = await _load_idempotent_jobs_for_keys(
+                db,
+                company_id=company_id,
+                keys=[(spec.job_type, spec.idempotency_key) for spec in new_specs],
+            )
+            existing_map.update(created_map)
+
+    if commit:
+        await db.commit()
+    else:
+        await db.flush()
+
+    resolved_jobs: list[Job] = []
+    for spec in normalized_specs:
+        key = (spec.job_type, spec.idempotency_key)
+        resolved = existing_map.get(key)
+        if resolved is not None:
+            resolved_jobs.append(resolved)
+    return resolved_jobs
 
 
 async def requeue_nonterminal_idempotent_job(

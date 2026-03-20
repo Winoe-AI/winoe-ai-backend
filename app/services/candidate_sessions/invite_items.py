@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains import Task
+from app.domains.candidate_sessions.progress import summarize_progress
 from app.domains.candidate_sessions.schemas import (
     CandidateInviteListItem,
     ProgressSummary,
@@ -23,6 +24,7 @@ async def build_invite_item(
     now: datetime,
     last_submitted_map: dict[int, datetime | None],
     tasks_loader: Callable[[int], Awaitable[list[Task]]],
+    completed_ids: set[int] | None = None,
 ) -> CandidateInviteListItem:
     expires_at = candidate_session.expires_at
     expires_at = (
@@ -32,9 +34,12 @@ async def build_invite_item(
     )
     is_expired = bool(expires_at and expires_at < now)
     task_list = await tasks_loader(candidate_session.simulation_id)
-    _, completed_ids, _, completed, total, _ = await progress_snapshot(
-        db, candidate_session, tasks=task_list
-    )
+    if completed_ids is None:
+        _, completed_ids, _, completed, total, _ = await progress_snapshot(
+            db, candidate_session, tasks=task_list
+        )
+    else:
+        completed, total, _ = summarize_progress(len(task_list), completed_ids)
     last_submitted_at = last_submitted_map.get(candidate_session.id)
     last_activity = (
         last_submitted_at

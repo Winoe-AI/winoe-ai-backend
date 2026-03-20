@@ -16,6 +16,9 @@ DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES = {1, 5}
 DAY_CLOSE_ENFORCEMENT_JOB_TYPE = "day_close_enforcement"
 DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS = 8
 DAY_CLOSE_ENFORCEMENT_DAY_INDEXES = {2, 3}
+DAY_CLOSE_ALL_DAY_INDEXES = (
+    DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES | DAY_CLOSE_ENFORCEMENT_DAY_INDEXES
+)
 
 
 def day_close_finalize_text_idempotency_key(
@@ -77,22 +80,12 @@ async def enqueue_day_close_finalize_text_jobs(
     if simulation is None:
         return []
 
-    tasks = (
-        (
-            await db.execute(
-                select(Task)
-                .where(
-                    Task.simulation_id == candidate_session.simulation_id,
-                    Task.day_index.in_(DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES),
-                )
-                .order_by(Task.day_index.asc(), Task.id.asc())
-            )
-        )
-        .scalars()
-        .all()
+    tasks = await _load_tasks_for_day_indexes(
+        db,
+        simulation_id=candidate_session.simulation_id,
+        day_indexes=DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES,
     )
-
-    jobs: list[Job] = []
+    specs: list[jobs_repo.IdempotentJobSpec] = []
     for task in tasks:
         if (task.type or "").strip().lower() not in TEXT_TASK_TYPES:
             continue
@@ -107,21 +100,26 @@ async def enqueue_day_close_finalize_text_jobs(
             day_index=task.day_index,
             window_end_at=task_window.window_end_at,
         )
-        job = await jobs_repo.create_or_update_idempotent(
-            db,
-            job_type=DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
-            idempotency_key=day_close_finalize_text_idempotency_key(
-                candidate_session.id, task.id
-            ),
-            payload_json=payload,
-            company_id=simulation.company_id,
-            candidate_session_id=candidate_session.id,
-            max_attempts=DAY_CLOSE_FINALIZE_TEXT_MAX_ATTEMPTS,
-            correlation_id=f"candidate_session:{candidate_session.id}:schedule",
-            next_run_at=task_window.window_end_at,
-            commit=False,
+        specs.append(
+            jobs_repo.IdempotentJobSpec(
+                job_type=DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
+                idempotency_key=day_close_finalize_text_idempotency_key(
+                    candidate_session.id,
+                    task.id,
+                ),
+                payload_json=payload,
+                candidate_session_id=candidate_session.id,
+                max_attempts=DAY_CLOSE_FINALIZE_TEXT_MAX_ATTEMPTS,
+                correlation_id=f"candidate_session:{candidate_session.id}:schedule",
+                next_run_at=task_window.window_end_at,
+            )
         )
-        jobs.append(job)
+
+    jobs = await _upsert_day_close_jobs(
+        db,
+        company_id=simulation.company_id,
+        specs=specs,
+    )
 
     if commit:
         await db.commit()
@@ -139,22 +137,12 @@ async def enqueue_day_close_enforcement_jobs(
     if simulation is None:
         return []
 
-    tasks = (
-        (
-            await db.execute(
-                select(Task)
-                .where(
-                    Task.simulation_id == candidate_session.simulation_id,
-                    Task.day_index.in_(DAY_CLOSE_ENFORCEMENT_DAY_INDEXES),
-                )
-                .order_by(Task.day_index.asc(), Task.id.asc())
-            )
-        )
-        .scalars()
-        .all()
+    tasks = await _load_tasks_for_day_indexes(
+        db,
+        simulation_id=candidate_session.simulation_id,
+        day_indexes=DAY_CLOSE_ENFORCEMENT_DAY_INDEXES,
     )
-
-    jobs: list[Job] = []
+    specs: list[jobs_repo.IdempotentJobSpec] = []
     for task in tasks:
         if (task.type or "").strip().lower() not in CODE_TASK_TYPES:
             continue
@@ -169,26 +157,163 @@ async def enqueue_day_close_enforcement_jobs(
             day_index=task.day_index,
             window_end_at=task_window.window_end_at,
         )
-        job = await jobs_repo.create_or_update_idempotent(
-            db,
-            job_type=DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
-            idempotency_key=day_close_enforcement_idempotency_key(
-                candidate_session.id, task.day_index
-            ),
-            payload_json=payload,
-            company_id=simulation.company_id,
-            candidate_session_id=candidate_session.id,
-            max_attempts=DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS,
-            correlation_id=f"candidate_session:{candidate_session.id}:schedule",
-            next_run_at=task_window.window_end_at,
-            commit=False,
+        specs.append(
+            jobs_repo.IdempotentJobSpec(
+                job_type=DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
+                idempotency_key=day_close_enforcement_idempotency_key(
+                    candidate_session.id,
+                    task.day_index,
+                ),
+                payload_json=payload,
+                candidate_session_id=candidate_session.id,
+                max_attempts=DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS,
+                correlation_id=f"candidate_session:{candidate_session.id}:schedule",
+                next_run_at=task_window.window_end_at,
+            )
         )
-        jobs.append(job)
+
+    jobs = await _upsert_day_close_jobs(
+        db,
+        company_id=simulation.company_id,
+        specs=specs,
+    )
 
     if commit:
         await db.commit()
 
     return jobs
+
+
+async def enqueue_day_close_jobs(
+    db: AsyncSession,
+    *,
+    candidate_session: CandidateSession,
+    commit: bool = False,
+) -> tuple[list[Job], list[Job]]:
+    simulation = getattr(candidate_session, "simulation", None)
+    if simulation is None:
+        return [], []
+
+    tasks = await _load_tasks_for_day_indexes(
+        db,
+        simulation_id=candidate_session.simulation_id,
+        day_indexes=DAY_CLOSE_ALL_DAY_INDEXES,
+    )
+    finalize_specs: list[jobs_repo.IdempotentJobSpec] = []
+    enforcement_specs: list[jobs_repo.IdempotentJobSpec] = []
+    for task in tasks:
+        task_type = (task.type or "").strip().lower()
+        task_window = compute_task_window(candidate_session, task)
+        if task_window.window_end_at is None:
+            continue
+
+        if (
+            task.day_index in DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES
+            and task_type in TEXT_TASK_TYPES
+        ):
+            finalize_specs.append(
+                jobs_repo.IdempotentJobSpec(
+                    job_type=DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
+                    idempotency_key=day_close_finalize_text_idempotency_key(
+                        candidate_session.id,
+                        task.id,
+                    ),
+                    payload_json=build_day_close_finalize_text_payload(
+                        candidate_session_id=candidate_session.id,
+                        task_id=task.id,
+                        day_index=task.day_index,
+                        window_end_at=task_window.window_end_at,
+                    ),
+                    candidate_session_id=candidate_session.id,
+                    max_attempts=DAY_CLOSE_FINALIZE_TEXT_MAX_ATTEMPTS,
+                    correlation_id=f"candidate_session:{candidate_session.id}:schedule",
+                    next_run_at=task_window.window_end_at,
+                )
+            )
+
+        if (
+            task.day_index in DAY_CLOSE_ENFORCEMENT_DAY_INDEXES
+            and task_type in CODE_TASK_TYPES
+        ):
+            enforcement_specs.append(
+                jobs_repo.IdempotentJobSpec(
+                    job_type=DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
+                    idempotency_key=day_close_enforcement_idempotency_key(
+                        candidate_session.id,
+                        task.day_index,
+                    ),
+                    payload_json=build_day_close_enforcement_payload(
+                        candidate_session_id=candidate_session.id,
+                        task_id=task.id,
+                        day_index=task.day_index,
+                        window_end_at=task_window.window_end_at,
+                    ),
+                    candidate_session_id=candidate_session.id,
+                    max_attempts=DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS,
+                    correlation_id=f"candidate_session:{candidate_session.id}:schedule",
+                    next_run_at=task_window.window_end_at,
+                )
+            )
+
+    finalize_jobs = await _upsert_day_close_jobs(
+        db,
+        company_id=simulation.company_id,
+        specs=finalize_specs,
+    )
+    enforcement_jobs = await _upsert_day_close_jobs(
+        db,
+        company_id=simulation.company_id,
+        specs=enforcement_specs,
+    )
+
+    if commit:
+        await db.commit()
+
+    return finalize_jobs, enforcement_jobs
+
+
+async def _load_tasks_for_day_indexes(
+    db: AsyncSession, *, simulation_id: int, day_indexes: set[int]
+) -> list[Task]:
+    return (
+        (
+            await db.execute(
+                select(Task)
+                .where(
+                    Task.simulation_id == simulation_id,
+                    Task.day_index.in_(day_indexes),
+                )
+                .order_by(Task.day_index.asc(), Task.id.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+def _dedupe_job_specs(
+    specs: list[jobs_repo.IdempotentJobSpec],
+) -> list[jobs_repo.IdempotentJobSpec]:
+    deduped: dict[tuple[str, str], jobs_repo.IdempotentJobSpec] = {}
+    for spec in specs:
+        deduped[(spec.job_type, spec.idempotency_key)] = spec
+    return list(deduped.values())
+
+
+async def _upsert_day_close_jobs(
+    db: AsyncSession,
+    *,
+    company_id: int,
+    specs: list[jobs_repo.IdempotentJobSpec],
+) -> list[Job]:
+    if not specs:
+        return []
+    return await jobs_repo.create_or_update_many_idempotent(
+        db,
+        company_id=company_id,
+        jobs=_dedupe_job_specs(specs),
+        commit=False,
+    )
 
 
 __all__ = [
@@ -202,6 +327,7 @@ __all__ = [
     "build_day_close_enforcement_payload",
     "day_close_finalize_text_idempotency_key",
     "day_close_enforcement_idempotency_key",
+    "enqueue_day_close_jobs",
     "enqueue_day_close_finalize_text_jobs",
     "enqueue_day_close_enforcement_jobs",
 ]

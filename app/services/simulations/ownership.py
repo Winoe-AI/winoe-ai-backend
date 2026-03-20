@@ -12,11 +12,16 @@ async def require_owned_simulation(
     user_id: int,
     *,
     include_terminated: bool = True,
+    for_update: bool = False,
 ) -> Simulation:
     from app.domains.simulations import service as sim_service
 
     sim = await sim_service.sim_repo.get_owned(
-        db, simulation_id, user_id, include_terminated=include_terminated
+        db,
+        simulation_id,
+        user_id,
+        include_terminated=include_terminated,
+        for_update=for_update,
     )
     if sim is None:
         raise HTTPException(
@@ -31,6 +36,7 @@ async def require_owned_simulation_with_tasks(
     user_id: int,
     *,
     include_terminated: bool = True,
+    for_update: bool = False,
 ) -> tuple[Simulation, list[Task]]:
     from app.domains.simulations import service as sim_service
 
@@ -39,6 +45,7 @@ async def require_owned_simulation_with_tasks(
         simulation_id,
         user_id,
         include_terminated=include_terminated,
+        for_update=for_update,
     )
     if sim is None:
         raise HTTPException(

@@ -29,9 +29,22 @@ async def ensure_existing_workspace(
     task: Task,
     github_client: GithubClient,
     github_username: str | None,
+    workspace_resolution: workspace_repo.WorkspaceResolution | None = None,
+    commit: bool = True,
+    hydrate_precommit_bundle: bool = True,
 ) -> Workspace | None:
+    task_day_index = getattr(task, "day_index", None)
+    task_type = getattr(task, "type", None)
+    task_identity: dict[str, int | str] = {}
+    if task_day_index is not None and task_type is not None:
+        task_identity["task_day_index"] = task_day_index
+        task_identity["task_type"] = task_type
     existing = await workspace_repo.get_by_session_and_task(
-        db, candidate_session_id=candidate_session.id, task_id=task.id
+        db,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+        workspace_resolution=workspace_resolution,
+        **task_identity,
     )
     if not existing:
         return None
@@ -40,7 +53,7 @@ async def ensure_existing_workspace(
             await github_client.add_collaborator(
                 existing.repo_full_name, github_username
             )
-    if getattr(existing, "precommit_sha", None):
+    if not hydrate_precommit_bundle or getattr(existing, "precommit_sha", None):
         return existing
 
     precommit_result = await apply_precommit_bundle_if_available(
@@ -57,18 +70,34 @@ async def ensure_existing_workspace(
         precommit_result.precommit_sha
         and getattr(existing, "precommit_sha", None) != precommit_result.precommit_sha
     ):
+        if commit:
+            return await workspace_repo.set_precommit_sha(
+                db,
+                workspace=existing,
+                precommit_sha=precommit_result.precommit_sha,
+            )
         return await workspace_repo.set_precommit_sha(
             db,
             workspace=existing,
             precommit_sha=precommit_result.precommit_sha,
+            commit=False,
+            refresh=False,
         )
     no_bundle_details_json = _serialize_no_bundle_details(precommit_result)
     if no_bundle_details_json and (
         getattr(existing, "precommit_details_json", None) != no_bundle_details_json
     ):
+        if commit:
+            return await workspace_repo.set_precommit_details(
+                db,
+                workspace=existing,
+                precommit_details_json=no_bundle_details_json,
+            )
         return await workspace_repo.set_precommit_details(
             db,
             workspace=existing,
             precommit_details_json=no_bundle_details_json,
+            commit=False,
+            refresh=False,
         )
     return existing
