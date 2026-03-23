@@ -7,12 +7,7 @@ import pytest
 
 from app.domains.submissions import repository as submissions_repo
 from app.repositories.submissions import repository as submissions_repo_impl
-from tests.factories import (
-    create_candidate_session,
-    create_recruiter,
-    create_simulation,
-    create_submission,
-)
+from tests.factories import create_candidate_session, create_recruiter, create_simulation, create_submission
 
 
 @pytest.mark.asyncio
@@ -41,30 +36,20 @@ async def test_create_handoff_submission_flush_path(async_session):
     cs = await create_candidate_session(async_session, simulation=sim)
     task = tasks[0]
 
-    created = await submissions_repo_impl.create_handoff_submission(
-        async_session,
-        candidate_session_id=cs.id,
-        task_id=task.id,
-        recording_id=123,
-        submitted_at=datetime.now(UTC),
-        commit=False,
-    )
+    created = await submissions_repo_impl.create_handoff_submission(async_session, candidate_session_id=cs.id, task_id=task.id, recording_id=123, submitted_at=datetime.now(UTC), commit=False)
 
     assert created.id is not None
     assert created.recording_id == 123
 
 
 class _FakeScalarResult:
-    def __init__(self, value: int):
-        self._value = value
+    def __init__(self, value: int): self._value = value
 
-    def scalar_one(self) -> int:
-        return self._value
+    def scalar_one(self) -> int: return self._value
 
 
 class _FakeBind:
-    def __init__(self, dialect_name: str):
-        self.dialect = SimpleNamespace(name=dialect_name)
+    def __init__(self, dialect_name: str): self.dialect = SimpleNamespace(name=dialect_name)
 
 
 class _FakeDB:
@@ -74,28 +59,20 @@ class _FakeDB:
         self.executed_stmt = None
         self.flush_calls = 0
 
-    def get_bind(self):
-        return self._bind
+    def get_bind(self): return self._bind
 
     async def execute(self, stmt):
         self.executed_stmt = stmt
         return _FakeScalarResult(self.scalar_value)
 
-    async def flush(self):
-        self.flush_calls += 1
+    async def flush(self): self.flush_calls += 1
 
 
 @pytest.mark.asyncio
 async def test_upsert_handoff_submission_postgresql_branch_uses_returning_id():
     db = _FakeDB("postgresql", scalar_value=77)
 
-    result = await submissions_repo_impl.upsert_handoff_submission(
-        db,
-        candidate_session_id=1,
-        task_id=2,
-        recording_id=3,
-        submitted_at=datetime.now(UTC),
-    )
+    result = await submissions_repo_impl.upsert_handoff_submission(db, candidate_session_id=1, task_id=2, recording_id=3, submitted_at=datetime.now(UTC))
 
     assert result == 77
     assert db.executed_stmt is not None

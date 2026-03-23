@@ -35,8 +35,6 @@ def _status_check_expr() -> str:
 
 
 class ScenarioVersion(Base, TimestampMixin):
-    """Versioned, immutable-on-lock scenario definition for a simulation."""
-
     __tablename__ = "scenario_versions"
     __table_args__ = (
         UniqueConstraint(
@@ -82,15 +80,8 @@ class ScenarioVersion(Base, TimestampMixin):
     rubric_version: Mapped[str | None] = mapped_column(String(255), nullable=True)
     locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    simulation = relationship(
-        "Simulation",
-        back_populates="scenario_versions",
-        foreign_keys=[simulation_id],
-    )
-    candidate_sessions = relationship(
-        "CandidateSession",
-        back_populates="scenario_version",
-    )
+    simulation = relationship("Simulation", back_populates="scenario_versions", foreign_keys=[simulation_id])
+    candidate_sessions = relationship("CandidateSession", back_populates="scenario_version")
     edit_audits = relationship(
         "ScenarioEditAudit",
         back_populates="scenario_version",

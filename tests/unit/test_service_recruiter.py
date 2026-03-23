@@ -7,6 +7,28 @@ import pytest
 from app.domains.submissions import service_recruiter as svc
 
 
+class _DummyResult:
+    def __init__(self, first_value=None, rows=None):
+        self._first_value = first_value
+        self._rows = [] if rows is None else rows
+
+    def first(self):
+        return self._first_value
+
+    def all(self):
+        return self._rows
+
+
+class _DummySession:
+    def __init__(self, result):
+        self.received = None
+        self._result = result
+
+    async def execute(self, stmt):
+        self.received = stmt
+        return self._result
+
+
 def test_derive_test_status_variants():
     assert svc.derive_test_status(None, None, None) is None
     assert svc.derive_test_status(1, 0, {}) == "passed"
@@ -23,56 +45,24 @@ def test_parse_test_output_fallback():
 
 @pytest.mark.asyncio
 async def test_fetch_detail_not_found_raises(monkeypatch):
-    class DummyResult:
-        def first(self):
-            return None
-
-    class DummySession:
-        async def execute(self, *_a, **_k):
-            return DummyResult()
-
     with pytest.raises(Exception) as excinfo:
-        await svc.fetch_detail(DummySession(), submission_id=1, recruiter_id=2)
+        await svc.fetch_detail(_DummySession(_DummyResult(first_value=None)), submission_id=1, recruiter_id=2)
     assert excinfo.value.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_fetch_detail_returns_row(monkeypatch):
     expected = ("sub", "task", "cs", SimpleNamespace(company_id=1, created_by=2))
-
-    class DummyResult:
-        def __init__(self, val):
-            self.val = val
-
-        def first(self):
-            return self.val
-
-    class DummySession:
-        async def execute(self, *_a, **_k):
-            return DummyResult(expected)
-
-    row = await svc.fetch_detail(DummySession(), submission_id=1, recruiter_id=2)
+    row = await svc.fetch_detail(_DummySession(_DummyResult(first_value=expected)), submission_id=1, recruiter_id=2)
     assert row == expected
 
 
 @pytest.mark.asyncio
 async def test_fetch_detail_rejects_wrong_company():
     expected = ("sub", "task", "cs", SimpleNamespace(company_id=7, created_by=2))
-
-    class DummyResult:
-        def __init__(self, val):
-            self.val = val
-
-        def first(self):
-            return self.val
-
-    class DummySession:
-        async def execute(self, *_a, **_k):
-            return DummyResult(expected)
-
     with pytest.raises(Exception) as excinfo:
         await svc.fetch_detail(
-            DummySession(),
+            _DummySession(_DummyResult(first_value=expected)),
             submission_id=1,
             recruiter_id=2,
             recruiter_company_id=3,
@@ -83,20 +73,8 @@ async def test_fetch_detail_rejects_wrong_company():
 @pytest.mark.asyncio
 async def test_fetch_detail_allows_same_company():
     expected = ("sub", "task", "cs", SimpleNamespace(company_id=7, created_by=2))
-
-    class DummyResult:
-        def __init__(self, val):
-            self.val = val
-
-        def first(self):
-            return self.val
-
-    class DummySession:
-        async def execute(self, *_a, **_k):
-            return DummyResult(expected)
-
     row = await svc.fetch_detail(
-        DummySession(),
+        _DummySession(_DummyResult(first_value=expected)),
         submission_id=1,
         recruiter_id=99,
         recruiter_company_id=7,
@@ -107,21 +85,9 @@ async def test_fetch_detail_allows_same_company():
 @pytest.mark.asyncio
 async def test_fetch_detail_rejects_wrong_owner_without_company_scope():
     expected = ("sub", "task", "cs", SimpleNamespace(company_id=7, created_by=99))
-
-    class DummyResult:
-        def __init__(self, val):
-            self.val = val
-
-        def first(self):
-            return self.val
-
-    class DummySession:
-        async def execute(self, *_a, **_k):
-            return DummyResult(expected)
-
     with pytest.raises(Exception) as excinfo:
         await svc.fetch_detail(
-            DummySession(),
+            _DummySession(_DummyResult(first_value=expected)),
             submission_id=1,
             recruiter_id=2,
             recruiter_company_id=None,
@@ -135,19 +101,7 @@ def test_parse_test_output_non_dict_json():
 
 @pytest.mark.asyncio
 async def test_list_submissions_applies_filters():
-    class DummyResult:
-        def all(self):
-            return [("row",)]
-
-    class DummySession:
-        def __init__(self):
-            self.received = None
-
-        async def execute(self, stmt):
-            self.received = stmt
-            return DummyResult()
-
-    session = DummySession()
+    session = _DummySession(_DummyResult(rows=[("row",)]))
     rows = await svc.list_submissions(session, 1, candidate_session_id=2, task_id=3)
     assert rows == [("row",)]
     assert session.received is not None
@@ -155,19 +109,7 @@ async def test_list_submissions_applies_filters():
 
 @pytest.mark.asyncio
 async def test_list_submissions_with_limit_offset():
-    class DummyResult:
-        def all(self):
-            return []
-
-    class DummySession:
-        def __init__(self):
-            self.received = None
-
-        async def execute(self, stmt):
-            self.received = stmt
-            return DummyResult()
-
-    session = DummySession()
+    session = _DummySession(_DummyResult(rows=[]))
     rows = await svc.list_submissions(
         session, 1, candidate_session_id=None, task_id=None, limit=1, offset=1
     )

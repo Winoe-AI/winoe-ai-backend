@@ -7,6 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies.admin_demo import DemoAdminActor, require_demo_mode_admin
 from app.api.dependencies.storage_media import get_media_storage_provider
+from app.api.routers.admin_routes.demo_ops_responses import (
+    build_fallback_response,
+    build_media_purge_response,
+    build_requeue_response,
+    build_reset_response,
+)
 from app.core.db import get_session
 from app.integrations.storage_media import StorageMediaProvider
 from app.schemas.admin_ops import (
@@ -25,11 +31,7 @@ from app.services.media.privacy import purge_expired_media_assets
 router = APIRouter()
 
 
-@router.post(
-    "/candidate_sessions/{candidate_session_id}/reset",
-    response_model=CandidateSessionResetResponse,
-    status_code=status.HTTP_200_OK,
-)
+@router.post("/candidate_sessions/{candidate_session_id}/reset", response_model=CandidateSessionResetResponse, status_code=status.HTTP_200_OK)
 async def reset_candidate_session(
     candidate_session_id: Annotated[int, Path(..., gt=0)],
     payload: CandidateSessionResetRequest,
@@ -45,19 +47,10 @@ async def reset_candidate_session(
         override_if_evaluated=payload.overrideIfEvaluated,
         dry_run=payload.dryRun,
     )
-    return CandidateSessionResetResponse(
-        candidateSessionId=result.candidate_session_id,
-        status=result.status,
-        resetTo=result.reset_to,
-        auditId=result.audit_id,
-    )
+    return build_reset_response(result)
 
 
-@router.post(
-    "/jobs/{job_id}/requeue",
-    response_model=JobRequeueResponse,
-    status_code=status.HTTP_200_OK,
-)
+@router.post("/jobs/{job_id}/requeue", response_model=JobRequeueResponse, status_code=status.HTTP_200_OK)
 async def requeue_job(
     job_id: Annotated[str, Path(..., min_length=1, max_length=64)],
     payload: JobRequeueRequest,
@@ -71,19 +64,10 @@ async def requeue_job(
         reason=payload.reason,
         force=payload.force,
     )
-    return JobRequeueResponse(
-        jobId=result.job_id,
-        previousStatus=result.previous_status,
-        newStatus=result.new_status,
-        auditId=result.audit_id,
-    )
+    return build_requeue_response(result)
 
 
-@router.post(
-    "/simulations/{simulation_id}/scenario/use_fallback",
-    response_model=SimulationFallbackResponse,
-    status_code=status.HTTP_200_OK,
-)
+@router.post("/simulations/{simulation_id}/scenario/use_fallback", response_model=SimulationFallbackResponse, status_code=status.HTTP_200_OK)
 async def use_simulation_fallback(
     simulation_id: Annotated[int, Path(..., gt=0)],
     payload: SimulationFallbackRequest,
@@ -99,26 +83,15 @@ async def use_simulation_fallback(
         reason=payload.reason,
         dry_run=payload.dryRun,
     )
-    return SimulationFallbackResponse(
-        simulationId=result.simulation_id,
-        activeScenarioVersionId=result.active_scenario_version_id,
-        applyTo=result.apply_to,
-        auditId=result.audit_id,
-    )
+    return build_fallback_response(result)
 
 
-@router.post(
-    "/media/purge",
-    response_model=MediaRetentionPurgeResponse,
-    status_code=status.HTTP_200_OK,
-)
+@router.post("/media/purge", response_model=MediaRetentionPurgeResponse, status_code=status.HTTP_200_OK)
 async def purge_media_retention(
     payload: MediaRetentionPurgeRequest,
     db: Annotated[AsyncSession, Depends(get_session)],
     actor: Annotated[DemoAdminActor, Depends(require_demo_mode_admin)],
-    storage_provider: Annotated[
-        StorageMediaProvider, Depends(get_media_storage_provider)
-    ],
+    storage_provider: Annotated[StorageMediaProvider, Depends(get_media_storage_provider)],
 ) -> MediaRetentionPurgeResponse:
     del actor
     result = await purge_expired_media_assets(
@@ -127,13 +100,7 @@ async def purge_media_retention(
         retention_days=payload.retentionDays,
         batch_limit=payload.batchLimit,
     )
-    return MediaRetentionPurgeResponse(
-        status="ok",
-        scannedCount=result.scanned_count,
-        purgedCount=result.purged_count,
-        failedCount=result.failed_count,
-        purgedRecordingIds=result.purged_recording_ids,
-    )
+    return build_media_purge_response(result)
 
 
 __all__ = [

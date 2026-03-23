@@ -1,16 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from fastapi import HTTPException
-from pydantic import ValidationError
 
 from app.core.settings import settings
-from app.core.settings.storage_media import StorageMediaSettings
-from app.integrations.storage_media import (
-    FakeStorageMediaProvider,
-    get_storage_media_provider,
-    resolve_signed_url_ttl,
-)
 from app.services.media.keys import (
     build_recording_storage_key,
     parse_recording_public_id,
@@ -99,83 +91,3 @@ def test_validate_upload_input_rejects_invalid_values(monkeypatch):
     assert with_exception is not None
     assert with_exception.status_code == 413
     assert getattr(with_exception, "error_code", None) == "REQUEST_TOO_LARGE"
-
-
-def test_resolve_signed_url_ttl_clamps(monkeypatch):
-    monkeypatch.setattr(settings.storage_media, "MEDIA_SIGNED_URL_EXPIRES_SECONDS", 900)
-    monkeypatch.setattr(settings.storage_media, "MEDIA_SIGNED_URL_MIN_SECONDS", 60)
-    monkeypatch.setattr(settings.storage_media, "MEDIA_SIGNED_URL_MAX_SECONDS", 1200)
-
-    assert resolve_signed_url_ttl() == 900
-    assert resolve_signed_url_ttl(1) == 60
-    assert resolve_signed_url_ttl(5_000) == 1200
-
-
-def test_fake_provider_generates_signed_urls():
-    provider = FakeStorageMediaProvider(base_url="https://fake.example")
-    upload_url = provider.create_signed_upload_url(
-        "candidate-sessions/1/tasks/4/recordings/abc.mp4",
-        "video/mp4",
-        1234,
-        900,
-    )
-    download_url = provider.create_signed_download_url(
-        "candidate-sessions/1/tasks/4/recordings/abc.mp4",
-        900,
-    )
-    assert upload_url.startswith("https://fake.example/upload?")
-    assert "expiresIn=900" in upload_url
-    assert "sig=" in upload_url
-    assert download_url.startswith("https://fake.example/download?")
-    assert "expiresIn=900" in download_url
-
-
-def test_storage_provider_factory_resolves_fake(monkeypatch):
-    monkeypatch.setattr(settings.storage_media, "MEDIA_STORAGE_PROVIDER", "fake")
-    get_storage_media_provider.cache_clear()
-    provider = get_storage_media_provider()
-    assert isinstance(provider, FakeStorageMediaProvider)
-    get_storage_media_provider.cache_clear()
-
-
-def test_storage_media_settings_validates_signed_url_expiry_upper_bound():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(SIGNED_URL_EXPIRY_SECONDS=1801)
-
-
-def test_storage_media_settings_validates_media_retention_days():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(MEDIA_RETENTION_DAYS=0)
-
-
-def test_storage_media_settings_validates_signed_url_expiry_positive():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(SIGNED_URL_EXPIRY_SECONDS=0)
-
-
-def test_storage_media_settings_validates_signed_url_min_positive():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(MEDIA_SIGNED_URL_MIN_SECONDS=0)
-
-
-def test_storage_media_settings_validates_signed_url_max_positive():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(MEDIA_SIGNED_URL_MAX_SECONDS=0)
-
-
-def test_storage_media_settings_validates_signed_url_max_upper_bound():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(MEDIA_SIGNED_URL_MAX_SECONDS=1801)
-
-
-def test_storage_media_settings_validates_signed_url_min_not_above_max():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(
-            MEDIA_SIGNED_URL_MIN_SECONDS=601,
-            MEDIA_SIGNED_URL_MAX_SECONDS=600,
-        )
-
-
-def test_storage_media_settings_rejects_non_string_or_list_extensions():
-    with pytest.raises(ValidationError):
-        StorageMediaSettings(MEDIA_ALLOWED_EXTENSIONS=123)

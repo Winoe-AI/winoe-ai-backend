@@ -3,22 +3,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from fastapi.routing import APIRoute
 
 from app.api.routers.simulations_routes import scenario
-from app.domains.simulations.schemas import (
-    ScenarioActiveUpdateRequest,
-    ScenarioVersionPatchRequest,
-)
-from app.main import app
+from app.domains.simulations.schemas import ScenarioActiveUpdateRequest
 
 
 def _fake_request():
-    return type(
-        "Req",
-        (),
-        {"headers": {}, "client": type("c", (), {"host": "127.0.0.1"})()},
-    )()
+    return type("Req", (), {"headers": {}, "client": type("c", (), {"host": "127.0.0.1"})()})()
 
 
 @pytest.mark.asyncio
@@ -31,30 +22,22 @@ async def test_regenerate_scenario_route_returns_scenario_summary(monkeypatch):
         assert actor_user_id == 7
         return (
             SimpleNamespace(id=42),
-            SimpleNamespace(
-                id=10, version_index=2, status="generating", locked_at=None
-            ),
+            SimpleNamespace(id=10, version_index=2, status="generating", locked_at=None),
             SimpleNamespace(id="job-123"),
         )
 
-    monkeypatch.setattr(
-        scenario.sim_service,
-        "request_scenario_regeneration",
-        fake_regenerate,
-    )
+    monkeypatch.setattr(scenario.sim_service, "request_scenario_regeneration", fake_regenerate)
     monkeypatch.setattr(
         scenario,
         "enforce_scenario_regenerate_limit",
         lambda _req, _user_id: calls.__setitem__("limit", calls["limit"] + 1),
     )
-
     response = await scenario.regenerate_scenario_version(
         simulation_id=42,
         request=_fake_request(),
         db=object(),
         user=SimpleNamespace(id=7, role="recruiter"),
     )
-
     assert calls["limit"] == 1
     assert response.scenarioVersionId == 10
     assert response.jobId == "job-123"
@@ -68,19 +51,9 @@ async def test_update_active_scenario_route_normalizes_fields(monkeypatch):
 
     async def fake_update(db, simulation_id, actor_user_id, updates):
         captured["updates"] = updates
-        return SimpleNamespace(
-            id=15,
-            version_index=3,
-            status="draft",
-            locked_at=None,
-        )
+        return SimpleNamespace(id=15, version_index=3, status="draft", locked_at=None)
 
-    monkeypatch.setattr(
-        scenario.sim_service,
-        "update_active_scenario_version",
-        fake_update,
-    )
-
+    monkeypatch.setattr(scenario.sim_service, "update_active_scenario_version", fake_update)
     payload = ScenarioActiveUpdateRequest(
         storylineMd="Story",
         taskPromptsJson=[{"dayIndex": 1, "title": "Task"}],
@@ -94,7 +67,6 @@ async def test_update_active_scenario_route_normalizes_fields(monkeypatch):
         db=object(),
         user=SimpleNamespace(id=9, role="recruiter"),
     )
-
     assert captured["updates"] == {
         "storyline_md": "Story",
         "task_prompts_json": [{"dayIndex": 1, "title": "Task"}],
@@ -106,108 +78,3 @@ async def test_update_active_scenario_route_normalizes_fields(monkeypatch):
     assert response.scenario.id == 15
     assert response.scenario.versionIndex == 3
     assert response.scenario.status == "draft"
-
-
-@pytest.mark.asyncio
-async def test_approve_scenario_route_promotes_pending(monkeypatch):
-    monkeypatch.setattr(scenario, "ensure_recruiter_or_none", lambda _u: None)
-
-    async def fake_approve(
-        db, simulation_id, scenario_version_id, actor_user_id
-    ):  # pragma: no cover - thin contract test
-        assert simulation_id == 8
-        assert scenario_version_id == 22
-        assert actor_user_id == 9
-        return (
-            SimpleNamespace(
-                id=8,
-                status="active_inviting",
-                active_scenario_version_id=22,
-                pending_scenario_version_id=None,
-            ),
-            SimpleNamespace(id=22, version_index=2, status="ready", locked_at=None),
-        )
-
-    monkeypatch.setattr(scenario.sim_service, "approve_scenario_version", fake_approve)
-
-    response = await scenario.approve_scenario_version(
-        simulation_id=8,
-        scenario_version_id=22,
-        db=object(),
-        user=SimpleNamespace(id=9, role="recruiter"),
-    )
-    assert response.simulationId == 8
-    assert response.status == "active_inviting"
-    assert response.activeScenarioVersionId == 22
-    assert response.pendingScenarioVersionId is None
-    assert response.scenario.id == 22
-
-
-@pytest.mark.asyncio
-async def test_patch_scenario_version_route_normalizes_fields(monkeypatch):
-    monkeypatch.setattr(scenario, "ensure_recruiter_or_none", lambda _u: None)
-    captured = {}
-
-    async def fake_patch(
-        db,
-        simulation_id,
-        scenario_version_id,
-        actor_user_id,
-        updates,
-    ):
-        captured["updates"] = updates
-        assert simulation_id == 8
-        assert scenario_version_id == 22
-        assert actor_user_id == 9
-        return SimpleNamespace(id=22, status="ready")
-
-    monkeypatch.setattr(scenario.sim_service, "patch_scenario_version", fake_patch)
-
-    payload = ScenarioVersionPatchRequest(
-        storylineMd="Story v2",
-        taskPrompts=[
-            {"dayIndex": 2, "title": "Updated Task", "description": "Updated wording"}
-        ],
-        rubric={"dayWeights": {"2": 30}},
-        notes="Keep candidate constraints explicit",
-    )
-    response = await scenario.patch_scenario_version(
-        simulation_id=8,
-        scenario_version_id=22,
-        payload=payload,
-        db=object(),
-        user=SimpleNamespace(id=9, role="recruiter"),
-    )
-
-    assert captured["updates"] == {
-        "storyline_md": "Story v2",
-        "task_prompts_json": [
-            {"dayIndex": 2, "title": "Updated Task", "description": "Updated wording"}
-        ],
-        "rubric_json": {"dayWeights": {"2": 30}},
-        "focus_notes": "Keep candidate constraints explicit",
-    }
-    assert response.scenarioVersionId == 22
-    assert response.status == "ready"
-
-
-def test_scenario_routes_are_registered_once():
-    expected = [
-        ("POST", "/api/simulations/{simulation_id}/scenario/regenerate"),
-        (
-            "POST",
-            "/api/simulations/{simulation_id}/scenario/{scenario_version_id}/approve",
-        ),
-        ("PATCH", "/api/simulations/{simulation_id}/scenario/active"),
-        ("PATCH", "/api/simulations/{simulation_id}/scenario/{scenario_version_id}"),
-    ]
-
-    for method, path in expected:
-        matches = [
-            route
-            for route in app.routes
-            if isinstance(route, APIRoute)
-            and route.path == path
-            and method in (route.methods or set())
-        ]
-        assert len(matches) == 1

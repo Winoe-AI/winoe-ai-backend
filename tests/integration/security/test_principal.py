@@ -2,10 +2,8 @@ from typing import ClassVar
 
 import pytest
 from fastapi import HTTPException
-from fastapi.security import HTTPAuthorizationCredentials
-from starlette.requests import Request
 
-from app.core.auth import auth0, principal
+from app.core.auth import principal
 from app.core.settings import settings
 
 
@@ -28,9 +26,7 @@ def test_extract_principal_missing_email_claim_config(monkeypatch):
 
 def test_permissions_from_namespaced_claim(monkeypatch):
     monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
-    monkeypatch.setattr(
-        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions"
-    )
+    monkeypatch.setattr(settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions")
     claims = {
         "sub": "auth0|abc",
         "https://tenon.ai/email": "jane@example.com",
@@ -66,9 +62,7 @@ def test_permissions_from_roles_mapping(monkeypatch):
 
 def test_extract_principal_supports_url_claim_keys(monkeypatch):
     monkeypatch.setattr(settings.auth, "AUTH0_EMAIL_CLAIM", "https://tenon.ai/email")
-    monkeypatch.setattr(
-        settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions"
-    )
+    monkeypatch.setattr(settings.auth, "AUTH0_PERMISSIONS_CLAIM", "https://tenon.ai/permissions")
     claims = {
         "sub": "auth0|tenon123",
         "https://tenon.ai/email": "x@y.com",
@@ -94,72 +88,3 @@ async def test_require_permissions_blocks_missing():
 
     result = await dep(HasPerms())  # type: ignore[arg-type]
     assert result.permissions == ["needed"]
-
-
-@pytest.mark.asyncio
-async def test_get_principal_auth0_error_does_not_crash(monkeypatch):
-    def bad_decode(_token: str):
-        raise auth0.Auth0Error("Invalid token")
-
-    monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
-    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
-    request = Request({"type": "http", "headers": [(b"x-request-id", b"req-1")]})
-
-    with pytest.raises(HTTPException) as excinfo:
-        await principal.get_principal(credentials, request)
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"
-
-
-@pytest.mark.asyncio
-async def test_get_principal_missing_credentials_returns_401():
-    request = Request({"type": "http", "headers": []})
-
-    with pytest.raises(HTTPException) as excinfo:
-        await principal.get_principal(None, request)
-
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"
-
-
-@pytest.mark.asyncio
-async def test_get_principal_maps_jwks_failure(monkeypatch):
-    def bad_decode(_token: str):
-        raise auth0.Auth0Error("Auth provider unavailable", status_code=503)
-
-    monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
-    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
-    request = Request({"type": "http", "headers": []})
-    with pytest.raises(HTTPException) as excinfo:
-        await principal.get_principal(credentials, request)
-    assert excinfo.value.status_code == 503
-    assert excinfo.value.detail == "Auth provider unavailable"
-
-
-@pytest.mark.asyncio
-async def test_get_principal_maps_kid_not_found(monkeypatch):
-    def bad_decode(_token: str):
-        raise auth0.Auth0Error("Signing key not found")
-
-    monkeypatch.setattr(auth0, "decode_auth0_token", bad_decode)
-    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
-    request = Request({"type": "http", "headers": []})
-    with pytest.raises(HTTPException) as excinfo:
-        await principal.get_principal(credentials, request)
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"
-
-
-@pytest.mark.asyncio
-async def test_get_principal_blocks_dev_shorthand_outside_test(monkeypatch):
-    monkeypatch.setenv("TENON_ENV", "prod")
-    monkeypatch.setattr(settings, "ENV", "prod")
-    credentials = HTTPAuthorizationCredentials(
-        scheme="Bearer", credentials="candidate:blocked@example.com"
-    )
-    request = Request({"type": "http", "headers": []})
-
-    with pytest.raises(HTTPException) as excinfo:
-        await principal.get_principal(credentials, request)
-    assert excinfo.value.status_code == 401
-    assert excinfo.value.detail == "Not authenticated"

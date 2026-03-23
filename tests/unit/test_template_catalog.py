@@ -1,15 +1,7 @@
 import pytest
 
 from app.services.tasks import template_catalog as template_catalog_service
-from app.services.tasks.template_catalog import (
-    ALLOWED_TEMPLATE_KEYS,
-    DEFAULT_TEMPLATE_KEY,
-    LEGACY_TEMPLATE_REPO_REWRITES,
-    TemplateKeyError,
-    normalize_template_repo_value,
-    resolve_template_repo_full_name,
-    validate_template_key,
-)
+from app.services.tasks.template_catalog import ALLOWED_TEMPLATE_KEYS, DEFAULT_TEMPLATE_KEY, LEGACY_TEMPLATE_REPO_REWRITES, TemplateKeyError, normalize_template_repo_value, resolve_template_repo_full_name, validate_template_key
 
 
 @pytest.mark.parametrize(
@@ -17,18 +9,9 @@ from app.services.tasks.template_catalog import (
     [
         ("python-fastapi", "tenon-hire-dev/tenon-template-python-fastapi"),
         ("node-express-ts", "tenon-hire-dev/tenon-template-node-express-ts"),
-        (
-            "monorepo-nextjs-fastapi",
-            "tenon-hire-dev/tenon-template-monorepo-nextjs-fastapi",
-        ),
-        (
-            "monorepo-react-springboot",
-            "tenon-hire-dev/tenon-template-monorepo-react-springboot",
-        ),
-        (
-            "mobile-backend-fastapi",
-            "tenon-hire-dev/tenon-template-mobile-backend-fastapi",
-        ),
+        ("monorepo-nextjs-fastapi", "tenon-hire-dev/tenon-template-monorepo-nextjs-fastapi"),
+        ("monorepo-react-springboot", "tenon-hire-dev/tenon-template-monorepo-react-springboot"),
+        ("mobile-backend-fastapi", "tenon-hire-dev/tenon-template-mobile-backend-fastapi"),
         ("ml-infra-mlops", "tenon-hire-dev/tenon-template-ml-infra-mlops"),
     ],
 )
@@ -48,18 +31,9 @@ def test_invalid_template_key_raises():
 @pytest.mark.parametrize(
     ("legacy_repo", "expected_repo"),
     [
-        (
-            "tenon-templates/node-day2-api",
-            LEGACY_TEMPLATE_REPO_REWRITES["tenon-templates/node-day2-api"],
-        ),
-        (
-            "tenon-templates/node-day3-debug",
-            LEGACY_TEMPLATE_REPO_REWRITES["tenon-templates/node-day3-debug"],
-        ),
-        (
-            "tenon-dev/tenon-template-python",
-            "tenon-hire-dev/tenon-template-python-fastapi",
-        ),
+        ("tenon-templates/node-day2-api", LEGACY_TEMPLATE_REPO_REWRITES["tenon-templates/node-day2-api"]),
+        ("tenon-templates/node-day3-debug", LEGACY_TEMPLATE_REPO_REWRITES["tenon-templates/node-day3-debug"]),
+        ("tenon-dev/tenon-template-python", "tenon-hire-dev/tenon-template-python-fastapi"),
     ],
 )
 def test_normalize_template_repo_value_rewrites_legacy(
@@ -74,9 +48,7 @@ def test_normalize_template_repo_value_uses_template_key_for_blank():
 
 
 def test_normalize_template_repo_value_rewrites_legacy_with_template_key():
-    repo = normalize_template_repo_value(
-        "tenon-templates/node-day2-api", template_key="node-express-ts"
-    )
+    repo = normalize_template_repo_value("tenon-templates/node-day2-api", template_key="node-express-ts")
     assert repo == "tenon-hire-dev/tenon-template-node-express-ts"
 
 
@@ -98,14 +70,7 @@ def test_normalize_template_repo_value_invalid_key_and_custom_repo():
 
 
 def test_canonical_key_from_repo_handles_missing_and_late_match(monkeypatch):
-    monkeypatch.setattr(
-        template_catalog_service,
-        "TEMPLATE_CATALOG",
-        {
-            "first": {"repo_full_name": "org/first"},
-            "second": {"repo_full_name": "org/second"},
-        },
-    )
+    monkeypatch.setattr(template_catalog_service, "TEMPLATE_CATALOG", {"first": {"repo_full_name": "org/first"}, "second": {"repo_full_name": "org/second"}})
 
     assert template_catalog_service._canonical_key_from_repo("org/second") == "second"
     assert (
@@ -116,21 +81,8 @@ def test_canonical_key_from_repo_handles_missing_and_late_match(monkeypatch):
 def test_build_template_key_aliases_skips_blank_repo_and_unknown_legacy_rewrite(
     monkeypatch,
 ):
-    monkeypatch.setattr(
-        template_catalog_service,
-        "TEMPLATE_CATALOG",
-        {
-            "python-fastapi": {
-                "repo_full_name": "tenon-hire-dev/tenon-template-python-fastapi"
-            },
-            "blank-repo": {"repo_full_name": "   "},
-        },
-    )
-    monkeypatch.setattr(
-        template_catalog_service,
-        "LEGACY_TEMPLATE_REPO_REWRITES",
-        {"legacy/repo": "tenon-hire-dev/non-existent-template"},
-    )
+    monkeypatch.setattr(template_catalog_service, "TEMPLATE_CATALOG", {"python-fastapi": {"repo_full_name": "tenon-hire-dev/tenon-template-python-fastapi"}, "blank-repo": {"repo_full_name": "   "}})
+    monkeypatch.setattr(template_catalog_service, "LEGACY_TEMPLATE_REPO_REWRITES", {"legacy/repo": "tenon-hire-dev/non-existent-template"})
 
     aliases = template_catalog_service._build_template_key_aliases()
     assert aliases["python-fastapi"] == "python-fastapi"

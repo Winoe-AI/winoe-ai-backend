@@ -1,318 +1,69 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.domains import CandidateSession, Job, Task
-from app.repositories.jobs import repository as jobs_repo
-from app.services.candidate_sessions.schedule_gates import compute_task_window
-from app.services.submissions.payload_validation import CODE_TASK_TYPES, TEXT_TASK_TYPES
-
-DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE = "day_close_finalize_text"
-DAY_CLOSE_FINALIZE_TEXT_MAX_ATTEMPTS = 8
-DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES = {1, 5}
-DAY_CLOSE_ENFORCEMENT_JOB_TYPE = "day_close_enforcement"
-DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS = 8
-DAY_CLOSE_ENFORCEMENT_DAY_INDEXES = {2, 3}
-DAY_CLOSE_ALL_DAY_INDEXES = (
-    DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES | DAY_CLOSE_ENFORCEMENT_DAY_INDEXES
+from app.services.candidate_sessions.day_close_jobs_constants import (
+    DAY_CLOSE_ENFORCEMENT_DAY_INDEXES,
+    DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
+    DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS,
+    DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES,
+    DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
+    DAY_CLOSE_FINALIZE_TEXT_MAX_ATTEMPTS,
+    day_close_enforcement_idempotency_key,
+    day_close_finalize_text_idempotency_key,
 )
+from app.services.candidate_sessions.day_close_jobs_enqueue import (
+    enqueue_day_close_enforcement_jobs_impl,
+    enqueue_day_close_finalize_text_jobs_impl,
+    enqueue_day_close_jobs_impl,
+)
+from app.services.candidate_sessions.day_close_jobs_payloads import (
+    build_day_close_enforcement_payload,
+    build_day_close_finalize_text_payload,
+)
+from app.services.candidate_sessions.day_close_jobs_queries import (
+    _load_tasks_for_day_indexes,
+)
+from app.services.candidate_sessions.day_close_jobs_specs import (
+    _enforcement_job_spec,
+    _finalize_text_job_spec,
+)
+from app.services.candidate_sessions.day_close_jobs_upsert import _upsert_day_close_jobs
+from app.services.candidate_sessions.schedule_gates import compute_task_window
 
 
-def day_close_finalize_text_idempotency_key(
-    candidate_session_id: int,
-    task_id: int,
-) -> str:
-    return f"day_close_finalize_text:{candidate_session_id}:{task_id}"
-
-
-def day_close_enforcement_idempotency_key(
-    candidate_session_id: int,
-    day_index: int,
-) -> str:
-    return f"day_close_enforcement:{candidate_session_id}:{day_index}"
-
-
-def _to_utc_z(value: datetime) -> str:
-    normalized = value.astimezone(UTC).replace(microsecond=0)
-    return normalized.isoformat().replace("+00:00", "Z")
-
-
-def build_day_close_finalize_text_payload(
-    *,
-    candidate_session_id: int,
-    task_id: int,
-    day_index: int,
-    window_end_at: datetime,
-) -> dict[str, object]:
-    return {
-        "candidateSessionId": candidate_session_id,
-        "taskId": task_id,
-        "dayIndex": day_index,
-        "windowEndAt": _to_utc_z(window_end_at),
-    }
-
-
-def build_day_close_enforcement_payload(
-    *,
-    candidate_session_id: int,
-    task_id: int,
-    day_index: int,
-    window_end_at: datetime,
-) -> dict[str, object]:
-    return {
-        "candidateSessionId": candidate_session_id,
-        "taskId": task_id,
-        "dayIndex": day_index,
-        "windowEndAt": _to_utc_z(window_end_at),
-    }
-
-
-async def enqueue_day_close_finalize_text_jobs(
-    db: AsyncSession,
-    *,
-    candidate_session: CandidateSession,
-    commit: bool = False,
-) -> list[Job]:
-    simulation = getattr(candidate_session, "simulation", None)
-    if simulation is None:
-        return []
-
-    tasks = await _load_tasks_for_day_indexes(
-        db,
-        simulation_id=candidate_session.simulation_id,
-        day_indexes=DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES,
-    )
-    specs: list[jobs_repo.IdempotentJobSpec] = []
-    for task in tasks:
-        if (task.type or "").strip().lower() not in TEXT_TASK_TYPES:
-            continue
-
-        task_window = compute_task_window(candidate_session, task)
-        if task_window.window_end_at is None:
-            continue
-
-        payload = build_day_close_finalize_text_payload(
-            candidate_session_id=candidate_session.id,
-            task_id=task.id,
-            day_index=task.day_index,
-            window_end_at=task_window.window_end_at,
-        )
-        specs.append(
-            jobs_repo.IdempotentJobSpec(
-                job_type=DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
-                idempotency_key=day_close_finalize_text_idempotency_key(
-                    candidate_session.id,
-                    task.id,
-                ),
-                payload_json=payload,
-                candidate_session_id=candidate_session.id,
-                max_attempts=DAY_CLOSE_FINALIZE_TEXT_MAX_ATTEMPTS,
-                correlation_id=f"candidate_session:{candidate_session.id}:schedule",
-                next_run_at=task_window.window_end_at,
-            )
-        )
-
-    jobs = await _upsert_day_close_jobs(
-        db,
-        company_id=simulation.company_id,
-        specs=specs,
-    )
-
-    if commit:
-        await db.commit()
-
-    return jobs
-
-
-async def enqueue_day_close_enforcement_jobs(
-    db: AsyncSession,
-    *,
-    candidate_session: CandidateSession,
-    commit: bool = False,
-) -> list[Job]:
-    simulation = getattr(candidate_session, "simulation", None)
-    if simulation is None:
-        return []
-
-    tasks = await _load_tasks_for_day_indexes(
-        db,
-        simulation_id=candidate_session.simulation_id,
-        day_indexes=DAY_CLOSE_ENFORCEMENT_DAY_INDEXES,
-    )
-    specs: list[jobs_repo.IdempotentJobSpec] = []
-    for task in tasks:
-        if (task.type or "").strip().lower() not in CODE_TASK_TYPES:
-            continue
-
-        task_window = compute_task_window(candidate_session, task)
-        if task_window.window_end_at is None:
-            continue
-
-        payload = build_day_close_enforcement_payload(
-            candidate_session_id=candidate_session.id,
-            task_id=task.id,
-            day_index=task.day_index,
-            window_end_at=task_window.window_end_at,
-        )
-        specs.append(
-            jobs_repo.IdempotentJobSpec(
-                job_type=DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
-                idempotency_key=day_close_enforcement_idempotency_key(
-                    candidate_session.id,
-                    task.day_index,
-                ),
-                payload_json=payload,
-                candidate_session_id=candidate_session.id,
-                max_attempts=DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS,
-                correlation_id=f"candidate_session:{candidate_session.id}:schedule",
-                next_run_at=task_window.window_end_at,
-            )
-        )
-
-    jobs = await _upsert_day_close_jobs(
-        db,
-        company_id=simulation.company_id,
-        specs=specs,
-    )
-
-    if commit:
-        await db.commit()
-
-    return jobs
-
-
-async def enqueue_day_close_jobs(
-    db: AsyncSession,
-    *,
-    candidate_session: CandidateSession,
-    commit: bool = False,
-) -> tuple[list[Job], list[Job]]:
-    simulation = getattr(candidate_session, "simulation", None)
-    if simulation is None:
-        return [], []
-
-    tasks = await _load_tasks_for_day_indexes(
-        db,
-        simulation_id=candidate_session.simulation_id,
-        day_indexes=DAY_CLOSE_ALL_DAY_INDEXES,
-    )
-    finalize_specs: list[jobs_repo.IdempotentJobSpec] = []
-    enforcement_specs: list[jobs_repo.IdempotentJobSpec] = []
-    for task in tasks:
-        task_type = (task.type or "").strip().lower()
-        task_window = compute_task_window(candidate_session, task)
-        if task_window.window_end_at is None:
-            continue
-
-        if (
-            task.day_index in DAY_CLOSE_FINALIZE_TEXT_DAY_INDEXES
-            and task_type in TEXT_TASK_TYPES
-        ):
-            finalize_specs.append(
-                jobs_repo.IdempotentJobSpec(
-                    job_type=DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
-                    idempotency_key=day_close_finalize_text_idempotency_key(
-                        candidate_session.id,
-                        task.id,
-                    ),
-                    payload_json=build_day_close_finalize_text_payload(
-                        candidate_session_id=candidate_session.id,
-                        task_id=task.id,
-                        day_index=task.day_index,
-                        window_end_at=task_window.window_end_at,
-                    ),
-                    candidate_session_id=candidate_session.id,
-                    max_attempts=DAY_CLOSE_FINALIZE_TEXT_MAX_ATTEMPTS,
-                    correlation_id=f"candidate_session:{candidate_session.id}:schedule",
-                    next_run_at=task_window.window_end_at,
-                )
-            )
-
-        if (
-            task.day_index in DAY_CLOSE_ENFORCEMENT_DAY_INDEXES
-            and task_type in CODE_TASK_TYPES
-        ):
-            enforcement_specs.append(
-                jobs_repo.IdempotentJobSpec(
-                    job_type=DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
-                    idempotency_key=day_close_enforcement_idempotency_key(
-                        candidate_session.id,
-                        task.day_index,
-                    ),
-                    payload_json=build_day_close_enforcement_payload(
-                        candidate_session_id=candidate_session.id,
-                        task_id=task.id,
-                        day_index=task.day_index,
-                        window_end_at=task_window.window_end_at,
-                    ),
-                    candidate_session_id=candidate_session.id,
-                    max_attempts=DAY_CLOSE_ENFORCEMENT_MAX_ATTEMPTS,
-                    correlation_id=f"candidate_session:{candidate_session.id}:schedule",
-                    next_run_at=task_window.window_end_at,
-                )
-            )
-
-    finalize_jobs = await _upsert_day_close_jobs(
-        db,
-        company_id=simulation.company_id,
-        specs=finalize_specs,
-    )
-    enforcement_jobs = await _upsert_day_close_jobs(
-        db,
-        company_id=simulation.company_id,
-        specs=enforcement_specs,
-    )
-
-    if commit:
-        await db.commit()
-
-    return finalize_jobs, enforcement_jobs
-
-
-async def _load_tasks_for_day_indexes(
-    db: AsyncSession, *, simulation_id: int, day_indexes: set[int]
-) -> list[Task]:
-    return (
-        (
-            await db.execute(
-                select(Task)
-                .where(
-                    Task.simulation_id == simulation_id,
-                    Task.day_index.in_(day_indexes),
-                )
-                .order_by(Task.day_index.asc(), Task.id.asc())
-            )
-        )
-        .scalars()
-        .all()
+async def enqueue_day_close_finalize_text_jobs(db, *, candidate_session, commit: bool = False):
+    return await enqueue_day_close_finalize_text_jobs_impl(
+        db=db,
+        candidate_session=candidate_session,
+        load_tasks_for_day_indexes=_load_tasks_for_day_indexes,
+        compute_task_window=compute_task_window,
+        upsert_day_close_jobs=_upsert_day_close_jobs,
+        finalize_text_job_spec=_finalize_text_job_spec,
+        commit=commit,
     )
 
 
-def _dedupe_job_specs(
-    specs: list[jobs_repo.IdempotentJobSpec],
-) -> list[jobs_repo.IdempotentJobSpec]:
-    deduped: dict[tuple[str, str], jobs_repo.IdempotentJobSpec] = {}
-    for spec in specs:
-        deduped[(spec.job_type, spec.idempotency_key)] = spec
-    return list(deduped.values())
+async def enqueue_day_close_enforcement_jobs(db, *, candidate_session, commit: bool = False):
+    return await enqueue_day_close_enforcement_jobs_impl(
+        db=db,
+        candidate_session=candidate_session,
+        load_tasks_for_day_indexes=_load_tasks_for_day_indexes,
+        compute_task_window=compute_task_window,
+        upsert_day_close_jobs=_upsert_day_close_jobs,
+        enforcement_job_spec=_enforcement_job_spec,
+        commit=commit,
+    )
 
 
-async def _upsert_day_close_jobs(
-    db: AsyncSession,
-    *,
-    company_id: int,
-    specs: list[jobs_repo.IdempotentJobSpec],
-) -> list[Job]:
-    if not specs:
-        return []
-    return await jobs_repo.create_or_update_many_idempotent(
-        db,
-        company_id=company_id,
-        jobs=_dedupe_job_specs(specs),
-        commit=False,
+async def enqueue_day_close_jobs(db, *, candidate_session, commit: bool = False):
+    return await enqueue_day_close_jobs_impl(
+        db=db,
+        candidate_session=candidate_session,
+        load_tasks_for_day_indexes=_load_tasks_for_day_indexes,
+        compute_task_window=compute_task_window,
+        upsert_day_close_jobs=_upsert_day_close_jobs,
+        finalize_text_job_spec=_finalize_text_job_spec,
+        enforcement_job_spec=_enforcement_job_spec,
+        commit=commit,
     )
 
 

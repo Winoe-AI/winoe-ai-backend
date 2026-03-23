@@ -8,15 +8,7 @@ from app.core.auth import rate_limit
 
 
 def _fake_request(scope_overrides: dict | None = None) -> Request:
-    scope = {
-        "type": "http",
-        "headers": [],
-        "client": ("127.0.0.1", 1234),
-        "path": "/",
-        "method": "GET",
-        "query_string": b"",
-        "server": ("test", 80),
-    }
+    scope = {"type": "http", "headers": [], "client": ("127.0.0.1", 1234), "path": "/", "method": "GET", "query_string": b"", "server": ("test", 80)}
     if scope_overrides:
         scope.update(scope_overrides)
     return Request(scope, lambda: None)

@@ -7,26 +7,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.task_drafts.models import TaskDraft
+from app.repositories.task_drafts.repository_state import (
+    apply_draft_values,
+    is_finalized,
+)
 
 
 class TaskDraftFinalizedError(Exception):
     """Raised when attempting to modify a finalized task draft."""
-
-
-def _is_finalized(draft: TaskDraft) -> bool:
-    return draft.finalized_at is not None or draft.finalized_submission_id is not None
-
-
-def _apply_draft_values(
-    draft: TaskDraft,
-    *,
-    content_text: str | None,
-    content_json: dict[str, Any] | None,
-    updated_at: datetime,
-) -> None:
-    draft.content_text = content_text
-    draft.content_json = content_json
-    draft.updated_at = updated_at
 
 
 async def get_by_session_and_task(
@@ -61,9 +49,9 @@ async def upsert_draft(
         task_id=task_id,
     )
     if existing is not None:
-        if _is_finalized(existing):
+        if is_finalized(existing):
             raise TaskDraftFinalizedError()
-        _apply_draft_values(
+        apply_draft_values(
             existing,
             content_text=content_text,
             content_json=content_json,

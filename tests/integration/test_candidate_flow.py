@@ -11,35 +11,20 @@ from tests.factories import create_recruiter
 
 
 def _task_id_by_day(sim_payload: dict, day_index: int) -> int:
-    for task in sim_payload["tasks"]:
-        if task["day_index"] == day_index:
-            return task["id"]
-    raise AssertionError(f"Task with day_index={day_index} missing from payload")
+    task = next((item for item in sim_payload["tasks"] if item["day_index"] == day_index), None)
+    if task is None:
+        raise AssertionError(f"Task with day_index={day_index} missing from payload")
+    return task["id"]
 
 
 async def _unlock_schedule(async_session, *, candidate_session_id: int) -> None:
-    candidate_session = (
-        await async_session.execute(
-            select(CandidateSession).where(CandidateSession.id == candidate_session_id)
-        )
-    ).scalar_one()
-    _simulation = (
-        await async_session.execute(
-            select(Simulation).where(Simulation.id == candidate_session.simulation_id)
-        )
-    ).scalar_one()
+    candidate_session = (await async_session.execute(select(CandidateSession).where(CandidateSession.id == candidate_session_id))).scalar_one()
+    _simulation = (await async_session.execute(select(Simulation).where(Simulation.id == candidate_session.simulation_id))).scalar_one()
     now_utc = datetime.now(UTC).replace(microsecond=0)
     open_window_start = now_utc - timedelta(days=1)
     open_window_end = now_utc + timedelta(days=1)
     scheduled_start = open_window_start
-    day_windows = [
-        {
-            "dayIndex": day_index,
-            "windowStartAt": open_window_start,
-            "windowEndAt": open_window_end,
-        }
-        for day_index in range(1, 6)
-    ]
+    day_windows = [{"dayIndex": day_index, "windowStartAt": open_window_start, "windowEndAt": open_window_end} for day_index in range(1, 6)]
     candidate_session.scheduled_start_at = scheduled_start
     candidate_session.candidate_timezone = "America/New_York"
     candidate_session.day_windows_json = serialize_day_windows(day_windows)
@@ -71,11 +56,7 @@ async def test_full_flow_invite_through_first_submission(
     worker.clear_handlers()
     try:
         worker.register_builtin_handlers()
-        handled = await worker.run_once(
-            session_maker=session_maker,
-            worker_id="candidate-flow-worker",
-            now=datetime.now(UTC),
-        )
+        handled = await worker.run_once(session_maker=session_maker, worker_id="candidate-flow-worker", now=datetime.now(UTC))
     finally:
         worker.clear_handlers()
     assert handled is True

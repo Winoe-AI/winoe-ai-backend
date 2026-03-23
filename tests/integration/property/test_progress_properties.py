@@ -17,7 +17,7 @@ class FakeTask:
 
 @given(
     total_tasks=st.integers(min_value=1, max_value=10),
-    completed_ids=st.lists(st.integers(min_value=1, max_value=15), unique=True),
+    completed_ids=st.lists(st.integers(min_value=1, max_value=15), unique=True, max_size=15),
 )
 def test_current_task_monotonic(total_tasks: int, completed_ids: list[int]):
     """Property: next task is always the smallest missing day_index."""

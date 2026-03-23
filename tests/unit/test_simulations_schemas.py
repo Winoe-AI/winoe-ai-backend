@@ -56,13 +56,7 @@ def test_simulation_schema_helpers_cover_edge_cases():
     assert ai_config is not None
     assert ai_config.notice_version == "mvp1"
     assert ai_config.notice_text is not None
-    assert ai_config.eval_enabled_by_day == {
-        "1": True,
-        "2": True,
-        "3": True,
-        "4": True,
-        "5": True,
-    }
+    assert ai_config.eval_enabled_by_day == {"1": True, "2": True, "3": True, "4": True, "5": True}
 
 
 def test_simulation_day_window_override_validation_and_serializer():
@@ -111,10 +105,4 @@ def test_build_simulation_ai_config_falls_back_on_validation_error(monkeypatch):
     assert ai_config is not None
     assert ai_config.notice_version == AI_NOTICE_DEFAULT_VERSION
     assert ai_config.notice_text == AI_NOTICE_DEFAULT_TEXT
-    assert ai_config.eval_enabled_by_day == {
-        "1": True,
-        "2": True,
-        "3": True,
-        "4": True,
-        "5": True,
-    }
+    assert ai_config.eval_enabled_by_day == {"1": True, "2": True, "3": True, "4": True, "5": True}

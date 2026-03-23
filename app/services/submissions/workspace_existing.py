@@ -50,12 +50,9 @@ async def ensure_existing_workspace(
         return None
     if github_username:
         with contextlib.suppress(GithubError):
-            await github_client.add_collaborator(
-                existing.repo_full_name, github_username
-            )
+            await github_client.add_collaborator(existing.repo_full_name, github_username)
     if not hydrate_precommit_bundle or getattr(existing, "precommit_sha", None):
         return existing
-
     precommit_result = await apply_precommit_bundle_if_available(
         db,
         github_client=github_client,

@@ -36,8 +36,6 @@ def _status_check_expr() -> str:
 
 
 class PrecommitBundle(Base):
-    """Canonical scenario specialization bundle for workspace provisioning."""
-
     __tablename__ = "precommit_bundles"
     __table_args__ = (
         UniqueConstraint(
@@ -95,7 +93,4 @@ class PrecommitBundle(Base):
         onupdate=func.now(),
     )
 
-    scenario_version = relationship(
-        "ScenarioVersion",
-        back_populates="precommit_bundles",
-    )
+    scenario_version = relationship("ScenarioVersion", back_populates="precommit_bundles")

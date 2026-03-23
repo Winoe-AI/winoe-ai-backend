@@ -97,10 +97,7 @@ def _validate_day5_reflection_payload(payload) -> dict[str, object]:
         _log_day5_validation_failure(fields)
         raise SubmissionValidationError(fields=fields)
 
-    return {
-        "kind": DAY5_REFLECTION_KIND,
-        "sections": sections,
-    }
+    return {"kind": DAY5_REFLECTION_KIND, "sections": sections}
 
 
 def validate_submission_payload(task: Task, payload) -> dict[str, object] | None:

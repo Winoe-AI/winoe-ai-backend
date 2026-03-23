@@ -50,11 +50,7 @@ async def init_codespace(
     now: datetime | None = None,
 ):
     apply_rate_limit(candidate_session.id, "init")
-    task = await _validate_codespace_request_with_legacy_fallback(
-        db,
-        candidate_session,
-        task_id,
-    )
+    task = await _validate_codespace_request_with_legacy_fallback(db, candidate_session, task_id)
     workspace = await submission_service.ensure_workspace(
         db,
         candidate_session=candidate_session,
@@ -90,12 +86,7 @@ async def init_codespace(
         codespace_url = await ensure_canonical_workspace_url(db, workspace)
     if isinstance(db, AsyncSession):
         await db.commit()
-    return (
-        workspace,
-        submission_service.build_codespace_url(workspace.repo_full_name),
-        codespace_url,
-        task,
-    )
+    return workspace, submission_service.build_codespace_url(workspace.repo_full_name), codespace_url, task
 
 
 __all__ = ["init_codespace"]
