@@ -1,7 +1,10 @@
+"""Application module for submissions presentation submissions detail payload utils workflows."""
+
 from __future__ import annotations
 
 
 def build_task_payload(task):
+    """Build task payload."""
     return {
         "taskId": task.id,
         "dayIndex": task.day_index,
@@ -12,6 +15,7 @@ def build_task_payload(task):
 
 
 def build_code_payload(sub):
+    """Build code payload."""
     if sub.code_repo_path is None:
         return None
     return {

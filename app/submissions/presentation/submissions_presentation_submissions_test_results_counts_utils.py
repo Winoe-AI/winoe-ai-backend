@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions test results counts utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_parsed_output_utils_utils import (
@@ -6,6 +8,7 @@ from app.submissions.presentation.submissions_presentation_submissions_parsed_ou
 
 
 def fill_counts(sub, passed_val, failed_val, total_val):
+    """Execute fill counts."""
     if passed_val is None:
         passed_val = _safe_int(getattr(sub, "tests_passed", None))
     if failed_val is None:

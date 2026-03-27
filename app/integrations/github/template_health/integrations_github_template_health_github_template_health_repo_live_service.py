@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health repo live service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient
@@ -17,6 +19,7 @@ async def run_live_checks(
     default_branch: str,
     timeout_seconds: int,
 ) -> LiveCheckResult:
+    """Run live checks."""
     return await _run_live_check(
         github_client,
         repo_full_name=repo_full_name,

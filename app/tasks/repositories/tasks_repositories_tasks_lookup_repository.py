@@ -1,3 +1,5 @@
+"""Application module for tasks repositories tasks lookup repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select

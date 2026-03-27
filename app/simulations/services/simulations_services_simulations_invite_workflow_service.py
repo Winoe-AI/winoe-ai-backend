@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations invite workflow service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -22,6 +24,7 @@ async def create_candidate_invite_workflow(
     github_client: GithubClient,
     now: datetime | None = None,
 ):
+    """Create candidate invite workflow."""
     try:
         sim, tasks = await sim_service.require_owned_simulation_with_tasks(
             db,

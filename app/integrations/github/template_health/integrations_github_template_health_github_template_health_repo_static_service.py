@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health repo static service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient
@@ -21,6 +23,7 @@ async def run_static_checks(
     checks: TemplateHealthChecks,
     errors: list[str],
 ) -> str | None:
+    """Run static checks."""
     default_branch = await fetch_repo_and_branch(
         github_client, repo_full_name, checks, errors
     )

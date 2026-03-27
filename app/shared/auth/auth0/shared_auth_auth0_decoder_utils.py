@@ -1,3 +1,5 @@
+"""Application module for auth auth0 decoder utils workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +29,7 @@ def _log_failure(reason: str, *, kid: str | None, alg: str | None) -> None:
 
 
 def decode_auth0_token(token: str) -> dict[str, Any]:
+    """Execute decode auth0 token."""
     try:
         unverified_header = jwt.get_unverified_header(token)
     except JWTError as exc:

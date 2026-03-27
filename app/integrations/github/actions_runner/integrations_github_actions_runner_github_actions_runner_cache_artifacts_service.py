@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner cache artifacts service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.artifacts import ParsedTestResults
@@ -16,12 +18,14 @@ class ArtifactCacheMixin:
         parsed: ParsedTestResults | None,
         error: str | None,
     ) -> None:
+        """Execute cache artifact result."""
         self.artifact_cache[key] = (parsed, error)
         self.artifact_cache.move_to_end(key)
         if len(self.artifact_cache) > self.max_entries:
             self.artifact_cache.popitem(last=False)
 
     def cache_artifact_list(self, key: tuple[str, int], artifacts: list[dict]) -> None:
+        """Execute cache artifact list."""
         self.artifact_list_cache[key] = artifacts
         self.artifact_list_cache.move_to_end(key)
         if len(self.artifact_list_cache) > self.max_entries:

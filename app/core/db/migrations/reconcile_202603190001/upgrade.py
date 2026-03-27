@@ -13,6 +13,7 @@ from .specs_constraints import FK_SPECS, INDEX_SPECS, WORKSPACES_GROUP_UNIQUE_NA
 
 
 def run_upgrade(op: object, bind: sa.Connection) -> None:
+    """Run upgrade."""
     for table_name, name, type_ in COLUMN_SPECS:
         add_column_if_missing(
             op, bind, table_name, sa.Column(name, type_, nullable=True)

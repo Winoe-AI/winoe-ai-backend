@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario generation service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -53,6 +55,7 @@ def _template_display_name(template_key: str) -> str:
 def build_deterministic_template_scenario(
     *, role: str, tech_stack: str, template_key: str
 ) -> GeneratedScenarioPayload:
+    """Build deterministic template scenario."""
     return _build_deterministic_impl(
         role=role,
         tech_stack=tech_stack,
@@ -75,6 +78,7 @@ def _generate_with_llm(
 def generate_scenario_payload(
     *, role: str, tech_stack: str, template_key: str
 ) -> GeneratedScenarioPayload:
+    """Generate scenario payload."""
     return _generate_payload_impl(
         role=role,
         tech_stack=tech_stack,

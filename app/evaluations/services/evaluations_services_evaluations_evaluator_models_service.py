@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations evaluator models service workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,6 +8,8 @@ from typing import Any, Protocol
 
 @dataclass(slots=True)
 class DayEvaluationInput:
+    """Represent day evaluation input data and behavior."""
+
     day_index: int
     task_id: int | None
     task_type: str | None
@@ -26,6 +30,8 @@ class DayEvaluationInput:
 
 @dataclass(slots=True)
 class EvaluationInputBundle:
+    """Represent evaluation input bundle data and behavior."""
+
     candidate_session_id: int
     scenario_version_id: int
     model_name: str
@@ -38,6 +44,8 @@ class EvaluationInputBundle:
 
 @dataclass(slots=True)
 class DayEvaluationResult:
+    """Represent day evaluation result data and behavior."""
+
     day_index: int
     score: float
     rubric_breakdown: dict[str, Any]
@@ -46,6 +54,8 @@ class DayEvaluationResult:
 
 @dataclass(slots=True)
 class EvaluationResult:
+    """Represent evaluation result data and behavior."""
+
     overall_fit_score: float
     recommendation: str
     confidence: float
@@ -54,7 +64,10 @@ class EvaluationResult:
 
 
 class FitProfileEvaluator(Protocol):
+    """Represent fit profile evaluator data and behavior."""
+
     async def evaluate(self, bundle: EvaluationInputBundle) -> EvaluationResult:
+        """Execute evaluate."""
         ...
 
 

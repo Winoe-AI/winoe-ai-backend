@@ -1,3 +1,5 @@
+"""Application module for submissions routes submissions routes submissions routes detail routes workflows."""
+
 import logging
 from typing import Annotated
 

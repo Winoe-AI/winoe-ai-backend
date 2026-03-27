@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations queries repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -19,6 +21,7 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_validatio
 async def get_run_by_id(
     db: AsyncSession, run_id: int, *, for_update: bool = False
 ) -> EvaluationRun | None:
+    """Return run by id."""
     stmt = (
         select(EvaluationRun)
         .options(selectinload(EvaluationRun.day_scores))
@@ -36,6 +39,7 @@ async def get_run_by_job_id(
     candidate_session_id: int | None = None,
     for_update: bool = False,
 ) -> EvaluationRun | None:
+    """Return run by job id."""
     normalized_job_id = normalize_non_empty_str(job_id, field_name="job_id")
     stmt = (
         select(EvaluationRun)
@@ -59,6 +63,7 @@ async def get_latest_run_for_candidate_session(
     candidate_session_id: int,
     statuses: Sequence[str] | None = None,
 ) -> EvaluationRun | None:
+    """Return latest run for candidate session."""
     stmt = (
         select(EvaluationRun)
         .options(selectinload(EvaluationRun.day_scores))
@@ -77,6 +82,7 @@ async def get_latest_run_for_candidate_session(
 async def get_latest_successful_run_for_candidate_session(
     db: AsyncSession, *, candidate_session_id: int
 ):
+    """Return latest successful run for candidate session."""
     return await get_latest_run_for_candidate_session(
         db,
         candidate_session_id=candidate_session_id,
@@ -92,6 +98,7 @@ async def list_runs_for_candidate_session(
     limit: int | None = None,
     offset: int = 0,
 ) -> list[EvaluationRun]:
+    """Return runs for candidate session."""
     stmt = (
         select(EvaluationRun)
         .options(selectinload(EvaluationRun.day_scores))
@@ -110,6 +117,7 @@ async def list_runs_for_candidate_session(
 async def has_runs_for_candidate_session(
     db: AsyncSession, candidate_session_id: int
 ) -> bool:
+    """Execute has runs for candidate session."""
     stmt = (
         select(EvaluationRun.id)
         .where(EvaluationRun.candidate_session_id == candidate_session_id)

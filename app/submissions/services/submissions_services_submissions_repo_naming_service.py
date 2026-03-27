@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions repo naming service workflows."""
+
 from __future__ import annotations
 
 import re

@@ -1,3 +1,5 @@
+"""Application module for http middleware http request middleware workflows."""
+
 from __future__ import annotations
 
 from urllib.parse import urlsplit

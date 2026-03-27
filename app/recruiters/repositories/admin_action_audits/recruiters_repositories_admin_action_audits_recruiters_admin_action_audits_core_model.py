@@ -1,3 +1,5 @@
+"""Application module for recruiters repositories admin action audits recruiters admin action audits core model workflows."""
+
 from __future__ import annotations
 
 import uuid

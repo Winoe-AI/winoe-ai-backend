@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions lock service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -27,6 +29,7 @@ async def lock_active_scenario_for_invites(
     now: datetime | None = None,
     simulation: Simulation | None = None,
 ) -> ScenarioVersion:
+    """Execute lock active scenario for invites."""
     lock_at = now or datetime.now(UTC)
     locked_simulation = simulation
     if locked_simulation is None:

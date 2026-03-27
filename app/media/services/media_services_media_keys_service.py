@@ -1,3 +1,5 @@
+"""Application module for media services media keys service workflows."""
+
 from __future__ import annotations
 
 import re
@@ -33,6 +35,7 @@ def parse_recording_public_id(value: str) -> int:
 
 
 def normalize_extension(extension: str) -> str:
+    """Normalize extension."""
     normalized = (extension or "").strip().lower().lstrip(".")
     if not normalized:
         raise ValueError("File extension is required")

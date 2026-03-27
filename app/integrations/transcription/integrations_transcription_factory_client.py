@@ -1,3 +1,5 @@
+"""Application module for integrations transcription factory client workflows."""
+
 from __future__ import annotations
 
 from functools import lru_cache

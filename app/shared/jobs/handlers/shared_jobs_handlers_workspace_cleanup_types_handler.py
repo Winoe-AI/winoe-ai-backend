@@ -1,3 +1,5 @@
+"""Application module for jobs handlers workspace cleanup types handler workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

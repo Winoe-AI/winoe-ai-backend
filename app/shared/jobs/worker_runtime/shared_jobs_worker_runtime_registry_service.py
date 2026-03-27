@@ -1,3 +1,5 @@
+"""Application module for jobs worker runtime registry service workflows."""
+
 from __future__ import annotations
 
 from app.shared.jobs.worker_runtime.shared_jobs_worker_runtime_types_model import (
@@ -12,6 +14,7 @@ def _normalize_job_type(job_type: str) -> str:
 
 
 def register_handler(job_type: str, handler: JobHandler) -> None:
+    """Execute register handler."""
     normalized = _normalize_job_type(job_type)
     if not normalized:
         raise ValueError("job_type is required")
@@ -19,19 +22,23 @@ def register_handler(job_type: str, handler: JobHandler) -> None:
 
 
 def clear_handlers() -> None:
+    """Execute clear handlers."""
     _HANDLERS.clear()
 
 
 def has_handler(job_type: str) -> bool:
+    """Execute has handler."""
     normalized = _normalize_job_type(job_type)
     return bool(normalized and normalized in _HANDLERS)
 
 
 def get_handler(job_type: str) -> JobHandler | None:
+    """Return handler."""
     return _HANDLERS.get(job_type)
 
 
 def register_builtin_handlers() -> None:
+    """Execute register builtin handlers."""
     from app.shared.jobs.handlers import (
         DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
         DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,

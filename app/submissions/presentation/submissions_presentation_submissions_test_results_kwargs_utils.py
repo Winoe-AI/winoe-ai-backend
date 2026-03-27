@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions test results kwargs utils workflows."""
+
 from __future__ import annotations
 
 
@@ -19,6 +21,7 @@ def build_result_kwargs(
     commit_url,
     include_output: bool,
 ):
+    """Build result kwargs."""
     artifact_present = payload["parsed_payload_present"]
     return {
         "status_str": status_str,

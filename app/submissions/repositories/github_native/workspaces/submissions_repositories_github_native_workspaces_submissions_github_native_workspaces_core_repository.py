@@ -1,3 +1,5 @@
+"""Application module for submissions repositories github native workspaces submissions github native workspaces core repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +38,7 @@ async def get_by_session_and_task(
     task_type: str | None = None,
     workspace_resolution: WorkspaceResolution | None = None,
 ) -> Workspace | None:
+    """Return by session and task."""
     return await get_by_session_and_task_impl(
         db,
         candidate_session_id=candidate_session_id,
@@ -52,12 +55,14 @@ async def get_by_session_and_task(
 async def resolve_workspace_resolution(
     db: AsyncSession, **kwargs
 ) -> WorkspaceResolution:
+    """Resolve workspace resolution."""
     return await resolve_workspace_resolution_impl(db, **kwargs)
 
 
 async def session_uses_grouped_workspace(
     db: AsyncSession, *, candidate_session_id: int, workspace_key: str | None
 ) -> bool:
+    """Execute session uses grouped workspace."""
     resolution = await resolve_workspace_resolution(
         db,
         candidate_session_id=candidate_session_id,

@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks handoff upload complete handler workflows."""
+
 from __future__ import annotations
 
 from app.submissions.schemas.submissions_schemas_submissions_core_schema import (
@@ -15,6 +17,7 @@ async def complete_handoff_upload_route_impl(
     complete_handoff_upload_fn,
     recording_public_id_fn,
 ) -> HandoffUploadCompleteResponse:
+    """Complete handoff upload route impl."""
     recording = await complete_handoff_upload_fn(
         db,
         candidate_session=candidate_session,

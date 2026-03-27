@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime patch parser service workflows."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +13,7 @@ from app.submissions.services.precommit_bundle_runtime.submissions_services_prec
 def parse_patch_entries(
     *, patch_text: str | None, storage_ref: str | None
 ) -> list[BundleFileChange]:
+    """Parse patch entries."""
     if patch_text is None:
         raise ApiError(
             status_code=500,
@@ -87,6 +90,7 @@ def _parse_content(
 
 
 def ensure_safe_repo_path(path: str) -> None:
+    """Ensure safe repo path."""
     if not path:
         _raise_unsafe_path(path, "Precommit bundle path cannot be empty.")
     if path.startswith("/") or path.startswith("./") or path.startswith("../"):

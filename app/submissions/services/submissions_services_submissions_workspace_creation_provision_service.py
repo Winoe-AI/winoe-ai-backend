@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation provision service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -41,6 +43,7 @@ async def provision_workspace(
     commit: bool = True,
     hydrate_precommit_bundle: bool = True,
 ) -> Workspace:
+    """Execute provision workspace."""
     (
         workspace_key,
         uses_grouped_workspace,

@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime lookup guards service workflows."""
+
 from __future__ import annotations
 
 from app.submissions.services.precommit_bundle_runtime.submissions_services_precommit_bundle_runtime_submissions_precommit_bundle_runtime_results_service import (
@@ -19,6 +21,7 @@ def evaluate_lookup_guards(
     existing_precommit_sha: str | None,
     logger,
 ):
+    """Execute evaluate lookup guards."""
     if existing_precommit_sha:
         logger.info(
             "precommit_bundle_skipped_existing_sha",

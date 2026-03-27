@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations ai builders schema workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -20,6 +22,7 @@ from app.simulations.schemas.simulations_schemas_simulations_ai_values_schema im
 
 
 def build_simulation_company_context(value: Any) -> SimulationCompanyContext | None:
+    """Build simulation company context."""
     if not isinstance(value, Mapping):
         return None
     try:
@@ -34,6 +37,7 @@ def build_simulation_ai_config(
     notice_text: str | None,
     eval_enabled_by_day: Any,
 ) -> SimulationAIConfig | None:
+    """Build simulation ai config."""
     (
         resolved_notice_version,
         resolved_notice_text,

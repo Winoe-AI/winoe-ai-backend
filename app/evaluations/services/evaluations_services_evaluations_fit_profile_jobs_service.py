@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile jobs service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -17,6 +19,7 @@ def build_evaluation_job_payload(
     company_id: int,
     requested_by_user_id: int,
 ) -> dict[str, object]:
+    """Build evaluation job payload."""
     requested_at = datetime.now(UTC).replace(microsecond=0)
     return {
         "candidateSessionId": int(candidate_session_id),
@@ -28,6 +31,7 @@ def build_evaluation_job_payload(
 
 def build_evaluation_job_idempotency_key(candidate_session_id: int) -> str:
     # Each generation request should produce a distinct immutable run.
+    """Build evaluation job idempotency key."""
     return f"evaluation_run:{candidate_session_id}:{uuid4().hex}"
 
 
@@ -39,6 +43,7 @@ async def enqueue_evaluation_run(
     requested_by_user_id: int,
     commit: bool = True,
 ) -> Job:
+    """Enqueue evaluation run."""
     payload_json = build_evaluation_job_payload(
         candidate_session_id=candidate_session_id,
         company_id=company_id,

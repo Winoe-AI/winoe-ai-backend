@@ -1,3 +1,5 @@
+"""Application module for recruiters routes admin templates recruiters admin templates health get routes workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated, Literal

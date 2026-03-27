@@ -1,3 +1,5 @@
+"""Application module for candidates schemas candidates candidate sessions windows schema workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime

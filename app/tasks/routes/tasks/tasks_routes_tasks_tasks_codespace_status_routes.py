@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks codespace status routes workflows."""
+
 from datetime import UTC, datetime
 from typing import Annotated
 

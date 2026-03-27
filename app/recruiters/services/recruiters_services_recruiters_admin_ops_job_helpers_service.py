@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops job helpers service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -17,6 +19,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
 
 
 async def load_job_for_update(db: AsyncSession, job_id: str) -> Job:
+    """Load job for update."""
     job = (
         await db.execute(select(Job).where(Job.id == job_id).with_for_update())
     ).scalar_one_or_none()
@@ -29,11 +32,13 @@ async def load_job_for_update(db: AsyncSession, job_id: str) -> Job:
 
 
 def job_stale_seconds() -> int:
+    """Execute job stale seconds."""
     configured = int(settings.DEMO_ADMIN_JOB_STALE_SECONDS or 0)
     return configured if configured > 0 else 900
 
 
 def is_stale_running_job(job: Job, *, now: datetime) -> bool:
+    """Return whether stale running job."""
     if job.status != JOB_STATUS_RUNNING:
         return False
     locked_at = normalize_datetime(job.locked_at)

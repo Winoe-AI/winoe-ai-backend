@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations create run with scores repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -49,6 +51,7 @@ async def create_run_with_day_scores(
     metadata_json: Mapping[str, Any] | None = None,
     commit: bool = True,
 ) -> EvaluationRun:
+    """Create run with day scores."""
     run = await create_run(
         db,
         candidate_session_id=candidate_session_id,

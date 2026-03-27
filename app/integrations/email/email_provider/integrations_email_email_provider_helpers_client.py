@@ -1,3 +1,5 @@
+"""Application module for integrations email provider helpers client workflows."""
+
 from __future__ import annotations
 
 

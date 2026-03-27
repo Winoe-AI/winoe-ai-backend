@@ -1,3 +1,5 @@
+"""Application module for auth principal dependencies utils workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +34,7 @@ async def get_principal(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     request: Request,
 ) -> Principal:
+    """Return principal."""
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace template repo service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -19,6 +21,7 @@ async def generate_template_repo(
     template_default_owner: str | None,
     workspace_key: str | None = None,
 ) -> tuple[str, str, str | None, int | None]:
+    """Generate template repo."""
     template_repo = (task.template_repo or "").strip()
     if not template_repo:
         raise HTTPException(

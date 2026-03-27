@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule gates loader service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

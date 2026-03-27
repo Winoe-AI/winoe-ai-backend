@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare access service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -20,6 +22,7 @@ async def require_simulation_compare_access(
     simulation_id: int,
     user: User,
 ) -> SimulationCompareAccessContext:
+    """Require simulation compare access."""
     simulation = (
         await db.execute(
             select(Simulation)

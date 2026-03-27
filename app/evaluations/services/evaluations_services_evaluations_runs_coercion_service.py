@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations runs coercion service workflows."""
+
 from __future__ import annotations
 
 import math
@@ -15,6 +17,7 @@ from app.evaluations.services.evaluations_services_evaluations_runs_validation_s
 def coerce_unit_interval_score(
     value: Any, *, field_name: str, required: bool
 ) -> float | None:
+    """Execute coerce unit interval score."""
     if value is None:
         if required:
             raise EvaluationRunStateError(f"{field_name} is required.")
@@ -30,6 +33,7 @@ def coerce_unit_interval_score(
 
 
 def coerce_recommendation(value: Any, *, required: bool) -> str | None:
+    """Execute coerce recommendation."""
     if value is None:
         if required:
             raise EvaluationRunStateError("recommendation is required.")
@@ -43,6 +47,7 @@ def coerce_recommendation(value: Any, *, required: bool) -> str | None:
 
 
 def coerce_raw_report_json(raw_report_json: Any) -> dict[str, Any] | None:
+    """Execute coerce raw report json."""
     if raw_report_json is None:
         return None
     if not isinstance(raw_report_json, Mapping):

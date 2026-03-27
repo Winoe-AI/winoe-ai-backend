@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks run poll routes workflows."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status

@@ -1,3 +1,5 @@
+"""Application module for integrations github webhooks handlers workflow run mapping handler workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import func, or_, select
@@ -57,6 +59,7 @@ async def _find_submission_by_head_sha_fallback(
 async def resolve_submission_mapping(
     db: AsyncSession, *, event: WorkflowRunCompletedEvent
 ) -> tuple[Submission | None, str | None]:
+    """Resolve submission mapping."""
     direct_matches = await _find_submission_by_workflow_run_id(
         db, workflow_run_id=event.workflow_run_id, repo_full_name=event.repo_full_name
     )
@@ -79,6 +82,7 @@ async def resolve_submission_mapping(
 async def company_id_for_submission(
     db: AsyncSession, *, submission: Submission
 ) -> int | None:
+    """Execute company id for submission."""
     stmt = (
         select(Simulation.company_id)
         .join(CandidateSession, CandidateSession.simulation_id == Simulation.id)
@@ -90,6 +94,7 @@ async def company_id_for_submission(
 async def workspace_for_submission(
     db: AsyncSession, *, submission: Submission
 ) -> Workspace | None:
+    """Execute workspace for submission."""
     stmt = (
         select(Workspace)
         .where(

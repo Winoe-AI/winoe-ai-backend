@@ -1,3 +1,5 @@
+"""Application module for media schemas media recordings schema workflows."""
+
 from __future__ import annotations
 
 from typing import Literal

@@ -1,3 +1,5 @@
+"""Application module for submissions repositories submissions submission model workflows."""
+
 from datetime import datetime
 
 from sqlalchemy import (

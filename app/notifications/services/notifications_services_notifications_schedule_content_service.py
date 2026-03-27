@@ -1,3 +1,5 @@
+"""Application module for notifications services notifications schedule content service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, time
@@ -25,6 +27,7 @@ def candidate_schedule_confirmation_content(
     day_window_start_local: time,
     day_window_end_local: time,
 ) -> tuple[str, str, str]:
+    """Execute candidate schedule confirmation content."""
     start_utc = (
         scheduled_start_at_utc.replace(tzinfo=UTC)
         if scheduled_start_at_utc.tzinfo is None
@@ -63,6 +66,7 @@ def recruiter_schedule_confirmation_content(
     day_window_start_local: time,
     day_window_end_local: time,
 ) -> tuple[str, str, str]:
+    """Execute recruiter schedule confirmation content."""
     start_utc = (
         scheduled_start_at_utc.replace(tzinfo=UTC)
         if scheduled_start_at_utc.tzinfo is None

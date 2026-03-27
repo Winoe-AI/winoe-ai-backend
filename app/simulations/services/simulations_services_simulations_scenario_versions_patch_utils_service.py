@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions patch utils service workflows."""
+
 from __future__ import annotations
 
 import copy
@@ -26,6 +28,7 @@ logger = logging.getLogger(__name__)
 def ensure_patch_allowed(
     simulation: Simulation, scenario_version: ScenarioVersion, actor_user_id: int
 ) -> None:
+    """Ensure patch allowed."""
     if (
         scenario_version.status == SCENARIO_VERSION_STATUS_LOCKED
         or scenario_version.locked_at is not None
@@ -64,6 +67,7 @@ def ensure_patch_allowed(
 
 
 def snapshot_editable_state(scenario_version: ScenarioVersion) -> dict[str, Any]:
+    """Execute snapshot editable state."""
     return {
         "storyline_md": copy.deepcopy(scenario_version.storyline_md),
         "task_prompts_json": copy.deepcopy(scenario_version.task_prompts_json),
@@ -75,6 +79,7 @@ def snapshot_editable_state(scenario_version: ScenarioVersion) -> dict[str, Any]
 def merge_patch_state(
     before_state: dict[str, Any], updates: dict[str, Any], candidate_fields: list[str]
 ) -> dict[str, Any]:
+    """Execute merge patch state."""
     merged_state = copy.deepcopy(before_state)
     for field_name in candidate_fields:
         value = updates[field_name]
@@ -89,6 +94,7 @@ def merge_patch_state(
 def apply_normalized_patch(
     scenario_version: ScenarioVersion, normalized_state: dict[str, Any]
 ) -> None:
+    """Apply normalized patch."""
     scenario_version.storyline_md = normalized_state["storyline_md"]
     scenario_version.task_prompts_json = normalized_state["task_prompts_json"]
     scenario_version.rubric_json = normalized_state["rubric_json"]

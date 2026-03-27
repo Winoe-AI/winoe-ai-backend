@@ -1,3 +1,5 @@
+"""Application module for config github config workflows."""
+
 from __future__ import annotations
 
 from pydantic import field_validator

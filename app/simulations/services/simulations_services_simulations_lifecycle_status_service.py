@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations lifecycle status service workflows."""
+
 from __future__ import annotations
 
 from fastapi import status
@@ -23,6 +25,7 @@ _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
 
 
 def normalize_simulation_status(raw_status: str | None) -> str | None:
+    """Normalize simulation status."""
     if raw_status == LEGACY_SIMULATION_STATUS_ACTIVE:
         return SIMULATION_STATUS_ACTIVE_INVITING
     if raw_status in SIMULATION_STATUSES:
@@ -31,6 +34,7 @@ def normalize_simulation_status(raw_status: str | None) -> str | None:
 
 
 def normalize_simulation_status_or_raise(raw_status: str | None) -> str:
+    """Normalize simulation status or raise."""
     normalized = normalize_simulation_status(raw_status)
     if normalized is not None:
         return normalized

@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner dispatcher service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -19,11 +21,13 @@ class DispatchRunnerMixin:
     async def dispatch_and_wait(
         self, *, repo_full_name: str, ref: str, inputs: dict[str, Any] | None = None
     ):
+        """Dispatch and wait."""
         return await dispatch_and_wait(
             self, repo_full_name=repo_full_name, ref=ref, inputs=inputs
         )
 
     async def fetch_run_result(self, *, repo_full_name: str, run_id: int):
+        """Return run result."""
         return await fetch_run_result(
             self, repo_full_name=repo_full_name, run_id=run_id
         )

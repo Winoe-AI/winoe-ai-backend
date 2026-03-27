@@ -1,3 +1,5 @@
+"""Application module for jobs worker runtime missing handler workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,6 +18,7 @@ async def dead_letter_missing_handler(
     job_type: str,
     claim_time: datetime,
 ) -> None:
+    """Execute dead letter missing handler."""
     await mark_dead_letter(
         session_maker,
         job_id=job_id,

@@ -1,3 +1,5 @@
+"""Application module for jobs handlers transcribe recording helpers handler workflows."""
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,3 +1,5 @@
+"""Application module for integrations github webhooks handlers workflow run updates handler workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -11,6 +13,7 @@ from app.shared.database.shared_database_models_model import Submission, Workspa
 def apply_submission_completion(
     submission: Submission, *, event: WorkflowRunCompletedEvent
 ) -> bool:
+    """Apply submission completion."""
     changed = False
     workflow_run_id = str(event.workflow_run_id)
     if submission.workflow_run_id != workflow_run_id:
@@ -47,6 +50,7 @@ def apply_submission_completion(
 def apply_workspace_completion(
     workspace: Workspace, *, event: WorkflowRunCompletedEvent
 ) -> bool:
+    """Apply workspace completion."""
     changed = False
     workflow_run_id = str(event.workflow_run_id)
     if workspace.last_workflow_run_id != workflow_run_id:

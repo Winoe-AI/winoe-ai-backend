@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes rate limits routes workflows."""
+
 from __future__ import annotations
 
 from fastapi import Request
@@ -37,6 +39,7 @@ def _scenario_regenerate_rule():
 def enforce_invite_create_limit(
     request: Request, user_id: int, invite_email: str
 ) -> None:
+    """Execute enforce invite create limit."""
     if not rate_limit.rate_limit_enabled():
         return
     key = rate_limit.rate_limit_key(
@@ -51,6 +54,7 @@ def enforce_invite_create_limit(
 def enforce_invite_resend_limit(
     request: Request, user_id: int, candidate_session_id: int
 ) -> None:
+    """Execute enforce invite resend limit."""
     if not rate_limit.rate_limit_enabled():
         return
     key = rate_limit.rate_limit_key(
@@ -63,6 +67,7 @@ def enforce_invite_resend_limit(
 
 
 def enforce_scenario_regenerate_limit(request: Request, user_id: int) -> None:
+    """Execute enforce scenario regenerate limit."""
     if not rate_limit.rate_limit_enabled():
         return
     key = rate_limit.rate_limit_key(

@@ -1,3 +1,5 @@
+"""Application module for http middleware http config workflows."""
+
 from __future__ import annotations
 
 from app.config import settings

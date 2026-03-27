@@ -1,3 +1,5 @@
+"""Application module for candidates schemas candidates candidate sessions privacy schema workflows."""
+
 from __future__ import annotations
 
 from typing import Literal

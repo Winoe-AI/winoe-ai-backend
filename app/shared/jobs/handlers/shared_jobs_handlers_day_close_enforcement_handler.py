@@ -1,3 +1,5 @@
+"""Application module for jobs handlers day close enforcement handler workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -36,6 +38,7 @@ async def _revoke_repo_write_access(github_client, **kwargs) -> str:
 
 
 async def handle_day_close_enforcement(payload_json: dict[str, Any]) -> dict[str, Any]:
+    """Handle day close enforcement."""
     return await handle_day_close_enforcement_impl(
         payload_json,
         parse_positive_int=_parse_positive_int,

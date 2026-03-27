@@ -1,3 +1,5 @@
+"""Application module for submissions repositories submissions handoff write repository workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -16,6 +18,7 @@ async def create_handoff_submission(
     submitted_at: datetime,
     commit: bool = True,
 ) -> Submission:
+    """Create handoff submission."""
     submission = Submission(
         candidate_session_id=candidate_session_id,
         task_id=task_id,
@@ -51,6 +54,7 @@ async def update_handoff_submission(
     submitted_at: datetime,
     commit: bool = True,
 ) -> Submission:
+    """Update handoff submission."""
     submission.recording_id = recording_id
     submission.submitted_at = submitted_at
     if commit:

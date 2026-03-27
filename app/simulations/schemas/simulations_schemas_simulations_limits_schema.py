@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations limits schema workflows."""
+
 from __future__ import annotations
 
 import json
@@ -28,6 +30,7 @@ def _json_payload_size_bytes(value: Any) -> int:
 
 
 def normalize_role_level(value: str | None) -> str | None:
+    """Normalize role level."""
     if value is None:
         return None
     normalized = value.strip().lower()

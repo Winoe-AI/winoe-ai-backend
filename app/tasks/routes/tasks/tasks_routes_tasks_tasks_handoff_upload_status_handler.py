@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks handoff upload status handler workflows."""
+
 from __future__ import annotations
 
 from app.integrations.storage_media.integrations_storage_media_storage_media_base_client import (
@@ -21,6 +23,7 @@ async def handoff_status_route_impl(
     build_transcript_status_payload_fn,
     logger,
 ) -> HandoffStatusResponse:
+    """Execute handoff status route impl."""
     recording, transcript = await get_handoff_status_fn(
         db,
         candidate_session=candidate_session,

@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner model workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,6 +27,7 @@ class ActionsRunResult:
 
     @property
     def as_test_output(self) -> dict[str, Any]:
+        """Execute as test output."""
         payload = {
             "status": self.status,
             "runId": self.run_id,

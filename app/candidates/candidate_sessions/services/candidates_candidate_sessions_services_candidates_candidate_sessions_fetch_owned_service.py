@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions fetch owned service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -19,6 +21,7 @@ from app.shared.database.shared_database_models_model import CandidateSession
 async def fetch_owned_session(
     db: AsyncSession, session_id: int, principal: Principal, *, now=None
 ) -> CandidateSession:
+    """Return owned session."""
     now = now or datetime.now(UTC)
     cs = ensure_can_access(await cs_repo.get_by_id(db, session_id), principal, now=now)
     if cs.candidate_auth0_sub:

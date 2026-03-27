@@ -1,3 +1,5 @@
+"""Application module for auth principal model workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

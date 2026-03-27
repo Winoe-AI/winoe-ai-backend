@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation strategy service workflows."""
+
 from __future__ import annotations
 
 import contextlib
@@ -14,6 +16,7 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 
 
 async def resolve_workspace_strategy(db, candidate_session, task, workspace_resolution):
+    """Resolve workspace strategy."""
     workspace_key = resolve_workspace_key_for_task(task)
     uses_grouped_workspace = False
     existing_group: WorkspaceGroup | None = None

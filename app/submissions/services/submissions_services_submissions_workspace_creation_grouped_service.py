@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation grouped service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -44,6 +46,7 @@ async def provision_grouped_workspace(
     existing_checked: bool = False,
     workspace_group_checked: bool = False,
 ) -> Workspace:
+    """Execute provision grouped workspace."""
     group, repo_id = await get_or_create_workspace_group(
         db,
         candidate_session=candidate_session,

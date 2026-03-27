@@ -1,3 +1,5 @@
+"""Application module for http router registry service workflows."""
+
 from __future__ import annotations
 
 from fastapi import FastAPI
@@ -20,6 +22,7 @@ from app.shared.http.routes import shared_http_routes_jobs_routes as jobs
 
 
 def register_routers(app: FastAPI) -> None:
+    """Execute register routers."""
     prefix = settings.API_PREFIX
     app.include_router(health.router, prefix="", tags=["health"])
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])

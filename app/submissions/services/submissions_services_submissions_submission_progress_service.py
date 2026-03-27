@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions submission progress service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime

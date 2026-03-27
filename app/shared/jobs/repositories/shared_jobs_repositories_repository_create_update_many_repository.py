@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository create update many repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +26,7 @@ async def create_or_update_many_idempotent(
     jobs: list[IdempotentJobSpec],
     commit: bool = True,
 ) -> list[Job]:
+    """Create or update many idempotent."""
     normalized_specs = normalize_many_specs(jobs)
     if not normalized_specs:
         return []

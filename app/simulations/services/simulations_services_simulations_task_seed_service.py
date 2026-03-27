@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations task seed service workflows."""
+
 from __future__ import annotations
 
 from app.shared.database.shared_database_models_model import Task
@@ -11,6 +13,7 @@ from .simulations_services_simulations_task_templates_service import (
 
 
 async def seed_default_tasks(db, simulation_id: int, template_key: str) -> list[Task]:
+    """Execute seed default tasks."""
     created_tasks: list[Task] = []
     for blueprint in DEFAULT_5_DAY_BLUEPRINT:
         task = Task(

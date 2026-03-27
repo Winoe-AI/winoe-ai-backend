@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health runner service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient
@@ -25,6 +27,7 @@ async def check_template_health(
     timeout_seconds: int = 180,
     concurrency: int = 1,
 ) -> TemplateHealthResponse:
+    """Check template health."""
     selected = template_keys or list(TEMPLATE_CATALOG.keys())
     items = await run_with_concurrency(
         selected,

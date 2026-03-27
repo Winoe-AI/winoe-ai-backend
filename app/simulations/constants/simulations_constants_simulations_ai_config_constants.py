@@ -1,3 +1,5 @@
+"""Application module for simulations constants simulations ai config constants workflows."""
+
 from __future__ import annotations
 
 from typing import Final
@@ -15,6 +17,7 @@ AI_EVAL_ENABLED_BY_DAY_DEFAULT_JSON: Final[
 
 
 def default_ai_eval_enabled_by_day() -> dict[str, bool]:
+    """Execute default ai eval enabled by day."""
     return {day: True for day in AI_EVAL_DAY_KEYS}
 
 

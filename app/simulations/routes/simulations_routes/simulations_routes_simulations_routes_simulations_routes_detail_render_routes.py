@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes detail render routes workflows."""
+
 from __future__ import annotations
 
 from app.simulations import services as sim_service
@@ -15,6 +17,7 @@ from app.simulations.schemas.simulations_schemas_simulations_core_schema import 
 def render_simulation_detail(
     sim, tasks, active_scenario_version
 ) -> SimulationDetailResponse:
+    """Render simulation detail."""
     raw_status = getattr(sim, "status", None)
     status_value = sim_service.normalize_simulation_status_or_raise(raw_status)
     return SimulationDetailResponse(

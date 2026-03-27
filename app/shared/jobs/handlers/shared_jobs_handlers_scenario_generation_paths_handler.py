@@ -1,3 +1,5 @@
+"""Application module for jobs handlers scenario generation paths handler workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select

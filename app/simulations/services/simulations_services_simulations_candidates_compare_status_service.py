@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare status service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -22,6 +24,7 @@ def derive_fit_profile_status(
     latest_run_status: str | None,
     has_active_job: bool,
 ) -> FitProfileCompareStatus:
+    """Derive fit profile status."""
     if has_ready_profile:
         return "ready"
     if latest_run_status in {
@@ -42,6 +45,7 @@ def derive_candidate_compare_status(
     started_at: datetime | None,
     completed_at: datetime | None,
 ) -> CandidateCompareStatus:
+    """Derive candidate compare status."""
     if fit_profile_status == "ready":
         return "evaluated"
     if (

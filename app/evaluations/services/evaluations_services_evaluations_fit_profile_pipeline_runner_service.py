@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile pipeline runner service workflows."""
+
 from __future__ import annotations
 
 from time import perf_counter
@@ -33,6 +35,7 @@ from app.evaluations.services.evaluations_services_evaluations_fit_profile_pipel
 async def process_evaluation_run_job_impl(
     payload_json: dict[str, Any], **deps
 ) -> dict[str, Any]:
+    """Process evaluation run job impl."""
     started = perf_counter()
     session_id = _parse_positive_int(payload_json.get("candidateSessionId"))
     company_id = _parse_positive_int(payload_json.get("companyId"))

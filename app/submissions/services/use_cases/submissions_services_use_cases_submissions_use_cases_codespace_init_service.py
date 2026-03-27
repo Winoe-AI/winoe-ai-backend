@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases codespace init service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -55,6 +57,7 @@ async def init_codespace(
     template_owner: str | None,
     now: datetime | None = None,
 ):
+    """Initialize codespace."""
     apply_rate_limit(candidate_session.id, "init")
     task = await _validate_codespace_request_with_legacy_fallback(
         db, candidate_session, task_id

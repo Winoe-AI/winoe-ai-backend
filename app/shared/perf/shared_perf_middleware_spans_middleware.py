@@ -1,3 +1,5 @@
+"""Application module for perf middleware spans middleware workflows."""
+
 from __future__ import annotations
 
 import random
@@ -6,6 +8,7 @@ from .shared_perf_config import perf_span_sample_rate, perf_spans_enabled
 
 
 def sample_perf_span() -> bool:
+    """Execute sample perf span."""
     if not perf_spans_enabled():
         return False
     return random.random() <= perf_span_sample_rate()
@@ -20,6 +23,7 @@ def request_span_payload(
     duration_ms: float,
     response_bytes: int,
 ) -> dict[str, object]:
+    """Execute request span payload."""
     return {
         "kind": "request",
         "requestId": request_id,
@@ -32,6 +36,7 @@ def request_span_payload(
 
 
 def sql_span_payload(stats) -> dict[str, object]:
+    """Execute sql span payload."""
     ranked = sorted(
         stats.sql_fingerprint_counts.items(),
         key=lambda item: stats.sql_fingerprint_time_ms.get(item[0], 0.0),
@@ -53,6 +58,7 @@ def sql_span_payload(stats) -> dict[str, object]:
 
 
 def external_span_payload(stats) -> dict[str, object]:
+    """Execute external span payload."""
     details = []
     total_calls = 0
     total_wait = 0.0

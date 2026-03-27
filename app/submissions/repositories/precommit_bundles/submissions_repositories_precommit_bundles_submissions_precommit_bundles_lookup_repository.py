@@ -1,3 +1,5 @@
+"""Application module for submissions repositories precommit bundles submissions precommit bundles lookup repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -19,6 +21,7 @@ async def get_by_scenario_and_template(
     scenario_version_id: int,
     template_key: str,
 ) -> PrecommitBundle | None:
+    """Return by scenario and template."""
     stmt = select(PrecommitBundle).where(
         PrecommitBundle.scenario_version_id == scenario_version_id,
         PrecommitBundle.template_key == normalize_template_key(template_key),
@@ -32,6 +35,7 @@ async def get_ready_by_scenario_and_template(
     scenario_version_id: int,
     template_key: str,
 ) -> PrecommitBundle | None:
+    """Return ready by scenario and template."""
     stmt = select(PrecommitBundle).where(
         PrecommitBundle.scenario_version_id == scenario_version_id,
         PrecommitBundle.template_key == normalize_template_key(template_key),

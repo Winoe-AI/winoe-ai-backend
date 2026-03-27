@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions regeneration helpers service workflows."""
+
 from __future__ import annotations
 
 import copy
@@ -27,6 +29,7 @@ from app.simulations.services.simulations_services_simulations_scenario_versions
 def clone_pending_scenario(
     simulation: Simulation, active: ScenarioVersion, version_index: int
 ) -> ScenarioVersion:
+    """Execute clone pending scenario."""
     return ScenarioVersion(
         simulation_id=simulation.id,
         version_index=version_index,
@@ -49,6 +52,7 @@ def clone_pending_scenario(
 async def enqueue_regeneration_job(
     db: AsyncSession, simulation: Simulation, regenerated: ScenarioVersion
 ) -> Job:
+    """Enqueue regeneration job."""
     payload_json = build_scenario_generation_payload(simulation)
     payload_json["scenarioVersionId"] = regenerated.id
     return await jobs_repo.create_or_get_idempotent(

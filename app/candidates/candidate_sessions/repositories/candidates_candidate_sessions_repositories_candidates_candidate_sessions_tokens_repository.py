@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions repositories candidates candidate sessions tokens repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import func, or_, select
@@ -36,6 +38,7 @@ def _build_get_by_token_for_update_stmt(token: str) -> Select:
 
 
 async def get_by_token(db: AsyncSession, token: str) -> CandidateSession | None:
+    """Return by token."""
     stmt = _build_get_by_token_stmt(token)
     res = await db.execute(stmt)
     return res.scalar_one_or_none()
@@ -44,6 +47,7 @@ async def get_by_token(db: AsyncSession, token: str) -> CandidateSession | None:
 async def get_by_token_for_update(
     db: AsyncSession, token: str
 ) -> CandidateSession | None:
+    """Return by token for update."""
     stmt = _build_get_by_token_for_update_stmt(token)
     res = await db.execute(stmt)
     return res.scalar_one_or_none()
@@ -52,6 +56,7 @@ async def get_by_token_for_update(
 async def list_for_email(
     db: AsyncSession, email: str, *, include_terminated: bool = False
 ) -> list[CandidateSession]:
+    """Return for email."""
     stmt = (
         select(CandidateSession)
         .join(Simulation, Simulation.id == CandidateSession.simulation_id)

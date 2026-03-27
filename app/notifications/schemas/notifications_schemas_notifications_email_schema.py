@@ -1,3 +1,5 @@
+"""Application module for notifications schemas notifications email schema workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

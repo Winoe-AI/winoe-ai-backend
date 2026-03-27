@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health live check service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient

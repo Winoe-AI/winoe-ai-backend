@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes invite create logic routes workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +32,7 @@ async def create_invite_response(
     email_service: EmailService,
     github_client: GithubClient,
 ):
+    """Create invite response."""
     enforce_invite_create_limit(request, user_id, payload.inviteEmail)
     try:
         (

@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health live artifacts service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient, GithubError
@@ -18,6 +20,7 @@ async def collect_artifact_status(
     repo_full_name: str,
     workflow_run_id: int,
 ) -> tuple[list[str], str | None]:
+    """Execute collect artifact status."""
     errors: list[str] = []
     try:
         artifacts = await github_client.list_artifacts(repo_full_name, workflow_run_id)

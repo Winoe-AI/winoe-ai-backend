@@ -11,6 +11,7 @@ from .constants import (
 
 
 def create_schema(op: object) -> None:
+    """Create schema."""
     op.create_table(
         "scenario_versions",
         sa.Column("id", sa.Integer(), nullable=False),
@@ -80,6 +81,7 @@ def create_schema(op: object) -> None:
 
 
 def finalize_upgrade(op: object) -> None:
+    """Execute finalize upgrade."""
     op.alter_column(
         "candidate_sessions",
         "scenario_version_id",
@@ -94,6 +96,7 @@ def finalize_upgrade(op: object) -> None:
 
 
 def run_downgrade_schema(op: object) -> None:
+    """Run downgrade schema."""
     op.drop_constraint(
         SIMULATION_ACTIVE_SCENARIO_REQUIRED_CHECK_NAME, "simulations", type_="check"
     )

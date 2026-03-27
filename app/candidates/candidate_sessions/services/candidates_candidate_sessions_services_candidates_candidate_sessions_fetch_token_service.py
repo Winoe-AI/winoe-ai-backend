@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions fetch token service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -42,6 +44,7 @@ def _ensure_simulation_not_terminated(cs: CandidateSession) -> None:
 
 
 async def fetch_by_token(db: AsyncSession, token: str, *, now=None) -> CandidateSession:
+    """Return by token."""
     cs = await cs_repo.get_by_token(db, token)
     if cs is None:
         raise _INVALID_TOKEN
@@ -53,6 +56,7 @@ async def fetch_by_token(db: AsyncSession, token: str, *, now=None) -> Candidate
 async def fetch_by_token_for_update(
     db: AsyncSession, token: str, *, now=None
 ) -> CandidateSession:
+    """Return by token for update."""
     cs = await cs_repo.get_by_token_for_update(db, token)
     if cs is None:
         raise _INVALID_TOKEN

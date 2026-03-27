@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations creation extractors service workflows."""
+
 from __future__ import annotations
 
 from datetime import time
@@ -9,6 +11,7 @@ from app.simulations.schemas.simulations_schemas_simulations_core_schema import 
 
 
 def extract_company_context(payload: Any) -> dict[str, Any] | None:
+    """Extract company context."""
     raw_company_context = getattr(
         payload, "company_context", getattr(payload, "companyContext", None)
     )
@@ -24,6 +27,7 @@ def extract_company_context(payload: Any) -> dict[str, Any] | None:
 def extract_ai_fields(
     payload: Any,
 ) -> tuple[str | None, str | None, dict[str, bool] | None]:
+    """Extract ai fields."""
     raw_ai = getattr(payload, "ai", None)
     if raw_ai is None:
         return None, None, None
@@ -51,6 +55,7 @@ def extract_ai_fields(
 def extract_day_window_config(
     payload: Any,
 ) -> tuple[time, time, bool, dict[str, dict[str, str]] | None]:
+    """Extract day window config."""
     day_window_start_local = getattr(payload, "dayWindowStartLocal", None) or time(
         hour=9, minute=0
     )

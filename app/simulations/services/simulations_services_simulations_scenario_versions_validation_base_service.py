@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions validation base service workflows."""
+
 from __future__ import annotations
 
 import json
@@ -19,6 +21,7 @@ from app.simulations.services.simulations_services_simulations_scenario_versions
 
 
 def json_payload_size_bytes(value: Any) -> int:
+    """Execute json payload size bytes."""
     encoded = json.dumps(
         value,
         separators=(",", ":"),
@@ -29,12 +32,14 @@ def json_payload_size_bytes(value: Any) -> int:
 
 
 def parse_positive_int(value: Any) -> int | None:
+    """Parse positive int."""
     return _parse_positive_int_value(value, strip_strings=True)
 
 
 def raise_patch_validation_error(
     detail: str, *, field: str | None = None, details: dict[str, Any] | None = None
 ) -> None:
+    """Execute raise patch validation error."""
     payload_details = dict(details or {})
     if field is not None:
         payload_details["field"] = field
@@ -48,6 +53,7 @@ def raise_patch_validation_error(
 
 
 def validate_storyline(storyline_md: Any) -> str:
+    """Validate storyline."""
     if not isinstance(storyline_md, str):
         raise_patch_validation_error(
             "storylineMd must be a string.",
@@ -66,6 +72,7 @@ def validate_storyline(storyline_md: Any) -> str:
 
 
 def validate_notes(notes: Any) -> str:
+    """Validate notes."""
     if not isinstance(notes, str):
         raise_patch_validation_error(
             "notes must be a string.",

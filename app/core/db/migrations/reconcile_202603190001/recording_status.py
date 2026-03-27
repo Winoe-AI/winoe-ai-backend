@@ -9,6 +9,7 @@ from .introspection import check_names
 
 
 def reconcile_recording_status_check(op: object, bind: sa.Connection) -> None:
+    """Execute reconcile recording status check."""
     if bind.dialect.name != "postgresql":
         return
     names = check_names(bind, "recording_assets")

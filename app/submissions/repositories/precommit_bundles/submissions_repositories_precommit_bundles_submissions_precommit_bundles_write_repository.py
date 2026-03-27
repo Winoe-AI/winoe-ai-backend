@@ -1,3 +1,5 @@
+"""Application module for submissions repositories precommit bundles submissions precommit bundles write repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +29,7 @@ async def create_bundle(
     content_sha256: str | None = None,
     commit: bool = True,
 ) -> PrecommitBundle:
+    """Create bundle."""
     normalized_patch = patch_text if patch_text is not None else None
     normalized_storage_ref = (storage_ref or "").strip() or None
     validate_payload(normalized_patch, normalized_storage_ref)
@@ -64,6 +67,7 @@ async def set_status(
     status: str,
     commit: bool = True,
 ) -> PrecommitBundle:
+    """Set status."""
     bundle.status = normalize_status(status)
     if commit:
         await db.commit()
@@ -80,6 +84,7 @@ async def set_applied_commit_sha(
     applied_commit_sha: str | None,
     commit: bool = True,
 ) -> PrecommitBundle:
+    """Set applied commit sha."""
     bundle.applied_commit_sha = (applied_commit_sha or "").strip() or None
     if commit:
         await db.commit()

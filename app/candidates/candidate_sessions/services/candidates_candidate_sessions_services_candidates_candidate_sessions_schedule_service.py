@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -50,6 +52,7 @@ async def schedule_candidate_session(
     now: datetime | None = None,
     correlation_id: str | None = None,
 ) -> ScheduleCandidateSessionResult:
+    """Schedule candidate session."""
     return await schedule_candidate_session_impl(
         db,
         token=token,

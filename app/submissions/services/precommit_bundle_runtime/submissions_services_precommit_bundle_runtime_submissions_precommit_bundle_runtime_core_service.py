@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime core service workflows."""
+
 from __future__ import annotations
 
 from app.shared.utils.shared_utils_errors_utils import ApiError
@@ -40,6 +42,7 @@ async def apply_precommit_bundle_if_available(
     parse_patch_entries,
     logger,
 ):
+    """Apply precommit bundle if available."""
     early_result, context = await lookup_bundle_context(
         db,
         scenario_repo_module=scenario_repo_module,

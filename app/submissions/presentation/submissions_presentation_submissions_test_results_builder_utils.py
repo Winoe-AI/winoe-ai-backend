@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions test results builder utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_test_results_assemble_utils import (
@@ -31,6 +33,7 @@ def build_test_results(
     max_output_chars: int,
     commit_sha_override: str | None = None,
 ):
+    """Build test results."""
     parsed_payload = parsed_output or None
     payload = extract_payload(
         parsed_payload, include_output=include_output, max_output_chars=max_output_chars

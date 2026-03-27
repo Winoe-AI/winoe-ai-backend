@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions test results payload utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_parsed_output_utils import (
@@ -8,6 +10,7 @@ from app.submissions.presentation.submissions_presentation_submissions_parsed_ou
 def extract_payload(
     parsed_payload, *, include_output: bool, max_output_chars: int
 ) -> dict:
+    """Extract payload."""
     (
         passed_val,
         failed_val,

@@ -1,3 +1,5 @@
+"""Application module for jobs schemas jobs schema workflows."""
+
 from __future__ import annotations
 
 from typing import Any

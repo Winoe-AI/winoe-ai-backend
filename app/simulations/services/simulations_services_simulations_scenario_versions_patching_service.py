@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions patching service workflows."""
+
 from __future__ import annotations
 
 import copy
@@ -20,16 +22,19 @@ from app.simulations.services.simulations_services_simulations_scenario_versions
 
 
 def is_editable_scenario_status(status_value: str | None) -> bool:
+    """Return whether editable scenario status."""
     return status_value in ALLOWED_EDITABLE_SCENARIO_STATUSES
 
 
 def is_editable_simulation_status(status_value: str | None) -> bool:
+    """Return whether editable simulation status."""
     return status_value in ALLOWED_EDITABLE_SIMULATION_STATUSES
 
 
 def validate_and_normalize_merged_scenario_state(
     merged_state: dict[str, Any],
 ) -> dict[str, Any]:
+    """Validate and normalize merged scenario state."""
     return {
         "storyline_md": validate_storyline(merged_state.get("storyline_md")),
         "task_prompts_json": validate_task_prompts(
@@ -46,6 +51,7 @@ def build_edit_audit_payload(
     after: dict[str, Any],
     candidate_fields: list[str],
 ) -> dict[str, Any]:
+    """Build edit audit payload."""
     changed_fields: list[str] = []
     before_subset: dict[str, Any] = {}
     after_subset: dict[str, Any] = {}

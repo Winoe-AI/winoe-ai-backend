@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository status repository workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -19,6 +21,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_rep
 async def mark_succeeded(
     db: AsyncSession, *, job_id: str, result_json: dict[str, Any] | None, now
 ) -> None:
+    """Mark succeeded."""
     await db.execute(
         update(Job)
         .where(Job.id == job_id)
@@ -38,6 +41,7 @@ async def mark_succeeded(
 async def mark_failed_and_reschedule(
     db: AsyncSession, *, job_id: str, error_str: str, next_run_at, now
 ) -> None:
+    """Mark failed and reschedule."""
     await db.execute(
         update(Job)
         .where(Job.id == job_id)
@@ -56,6 +60,7 @@ async def mark_failed_and_reschedule(
 async def mark_dead_letter(
     db: AsyncSession, *, job_id: str, error_str: str, now
 ) -> None:
+    """Mark dead letter."""
     await db.execute(
         update(Job)
         .where(Job.id == job_id)

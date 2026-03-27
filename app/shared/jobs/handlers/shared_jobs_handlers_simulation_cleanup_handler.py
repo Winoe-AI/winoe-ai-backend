@@ -1,3 +1,5 @@
+"""Application module for jobs handlers simulation cleanup handler workflows."""
+
 from __future__ import annotations
 
 from typing import Any

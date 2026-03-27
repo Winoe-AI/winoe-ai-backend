@@ -1,3 +1,5 @@
+"""Application module for integrations github client github client requests client workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +27,7 @@ async def request_json(
     json: dict | None = None,
     expect_body: bool = True,
 ) -> dict:
+    """Execute request json."""
     started = time.perf_counter()
     try:
         resp = await transport.client().request(method, path, params=params, json=json)
@@ -51,6 +54,7 @@ async def request_json(
 async def get_bytes(
     transport: GithubTransport, path: str, params: dict | None = None
 ) -> bytes:
+    """Return bytes."""
     started = time.perf_counter()
     try:
         resp = await transport.client().get(path, params=params, follow_redirects=True)

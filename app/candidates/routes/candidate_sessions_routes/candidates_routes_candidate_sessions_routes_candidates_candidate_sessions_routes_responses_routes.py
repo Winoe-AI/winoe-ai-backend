@@ -1,3 +1,5 @@
+"""Application module for candidates routes candidate sessions routes candidates candidate sessions routes responses routes workflows."""
+
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_schedule_fields_service import (
     schedule_payload_for_candidate_session,
 )
@@ -28,12 +30,14 @@ def _resolve_simulation_summary(
 
 
 def render_claim_response(cs) -> CandidateSessionResolveResponse:
+    """Render claim response."""
     return _render_claim_response(
         cs, resolve_simulation_summary=_resolve_simulation_summary
     )
 
 
 def render_schedule_response(cs) -> CandidateSessionScheduleResponse:
+    """Render schedule response."""
     schedule_payload = schedule_payload_for_candidate_session(cs, now_utc=utcnow())
     return CandidateSessionScheduleResponse(
         candidateSessionId=cs.id,

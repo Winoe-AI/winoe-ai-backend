@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes candidates compare routes workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -24,12 +26,22 @@ logger = logging.getLogger(__name__)
     "/{simulation_id}/candidates/compare",
     response_model=SimulationCandidatesCompareResponse,
     status_code=status.HTTP_200_OK,
+    summary="List Simulation Candidates Compare",
+    description=(
+        "Return side-by-side candidate progress and scoring signals for a"
+        " recruiter-owned simulation."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Simulation not found."},
+    },
 )
 async def list_simulation_candidates_compare(
     simulation_id: Annotated[int, Path(..., ge=1)],
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(get_current_user)],
 ) -> SimulationCandidatesCompareResponse:
+    """Return simulation candidates compare."""
     ensure_recruiter(user)
     started_at = perf_counter()
     payload = await sim_service.list_candidates_compare_summary(

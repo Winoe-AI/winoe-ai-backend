@@ -1,3 +1,5 @@
+"""Application module for jobs handlers transcribe recording runtime handler workflows."""
+
 from __future__ import annotations
 
 import time
@@ -29,6 +31,7 @@ async def handle_transcribe_recording_impl(
     transcription_provider_error,
     logger,
 ):
+    """Handle transcribe recording impl."""
     recording_id = parse_positive_int(payload_json.get("recordingId"))
     if recording_id is None:
         return {

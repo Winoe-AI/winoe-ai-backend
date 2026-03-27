@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations cleanup jobs service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -12,6 +14,7 @@ SIMULATION_CLEANUP_MAX_ATTEMPTS = 8
 
 
 def simulation_cleanup_idempotency_key(simulation_id: int) -> str:
+    """Execute simulation cleanup idempotency key."""
     return f"simulation_cleanup:{simulation_id}"
 
 
@@ -21,6 +24,7 @@ def build_simulation_cleanup_payload(
     terminated_by_user_id: int,
     reason: str | None,
 ) -> dict[str, Any]:
+    """Build simulation cleanup payload."""
     payload: dict[str, Any] = {
         "simulationId": simulation.id,
         "companyId": simulation.company_id,
@@ -39,6 +43,7 @@ async def enqueue_simulation_cleanup_job(
     reason: str | None,
     commit: bool = False,
 ) -> Job:
+    """Enqueue simulation cleanup job."""
     payload = build_simulation_cleanup_payload(
         simulation,
         terminated_by_user_id=terminated_by_user_id,

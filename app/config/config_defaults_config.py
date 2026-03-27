@@ -1,3 +1,5 @@
+"""Application module for config defaults config workflows."""
+
 from __future__ import annotations
 
 DEFAULT_CLAIM_NAMESPACE = "https://tenon.ai"

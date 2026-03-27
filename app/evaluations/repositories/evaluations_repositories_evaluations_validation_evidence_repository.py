@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations validation evidence repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -32,6 +34,7 @@ def _validate_url(value: Any, *, field_path: str) -> str:
 
 
 def validate_evidence_pointers(value: Any) -> list[dict[str, Any]]:
+    """Validate evidence pointers."""
     if not isinstance(value, list):
         raise EvidencePointerValidationError("evidence_pointers_json must be a list.")
     normalized: list[dict[str, Any]] = []

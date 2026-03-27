@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health contract checks service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.artifacts import PREFERRED_ARTIFACT_NAMES
@@ -17,6 +19,7 @@ def _workflow_contract_checks(content: str) -> dict[str, bool]:
 
 
 def workflow_contract_errors(content: str) -> tuple[list[str], dict[str, bool]]:
+    """Execute workflow contract errors."""
     checks = _workflow_contract_checks(content)
     errors: list[str] = []
     if not checks["workflowHasUploadArtifact"]:

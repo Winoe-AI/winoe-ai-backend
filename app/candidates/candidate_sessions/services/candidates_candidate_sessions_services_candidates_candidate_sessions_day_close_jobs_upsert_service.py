@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions day close jobs upsert service workflows."""
+
 from __future__ import annotations
 
 from app.shared.database.shared_database_models_model import Job

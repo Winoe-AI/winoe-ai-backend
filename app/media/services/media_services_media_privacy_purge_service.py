@@ -1,3 +1,5 @@
+"""Application module for media services media privacy purge service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +31,7 @@ async def purge_expired_media_assets(
     batch_limit: int = 200,
     now: datetime | None = None,
 ) -> MediaRetentionPurgeResult:
+    """Purge expired media assets."""
     resolved_now = now or datetime.now(UTC)
     resolved_retention_days = int(
         retention_days or settings.storage_media.MEDIA_RETENTION_DAYS

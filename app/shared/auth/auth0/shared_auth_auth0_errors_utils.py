@@ -1,3 +1,5 @@
+"""Application module for auth auth0 errors utils workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status

@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions progress handoff service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -17,6 +19,7 @@ def handoff_revisit_task(
     now_utc: datetime,
     compute_window=compute_task_window,
 ) -> Task | None:
+    """Execute handoff revisit task."""
     if current_task is None:
         return None
     current_day = int(current_task.day_index)

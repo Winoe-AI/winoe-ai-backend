@@ -1,3 +1,5 @@
+"""Application module for submissions repositories submissions fit profile model workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime

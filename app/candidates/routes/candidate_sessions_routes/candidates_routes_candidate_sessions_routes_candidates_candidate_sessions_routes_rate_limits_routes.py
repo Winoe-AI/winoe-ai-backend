@@ -1,3 +1,5 @@
+"""Application module for candidates routes candidate sessions routes candidates candidate sessions routes rate limits routes workflows."""
+
 from app.shared.auth import rate_limit
 
 CANDIDATE_CLAIM_RATE_LIMIT = rate_limit.RateLimitRule(limit=10, window_seconds=60.0)
@@ -17,6 +19,7 @@ def _claim_rule():
 
 
 def rate_limit_claim(request, token: str) -> None:
+    """Execute rate limit claim."""
     if not rate_limit.rate_limit_enabled():
         return
     key = rate_limit.rate_limit_key(

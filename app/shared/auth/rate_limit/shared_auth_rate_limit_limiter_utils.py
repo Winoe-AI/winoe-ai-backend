@@ -1,3 +1,5 @@
+"""Application module for auth rate limit limiter utils workflows."""
+
 from __future__ import annotations
 
 import asyncio
@@ -11,6 +13,8 @@ from .shared_auth_rate_limit_rules_utils import DEFAULT_RATE_LIMIT_DETAIL, RateL
 
 
 class RateLimiter:
+    """Represent rate limiter data and behavior."""
+
     def __init__(self) -> None:
         self._store: dict[str, list[float]] = {}
         self._last_seen: dict[str, float] = {}
@@ -18,11 +22,13 @@ class RateLimiter:
         self._in_flight_lock = asyncio.Lock()
 
     def reset(self) -> None:
+        """Reset the requested state."""
         self._store.clear()
         self._last_seen.clear()
         self._in_flight.clear()
 
     def allow(self, key: str, rule: RateLimitRule) -> None:
+        """Allow the requested behavior."""
         now = time.monotonic()
         entries = [
             t for t in self._store.get(key, []) if now - t <= rule.window_seconds
@@ -36,6 +42,7 @@ class RateLimiter:
         self._store[key] = entries
 
     def throttle(self, key: str, min_interval_seconds: float) -> None:
+        """Throttle the requested request."""
         now = time.monotonic()
         last = self._last_seen.get(key)
         if last is not None and now - last < min_interval_seconds:
@@ -49,6 +56,7 @@ class RateLimiter:
 
     @asynccontextmanager
     async def concurrency_guard(self, key: str, max_in_flight: int):
+        """Execute concurrency guard."""
         async with self._in_flight_lock:
             current = self._in_flight.get(key, 0)
             if current >= max_in_flight:

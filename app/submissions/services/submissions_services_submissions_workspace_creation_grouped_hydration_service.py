@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation grouped hydration service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.client import GithubClient
@@ -27,6 +29,7 @@ async def hydrate_existing_workspace(
     commit: bool,
     ensure_collaborator: bool = False,
 ) -> Workspace:
+    """Hydrate existing workspace."""
     if ensure_collaborator:
         await add_collaborator_if_needed(
             github_client, workspace.repo_full_name, github_username

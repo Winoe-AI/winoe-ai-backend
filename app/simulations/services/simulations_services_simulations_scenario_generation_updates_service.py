@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario generation updates service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -9,6 +11,7 @@ def apply_generated_task_updates(
     task_prompts_json: list[dict[str, Any]],
     rubric_json: dict[str, Any],
 ) -> None:
+    """Apply generated task updates."""
     prompts_by_day = {
         int(prompt["dayIndex"]): prompt
         for prompt in task_prompts_json

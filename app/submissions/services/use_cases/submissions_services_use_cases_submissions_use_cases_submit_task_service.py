@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases submit task service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -29,6 +31,7 @@ async def submit_task(
     github_client: GithubClient,
     actions_runner,
 ):
+    """Submit task."""
     apply_rate_limit(candidate_session.id, "submit")
     validation_result = await validate_submission_flow(
         db, candidate_session, task_id, payload

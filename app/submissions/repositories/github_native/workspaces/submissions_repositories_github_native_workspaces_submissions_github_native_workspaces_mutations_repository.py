@@ -1,3 +1,5 @@
+"""Application module for submissions repositories github native workspaces submissions github native workspaces mutations repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +23,7 @@ async def create_workspace_group(
     commit: bool = True,
     refresh: bool = True,
 ) -> WorkspaceGroup:
+    """Create workspace group."""
     group = WorkspaceGroup(
         candidate_session_id=candidate_session_id,
         workspace_key=workspace_key,
@@ -55,6 +58,7 @@ async def create_workspace(
     commit: bool = True,
     refresh: bool = True,
 ) -> Workspace:
+    """Create workspace."""
     ws = Workspace(
         workspace_group_id=workspace_group_id,
         candidate_session_id=candidate_session_id,
@@ -84,6 +88,7 @@ async def set_precommit_sha(
     commit: bool = True,
     refresh: bool = True,
 ) -> Workspace:
+    """Set precommit sha."""
     workspace.precommit_sha = precommit_sha
     workspace.precommit_details_json = None
     await (db.commit() if commit else db.flush())
@@ -100,6 +105,7 @@ async def set_precommit_details(
     commit: bool = True,
     refresh: bool = True,
 ) -> Workspace:
+    """Set precommit details."""
     workspace.precommit_details_json = precommit_details_json
     await (db.commit() if commit else db.flush())
     if refresh:

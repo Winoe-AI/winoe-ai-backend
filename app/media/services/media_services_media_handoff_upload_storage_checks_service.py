@@ -1,3 +1,5 @@
+"""Application module for media services media handoff upload storage checks service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -17,6 +19,7 @@ from app.shared.utils.shared_utils_errors_utils import (
 def load_uploaded_object_metadata(
     *, storage_provider: StorageMediaProvider, storage_key: str
 ):
+    """Load uploaded object metadata."""
     try:
         metadata = storage_provider.get_object_metadata(storage_key)
     except StorageMediaError as exc:
@@ -41,6 +44,7 @@ def assert_uploaded_object_matches_expected(
     actual_content_type: str,
     actual_size_bytes: int,
 ) -> None:
+    """Assert uploaded object matches expected."""
     actual_size = int(actual_size_bytes)
     expected_size = int(expected_size_bytes)
     max_bytes = int(settings.storage_media.MEDIA_MAX_UPLOAD_BYTES)
@@ -71,6 +75,7 @@ def assert_uploaded_object_matches_expected(
 
 
 def normalize_content_type(value: str) -> str:
+    """Normalize content type."""
     return (value or "").split(";", 1)[0].strip().lower()
 
 

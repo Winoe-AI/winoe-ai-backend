@@ -1,3 +1,5 @@
+"""Application module for auth dependencies dev bypass utils workflows."""
+
 from __future__ import annotations
 
 import sys

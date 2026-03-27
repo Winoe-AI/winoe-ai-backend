@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions parsed output utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_parsed_output_dict_utils import (
@@ -14,6 +16,7 @@ from app.submissions.presentation.submissions_presentation_submissions_parsed_ou
 def process_parsed_output(
     parsed_output, *, include_output: bool, max_output_chars: int
 ):
+    """Process parsed output."""
     if isinstance(parsed_output, dict):
         if not parsed_output:
             return (None,) * 13

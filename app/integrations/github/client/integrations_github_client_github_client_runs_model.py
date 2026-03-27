@@ -1,3 +1,5 @@
+"""Application module for integrations github client github client runs model workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +21,7 @@ class WorkflowRun:
 
 
 def parse_run(payload: dict[str, Any]) -> WorkflowRun:
+    """Parse run."""
     return WorkflowRun(
         id=int(payload.get("id") or 0),
         status=str(payload.get("status") or ""),

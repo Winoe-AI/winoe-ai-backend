@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner artifact parser service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.actions_runner.integrations_github_actions_runner_github_actions_runner_cache_service import (
@@ -17,6 +19,7 @@ async def parse_first_artifact(
     run_id: int,
     artifacts: list[dict],
 ) -> tuple[ParsedTestResults | None, str | None]:
+    """Parse first artifact."""
     found = False
     last_error: str | None = None
     for artifact in artifacts:

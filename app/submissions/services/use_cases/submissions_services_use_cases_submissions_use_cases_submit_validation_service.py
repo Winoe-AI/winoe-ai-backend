@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases submit validation service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +20,7 @@ async def validate_submission_flow(
     task_id: int,
     payload,
 ):
+    """Validate submission flow."""
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     cs_service.require_active_window(candidate_session, task)

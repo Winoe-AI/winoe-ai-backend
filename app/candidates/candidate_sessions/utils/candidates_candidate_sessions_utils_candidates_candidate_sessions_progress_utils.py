@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions utils candidates candidate sessions progress utils workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

@@ -1,3 +1,5 @@
+"""Application module for jobs repositories models repository workflows."""
+
 from __future__ import annotations
 
 import uuid

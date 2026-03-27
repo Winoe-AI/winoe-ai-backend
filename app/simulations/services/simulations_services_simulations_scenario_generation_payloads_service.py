@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario generation payloads service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -18,6 +20,7 @@ def build_task_prompts_json(
     day_blueprint: list[dict[str, Any]],
     task_description_builder: TaskDescriptionBuilder,
 ) -> list[dict[str, Any]]:
+    """Build task prompts json."""
     prompts: list[dict[str, Any]] = []
     for blueprint in sorted(day_blueprint, key=lambda item: item["day_index"]):
         day_index = int(blueprint["day_index"])
@@ -38,6 +41,7 @@ def build_task_prompts_json(
 
 
 def build_rubric_json(*, role: str, tech_stack: str) -> dict[str, Any]:
+    """Build rubric json."""
     role_label = normalize_text(role) or "Engineer"
     stack_label = normalize_text(tech_stack) or "target stack"
     return {

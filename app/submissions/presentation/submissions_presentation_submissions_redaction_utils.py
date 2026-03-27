@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions redaction utils workflows."""
+
 from __future__ import annotations
 
 import re
@@ -11,6 +13,7 @@ _TOKEN_REDACT_PATTERNS = [
 
 
 def redact_text(text: str | None) -> str | None:
+    """Execute redact text."""
     if text is None:
         return None
     redacted = text

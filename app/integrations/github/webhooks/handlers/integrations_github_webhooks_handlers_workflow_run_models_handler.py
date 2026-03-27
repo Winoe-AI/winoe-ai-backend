@@ -1,3 +1,5 @@
+"""Application module for integrations github webhooks handlers workflow run models handler workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +17,8 @@ NON_TERMINAL_WORKFLOW_STATUSES = (
 
 @dataclass(frozen=True)
 class WorkflowRunCompletedEvent:
+    """Represent workflow run completed event data and behavior."""
+
     workflow_run_id: int
     run_attempt: int | None
     conclusion: str | None
@@ -25,6 +29,8 @@ class WorkflowRunCompletedEvent:
 
 @dataclass(frozen=True)
 class WorkflowRunWebhookOutcome:
+    """Represent workflow run webhook outcome data and behavior."""
+
     outcome: str
     reason_code: str | None = None
     submission_id: int | None = None

@@ -1,3 +1,5 @@
+"""Application module for http errors validation utils workflows."""
+
 from __future__ import annotations
 
 from typing import Any

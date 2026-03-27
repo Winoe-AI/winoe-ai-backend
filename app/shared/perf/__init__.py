@@ -1,3 +1,5 @@
+"""Application module for init workflows."""
+
 from __future__ import annotations
 
 import sys
@@ -50,6 +52,7 @@ def _get_perf_ctx():
 
 
 def record_external_wait(provider: str, elapsed_ms: float) -> None:
+    """Record external wait."""
     stats = _perf_ctx.get()
     if stats is None:
         return
@@ -60,6 +63,7 @@ RequestPerfMiddleware = create_request_perf_middleware(_get_perf_ctx)
 
 
 def attach_sqlalchemy_listeners(engine) -> None:
+    """Attach sqlalchemy listeners."""
     global _listeners_attached
     if _listeners_attached:
         return

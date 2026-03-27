@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository workflows."""
+
 from __future__ import annotations
 
 import json
@@ -20,6 +22,8 @@ MAX_JOB_ERROR_CHARS = 2_048
 
 @dataclass(slots=True)
 class IdempotentJobSpec:
+    """Represent idempotent job spec data and behavior."""
+
     job_type: str
     idempotency_key: str
     payload_json: dict[str, Any]
@@ -30,6 +34,7 @@ class IdempotentJobSpec:
 
 
 def validate_payload_size(payload_json: dict[str, Any]) -> None:
+    """Validate payload size."""
     encoded = json.dumps(
         payload_json,
         separators=(",", ":"),
@@ -43,6 +48,7 @@ def validate_payload_size(payload_json: dict[str, Any]) -> None:
 
 
 def sanitize_error(error_str: str) -> str:
+    """Sanitize error."""
     normalized = " ".join((error_str or "").split())
     return normalized[:MAX_JOB_ERROR_CHARS]
 
@@ -50,6 +56,7 @@ def sanitize_error(error_str: str) -> str:
 def normalize_idempotent_create_inputs(
     *, job_type: str, idempotency_key: str, max_attempts: int
 ) -> tuple[str, str]:
+    """Normalize idempotent create inputs."""
     normalized_type = job_type.strip()
     normalized_key = idempotency_key.strip()
     if not normalized_type:
@@ -64,6 +71,7 @@ def normalize_idempotent_create_inputs(
 async def load_idempotent_job(
     db: AsyncSession, *, company_id: int, job_type: str, idempotency_key: str
 ) -> Job | None:
+    """Load idempotent job."""
     return (
         await db.execute(
             select(Job).where(
@@ -76,6 +84,7 @@ async def load_idempotent_job(
 
 
 def is_mutable_idempotent_job(job: Job) -> bool:
+    """Return whether mutable idempotent job."""
     return (
         job.status == JOB_STATUS_QUEUED
         and job.locked_at is None
@@ -92,6 +101,7 @@ def apply_idempotent_job_updates(
     correlation_id: str | None,
     next_run_at: datetime | None,
 ) -> None:
+    """Apply idempotent job updates."""
     job.payload_json = payload_json
     job.candidate_session_id = candidate_session_id
     job.max_attempts = max_attempts

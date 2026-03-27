@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks draft utils workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -18,12 +20,14 @@ from app.submissions.services import (
 
 
 def coerce_utc_datetime(value: datetime | None) -> datetime | None:
+    """Execute coerce utc datetime."""
     if value is None:
         return None
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 def build_draft_response(task_id: int, draft: Any) -> TaskDraftResponse:
+    """Build draft response."""
     return TaskDraftResponse(
         taskId=task_id,
         contentText=draft.content_text,
@@ -35,6 +39,7 @@ def build_draft_response(task_id: int, draft: Any) -> TaskDraftResponse:
 
 
 def build_upsert_response(task_id: int, draft: Any) -> TaskDraftUpsertResponse:
+    """Build upsert response."""
     return TaskDraftUpsertResponse(
         taskId=task_id,
         updatedAt=coerce_utc_datetime(draft.updated_at),
@@ -47,6 +52,7 @@ async def resolve_task_and_duplicate(
     candidate_session: CandidateSession,
     task_id: int,
 ) -> tuple[Any, bool]:
+    """Resolve task and duplicate."""
     try:
         task_list, completed_ids, *_ = await cs_service.progress_snapshot(
             db, candidate_session

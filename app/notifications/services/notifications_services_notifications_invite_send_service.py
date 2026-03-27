@@ -1,3 +1,5 @@
+"""Application module for notifications services notifications invite send service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -34,6 +36,7 @@ async def send_invite_email(
     email_service: EmailService,
     now: datetime | None = None,
 ) -> EmailSendResult:
+    """Send invite email."""
     resolved_now = utc_now(now)
     if should_rate_limit(candidate_session, resolved_now):
         return await record_rate_limit(db, candidate_session, resolved_now)

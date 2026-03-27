@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions update active service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +31,7 @@ async def update_active_scenario_version(
     actor_user_id: int,
     updates: dict[str, Any],
 ):
+    """Update active scenario version."""
     simulation = await require_owned_simulation_for_update(
         db, simulation_id, actor_user_id
     )

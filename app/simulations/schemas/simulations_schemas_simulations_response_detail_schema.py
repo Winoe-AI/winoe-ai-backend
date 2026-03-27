@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations response detail schema workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime

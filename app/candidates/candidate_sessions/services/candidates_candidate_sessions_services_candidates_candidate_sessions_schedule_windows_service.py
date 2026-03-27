@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule windows service workflows."""
+
 from __future__ import annotations
 
 from datetime import time

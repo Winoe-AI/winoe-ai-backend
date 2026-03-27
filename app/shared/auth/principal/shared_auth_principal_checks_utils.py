@@ -1,3 +1,5 @@
+"""Application module for auth principal checks utils workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated

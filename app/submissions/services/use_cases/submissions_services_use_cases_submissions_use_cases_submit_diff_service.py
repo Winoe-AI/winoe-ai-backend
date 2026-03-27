@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases submit diff service workflows."""
+
 from __future__ import annotations
 
 import json
@@ -14,6 +16,7 @@ from app.submissions.services import (
 async def build_diff_summary(
     github_client: GithubClient, workspace: Workspace, branch: str, head_sha: str
 ) -> str | None:
+    """Build diff summary."""
     base_sha = workspace.base_template_sha or branch
     compare = await github_client.get_compare(
         workspace.repo_full_name, base_sha, head_sha

@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations day score model workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime

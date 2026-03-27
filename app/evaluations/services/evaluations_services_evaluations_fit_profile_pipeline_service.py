@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile pipeline service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -62,6 +64,7 @@ async def _resolve_day4_transcript(*args: Any, **kwargs: Any):
 
 
 async def process_evaluation_run_job(payload_json: dict[str, Any]) -> dict[str, Any]:
+    """Process evaluation run job."""
     return await process_evaluation_run_job_impl(
         payload_json,
         async_session_maker=async_session_maker,

@@ -1,3 +1,5 @@
+"""Application module for types model workflows."""
+
 from typing import Literal
 
 CandidateSessionStatus = Literal["not_started", "in_progress", "completed", "expired"]

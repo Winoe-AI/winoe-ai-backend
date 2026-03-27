@@ -1,3 +1,5 @@
+"""Application module for evaluations schemas evaluations fit profile schema workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,11 +11,15 @@ from app.shared.types.shared_types_base_model import APIModel
 
 
 class FitProfileGenerateResponse(APIModel):
+    """Represent fit profile generate response data and behavior."""
+
     jobId: str
     status: Literal["queued"]
 
 
 class FitProfileEvidenceOut(APIModel):
+    """Represent fit profile evidence out data and behavior."""
+
     kind: str
     ref: str | None = None
     url: str | None = None
@@ -23,6 +29,8 @@ class FitProfileEvidenceOut(APIModel):
 
 
 class FitProfileDayScoreOut(APIModel):
+    """Represent fit profile day score out data and behavior."""
+
     dayIndex: int
     score: float | None = None
     rubricBreakdown: dict[str, Any] = Field(default_factory=dict)
@@ -32,6 +40,8 @@ class FitProfileDayScoreOut(APIModel):
 
 
 class FitProfileVersionOut(APIModel):
+    """Represent fit profile version out data and behavior."""
+
     model: str
     promptVersion: str
     rubricVersion: str
@@ -39,6 +49,8 @@ class FitProfileVersionOut(APIModel):
 
 
 class FitProfileReportOut(APIModel):
+    """Represent fit profile report out data and behavior."""
+
     overallFitScore: float
     recommendation: str
     confidence: float
@@ -48,6 +60,8 @@ class FitProfileReportOut(APIModel):
 
 
 class FitProfileStatusResponse(APIModel):
+    """Represent fit profile status response data and behavior."""
+
     status: Literal["not_started", "running", "ready", "failed"]
     generatedAt: datetime | None = None
     report: FitProfileReportOut | None = None

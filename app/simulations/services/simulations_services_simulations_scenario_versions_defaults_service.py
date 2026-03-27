@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions defaults service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def default_storyline_md(simulation: Simulation) -> str:
+    """Execute default storyline md."""
     title = (simulation.title or "").strip()
     role = (simulation.role or "").strip()
     scenario_template = (simulation.scenario_template or "").strip()
@@ -28,6 +31,7 @@ def default_storyline_md(simulation: Simulation) -> str:
 
 
 def task_prompts_payload(tasks: list[Task]) -> list[dict[str, Any]]:
+    """Execute task prompts payload."""
     return [
         {
             "dayIndex": task.day_index,
@@ -40,6 +44,7 @@ def task_prompts_payload(tasks: list[Task]) -> list[dict[str, Any]]:
 
 
 def ensure_scenario_version_mutable(scenario_version: ScenarioVersion) -> None:
+    """Ensure scenario version mutable."""
     if (
         scenario_version.status != SCENARIO_VERSION_STATUS_LOCKED
         and scenario_version.locked_at is None

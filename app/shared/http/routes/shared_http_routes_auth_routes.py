@@ -1,3 +1,5 @@
+"""Application module for http routes auth routes workflows."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response, status
@@ -12,7 +14,16 @@ router = APIRouter()
 AUTH_ME_RATE_LIMIT = rate_limit.RateLimitRule(limit=60, window_seconds=60.0)
 
 
-@router.get("/me", response_model=UserRead)
+@router.get(
+    "/me",
+    response_model=UserRead,
+    summary="Read Me",
+    description="Return the authenticated recruiter profile for the caller.",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required."},
+        status.HTTP_429_TOO_MANY_REQUESTS: {"description": "Rate limit exceeded."},
+    },
+)
 async def read_me(
     request: Request,
     current_user: Annotated[User, Depends(get_authenticated_user)],
@@ -24,7 +35,19 @@ async def read_me(
     return current_user
 
 
-@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout",
+    description=(
+        "Stateless logout acknowledgment endpoint; client clears local auth" " state."
+    ),
+    responses={
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {
+            "description": "Unexpected logout response failure."
+        }
+    },
+)
 async def logout() -> Response:
     """Stateless logout endpoint; backend does not manage sessions or redirects."""
     return Response(

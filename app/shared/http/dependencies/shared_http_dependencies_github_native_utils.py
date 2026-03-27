@@ -1,3 +1,5 @@
+"""Application module for http dependencies github native utils workflows."""
+
 from __future__ import annotations
 
 from functools import lru_cache

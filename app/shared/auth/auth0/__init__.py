@@ -1,3 +1,5 @@
+"""Application module for init workflows."""
+
 from __future__ import annotations
 
 import atexit
@@ -34,6 +36,7 @@ def _fetch_jwks() -> dict[str, Any]:
 
 
 def get_jwks() -> dict[str, Any]:
+    """Return jwks."""
     now = time.time()
     cached = _jwks_cache.get("jwks")
     ttl = settings.auth.AUTH0_JWKS_CACHE_TTL_SECONDS
@@ -62,6 +65,7 @@ def get_jwks() -> dict[str, Any]:
 
 
 def clear_jwks_cache() -> None:
+    """Execute clear jwks cache."""
     with _jwks_lock:
         _jwks_cache["jwks"] = None
         _jwks_cache["fetched_at"] = 0.0

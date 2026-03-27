@@ -1,3 +1,5 @@
+"""Application module for config auth config workflows."""
+
 from __future__ import annotations
 
 from pydantic import model_validator
@@ -8,6 +10,8 @@ from .config_defaults_config import DEFAULT_CLAIM_NAMESPACE
 
 
 class AuthSettings(BaseSettings):
+    """Represent auth settings data and behavior."""
+
     AUTH0_DOMAIN: str = ""
     AUTH0_ISSUER: str | None = None
     AUTH0_JWKS_URL: str | None = None
@@ -23,21 +27,25 @@ class AuthSettings(BaseSettings):
 
     @property
     def issuer(self) -> str:
+        """Execute issuer."""
         issuer = (self.AUTH0_ISSUER or f"https://{self.AUTH0_DOMAIN}/").strip()
         return issuer if issuer.endswith("/") else f"{issuer}/"
 
     @property
     def jwks_url(self) -> str:
+        """Execute jwks url."""
         return (
             self.AUTH0_JWKS_URL or f"https://{self.AUTH0_DOMAIN}/.well-known/jwks.json"
         )
 
     @property
     def audience(self) -> str:  # alias for backward compatibility
+        """Execute audience."""
         return self.AUTH0_API_AUDIENCE
 
     @property
     def algorithms(self) -> list[str]:
+        """Execute algorithms."""
         return [p.strip() for p in self.AUTH0_ALGORITHMS.split(",") if p.strip()] or [
             "RS256"
         ]

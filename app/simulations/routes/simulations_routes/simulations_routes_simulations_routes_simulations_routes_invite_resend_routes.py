@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes invite resend routes workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated, Any
@@ -27,6 +29,17 @@ router = APIRouter()
 @router.post(
     "/{simulation_id}/candidates/{candidate_session_id}/invite/resend",
     status_code=status.HTTP_200_OK,
+    summary="Resend Candidate Invite",
+    description=(
+        "Resend an existing candidate invite email for a recruiter-owned"
+        " simulation session."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Simulation or candidate session not found."
+        },
+    },
 )
 async def resend_candidate_invite(
     simulation_id: int,
@@ -36,6 +49,7 @@ async def resend_candidate_invite(
     user: Annotated[Any, Depends(get_current_user)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
 ):
+    """Resend candidate invite."""
     ensure_recruiter_or_none(user)
     cs = await resend_invite(
         simulation_id=simulation_id,

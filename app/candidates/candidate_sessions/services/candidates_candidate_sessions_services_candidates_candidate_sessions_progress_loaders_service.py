@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions progress loaders service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import and_, select
@@ -22,6 +24,7 @@ async def load_tasks(
     *,
     tasks_for_simulation=None,
 ) -> list[Task]:
+    """Load tasks."""
     loader = tasks_for_simulation or cs_repo.tasks_for_simulation
     tasks = await loader(db, simulation_id)
     if not tasks:
@@ -35,6 +38,7 @@ async def completed_task_ids(
     *,
     completed_ids_loader=None,
 ) -> set[int]:
+    """Execute completed task ids."""
     loader = completed_ids_loader or cs_repo.completed_task_ids
     return await loader(db, candidate_session_id)
 
@@ -45,6 +49,7 @@ async def load_tasks_with_completion_state(
     simulation_id: int,
     candidate_session_id: int,
 ) -> tuple[list[Task], set[int]]:
+    """Load tasks with completion state."""
     stmt = (
         select(Task, Submission.id)
         .outerjoin(

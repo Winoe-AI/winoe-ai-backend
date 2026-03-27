@@ -1,3 +1,5 @@
+"""Application module for auth principal identity utils workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -11,6 +13,7 @@ from .shared_auth_principal_selectors_utils import first_claim
 def extract_identity(
     claims: dict[str, object],
 ) -> tuple[str, str, str | None, list[str]]:
+    """Extract identity."""
     sub = claims.get("sub")
     if not isinstance(sub, str) or not sub:
         raise HTTPException(

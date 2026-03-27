@@ -1,3 +1,5 @@
+"""Application module for utils request limits utils workflows."""
+
 from __future__ import annotations
 
 from fastapi import status
@@ -7,10 +9,14 @@ from app.config import settings
 
 
 class RequestTooLarge(Exception):
+    """Represent request too large data and behavior."""
+
     pass
 
 
 class RequestSizeLimitMiddleware:
+    """Represent request size limit middleware data and behavior."""
+
     def __init__(self, app, max_body_bytes: int | None = None) -> None:
         self.app = app
         self.max_body_bytes = max_body_bytes or settings.MAX_REQUEST_BODY_BYTES

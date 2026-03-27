@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations invite flow service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -27,6 +29,7 @@ async def create_or_resend_invite(
     scenario_version_id: int | None = None,
     now: datetime | None = None,
 ) -> tuple:
+    """Create or resend invite."""
     now = now or datetime.now(UTC)
     invite_email = str(payload.inviteEmail).strip().lower()
 

@@ -1,3 +1,5 @@
+"""Application module for notifications services notifications schedule send service workflows."""
+
 from __future__ import annotations
 
 from datetime import time
@@ -38,6 +40,7 @@ async def send_schedule_confirmation_emails(
     email_service: EmailService,
     correlation_id: str | None = None,
 ) -> tuple[EmailSendResult, EmailSendResult | None]:
+    """Send schedule confirmation emails."""
     del (
         correlation_id
     )  # Correlation is logged by caller; providers currently do not accept headers.

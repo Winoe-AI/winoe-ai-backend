@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations compare schema workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -17,6 +19,8 @@ FitProfileCompareStatus = Literal["none", "generating", "ready", "failed"]
 
 
 class SimulationCandidateCompareItem(APIModel):
+    """Represent simulation candidate compare item data and behavior."""
+
     candidateSessionId: int
     candidateName: str
     candidateDisplayName: str
@@ -29,6 +33,8 @@ class SimulationCandidateCompareItem(APIModel):
 
 
 class SimulationCandidatesCompareResponse(APIModel):
+    """Represent simulation candidates compare response data and behavior."""
+
     simulationId: int
     candidates: list[SimulationCandidateCompareItem] = Field(default_factory=list)
 

@@ -1,3 +1,5 @@
+"""Application module for submissions repositories submissions handoff upsert repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -28,6 +30,7 @@ async def upsert_handoff_submission(
     get_by_candidate_session_task_fn: Callable[..., Awaitable[Any]] | None = None,
     create_handoff_submission_fn: Callable[..., Awaitable[Any]] | None = None,
 ) -> int:
+    """Upsert handoff submission."""
     get_submission = get_by_candidate_session_task_fn or get_by_candidate_session_task
     create_submission = create_handoff_submission_fn or create_handoff_submission
     values = {

@@ -1,7 +1,10 @@
+"""Application module for submissions presentation submissions links utils workflows."""
+
 from __future__ import annotations
 
 
 def build_links(repo_full_name: str | None, commit_sha: str | None, workflow_run_id):
+    """Build links."""
     commit_url = (
         f"https://github.com/{repo_full_name}/commit/{commit_sha}"
         if repo_full_name and commit_sha
@@ -16,6 +19,7 @@ def build_links(repo_full_name: str | None, commit_sha: str | None, workflow_run
 
 
 def build_diff_url(repo_full_name: str | None, diff_summary):
+    """Build diff url."""
     if not repo_full_name or not isinstance(diff_summary, dict):
         return None
     base = diff_summary.get("base")

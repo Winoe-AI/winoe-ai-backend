@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository lookup repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -12,6 +14,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_rep
 
 
 async def get_by_id(db: AsyncSession, job_id: str) -> Job | None:
+    """Return by id."""
     return (
         await db.execute(
             select(Job)
@@ -24,6 +27,7 @@ async def get_by_id(db: AsyncSession, job_id: str) -> Job | None:
 async def get_by_id_for_principal(
     db: AsyncSession, job_id: str, principal: Principal
 ) -> Job | None:
+    """Return by id for principal."""
     recruiter_job = await _recruiter_job(db, job_id, principal)
     if recruiter_job is not None:
         return recruiter_job

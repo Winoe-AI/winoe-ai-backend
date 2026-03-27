@@ -1,3 +1,5 @@
+"""Application module for auth principal email claims utils workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -12,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def configured_email_claim() -> str:
+    """Execute configured email claim."""
     value = (settings.auth.AUTH0_EMAIL_CLAIM or "").strip()
     if value:
         return value
@@ -22,6 +25,7 @@ def configured_email_claim() -> str:
 
 
 def extract_email(claims: dict[str, object]) -> str:
+    """Extract email."""
     configured = configured_email_claim()
     email = normalize_email(
         first_claim(

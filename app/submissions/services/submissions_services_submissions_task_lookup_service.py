@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions task lookup service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status

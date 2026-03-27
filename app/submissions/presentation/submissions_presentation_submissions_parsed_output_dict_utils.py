@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions parsed output dict utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_parsed_output_utils_utils import (
@@ -10,6 +12,7 @@ from app.submissions.presentation.submissions_presentation_submissions_parsed_ou
 def process_dict_output(
     parsed_output: dict, *, include_output: bool, max_output_chars: int
 ):
+    """Process dict output."""
     passed_val = _safe_int(parsed_output.get("passed"))
     failed_val = _safe_int(parsed_output.get("failed"))
     total_val = _safe_int(parsed_output.get("total"))

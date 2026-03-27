@@ -1,3 +1,5 @@
+"""Application module for upgrade workflows."""
+
 from __future__ import annotations
 
 from .constants import (
@@ -16,6 +18,7 @@ from .constants import (
 
 
 def run_upgrade(op, sa) -> None:
+    """Run upgrade."""
     _create_recording_assets_table(op, sa)
     _create_transcripts_table(op, sa)
 

@@ -1,3 +1,5 @@
+"""Application module for integrations github webhooks handlers workflow run jobs handler workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -14,6 +16,7 @@ from app.shared.jobs.repositories import repository as jobs_repo
 def build_artifact_parse_job_idempotency_key(
     *, submission_id: int, workflow_run_id: int, workflow_run_attempt: int | None
 ) -> str:
+    """Build artifact parse job idempotency key."""
     attempt = workflow_run_attempt or 1
     return f"github_workflow_artifact_parse:{submission_id}:{workflow_run_id}:{attempt}"
 
@@ -26,6 +29,7 @@ async def enqueue_artifact_parse_job(
     event: WorkflowRunCompletedEvent,
     delivery_id: str | None,
 ) -> bool:
+    """Enqueue artifact parse job."""
     idempotency_key = build_artifact_parse_job_idempotency_key(
         submission_id=submission.id,
         workflow_run_id=event.workflow_run_id,

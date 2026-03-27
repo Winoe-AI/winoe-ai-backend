@@ -1,3 +1,5 @@
+"""Application module for candidates routes candidate sessions routes candidates candidate sessions routes resolve routes workflows."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request, status

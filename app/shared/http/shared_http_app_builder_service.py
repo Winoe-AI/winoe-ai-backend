@@ -1,3 +1,5 @@
+"""Application module for http builder service workflows."""
+
 from __future__ import annotations
 
 from fastapi import FastAPI

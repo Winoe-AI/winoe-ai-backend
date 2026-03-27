@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions validation rubric service workflows."""
+
 from __future__ import annotations
 
 import copy
@@ -15,6 +17,7 @@ from app.simulations.services.simulations_services_simulations_scenario_versions
 
 
 def validate_rubric(rubric_json: Any) -> dict[str, Any]:
+    """Validate rubric."""
     if not isinstance(rubric_json, Mapping):
         raise_patch_validation_error(
             "rubric must be an object.",

@@ -1,3 +1,5 @@
+"""Application module for submissions repositories precommit bundles submissions precommit bundles validations repository workflows."""
+
 from __future__ import annotations
 
 import hashlib
@@ -10,6 +12,7 @@ MAX_PATCH_TEXT_BYTES = 250_000
 
 
 def normalize_template_key(value: str) -> str:
+    """Normalize template key."""
     normalized = (value or "").strip()
     if not normalized:
         raise ValueError("template_key must be non-empty")
@@ -17,6 +20,7 @@ def normalize_template_key(value: str) -> str:
 
 
 def normalize_status(status: str) -> str:
+    """Normalize status."""
     normalized = (status or "").strip().lower()
     if normalized not in PRECOMMIT_BUNDLE_STATUSES:
         raise ValueError(f"invalid precommit bundle status: {status}")
@@ -24,6 +28,7 @@ def normalize_status(status: str) -> str:
 
 
 def validate_payload(patch_text: str | None, storage_ref: str | None) -> None:
+    """Validate payload."""
     normalized_patch = patch_text if patch_text is not None else None
     normalized_ref = (storage_ref or "").strip() or None
     if normalized_patch is None and normalized_ref is None:
@@ -37,6 +42,7 @@ def validate_payload(patch_text: str | None, storage_ref: str | None) -> None:
 def compute_content_sha256(
     *, patch_text: str | None = None, storage_ref: str | None = None
 ) -> str:
+    """Compute content sha256."""
     validate_payload(patch_text, storage_ref)
     source = patch_text if patch_text is not None else f"storage_ref:{storage_ref}"
     return hashlib.sha256(source.encode("utf-8")).hexdigest()

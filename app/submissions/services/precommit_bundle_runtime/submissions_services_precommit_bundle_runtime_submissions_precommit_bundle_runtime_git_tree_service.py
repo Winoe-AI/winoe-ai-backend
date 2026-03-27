@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime git tree service workflows."""
+
 from __future__ import annotations
 
 from app.shared.utils.shared_utils_errors_utils import ApiError
@@ -9,6 +11,7 @@ async def resolve_head_and_tree_sha(
     repo_full_name: str,
     branch_name: str,
 ) -> tuple[str, str]:
+    """Resolve head and tree sha."""
     head_ref = await github_client.get_ref(repo_full_name, f"heads/{branch_name}")
     head_sha = ((head_ref.get("object") or {}).get("sha") or "").strip()
     if not head_sha:
@@ -34,6 +37,7 @@ async def resolve_head_and_tree_sha(
 async def build_tree_entries(
     github_client, *, repo_full_name: str, changes, bundle_id: int
 ):
+    """Build tree entries."""
     tree_entries: list[dict[str, object]] = []
     for change in changes:
         if change.delete:

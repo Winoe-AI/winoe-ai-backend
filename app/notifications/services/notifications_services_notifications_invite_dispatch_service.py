@@ -1,3 +1,5 @@
+"""Application module for notifications services notifications invite dispatch service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -20,6 +22,7 @@ async def dispatch_invite_email(
     simulation: Simulation,
     invite_url: str,
 ) -> EmailSendResult:
+    """Dispatch invite email."""
     subject, text, html = invite_email_content(
         candidate_name=candidate_session.candidate_name,
         invite_url=invite_url,
@@ -37,6 +40,7 @@ async def dispatch_invite_email(
 async def record_send_result(
     db, candidate_session, now: datetime, result: EmailSendResult
 ) -> EmailSendResult:
+    """Record send result."""
     candidate_session.invite_email_last_attempt_at = now
     if result.status == "sent":
         candidate_session.invite_email_status = "sent"

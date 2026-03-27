@@ -1,3 +1,5 @@
+"""Application module for notifications services notifications invite time service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -6,6 +8,7 @@ INVITE_EMAIL_RATE_LIMIT_SECONDS = 30
 
 
 def utc_now(now: datetime | None) -> datetime:
+    """Execute utc now."""
     resolved = now or datetime.now(UTC)
     if resolved.tzinfo is None:
         return resolved.replace(tzinfo=UTC)
@@ -15,6 +18,7 @@ def utc_now(now: datetime | None) -> datetime:
 def rate_limited(
     last_attempt: datetime | None, now: datetime, window_seconds: int
 ) -> bool:
+    """Execute rate limited."""
     if last_attempt is None:
         return False
     last = last_attempt if last_attempt.tzinfo else last_attempt.replace(tzinfo=UTC)

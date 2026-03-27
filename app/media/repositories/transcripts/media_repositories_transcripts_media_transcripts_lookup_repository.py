@@ -1,3 +1,5 @@
+"""Application module for media repositories transcripts media transcripts lookup repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -14,6 +16,7 @@ async def get_by_recording_id(
     *,
     include_deleted: bool = False,
 ) -> Transcript | None:
+    """Return by recording id."""
     stmt = select(Transcript).where(Transcript.recording_id == recording_id)
     if not include_deleted:
         stmt = stmt.where(Transcript.deleted_at.is_(None))

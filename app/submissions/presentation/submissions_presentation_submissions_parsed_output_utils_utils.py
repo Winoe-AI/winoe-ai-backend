@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions parsed output utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_redaction_utils import (
@@ -29,6 +31,7 @@ def _safe_int(val) -> int | None:
 
 
 def sanitize_stream(value: str | None, *, max_chars: int):
+    """Sanitize stream."""
     if not isinstance(value, str):
         return None, None
     redacted = redact_text(value)

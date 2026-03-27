@@ -1,3 +1,5 @@
+"""Application module for integrations github artifacts json parser utils workflows."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +13,7 @@ from app.shared.utils.shared_utils_brand_utils import TEST_ARTIFACT_NAMESPACE
 
 
 def parse_named_json(zf: ZipFile) -> ParsedTestResults | None:
+    """Parse named json."""
     for name in zf.namelist():
         if name.endswith(f"{TEST_ARTIFACT_NAMESPACE}.json"):
             with zf.open(name) as fp:
@@ -21,6 +24,7 @@ def parse_named_json(zf: ZipFile) -> ParsedTestResults | None:
 
 
 def parse_any_json(zf: ZipFile) -> ParsedTestResults | None:
+    """Parse any json."""
     for name in zf.namelist():
         if name.lower().endswith(".json"):
             with zf.open(name) as fp:

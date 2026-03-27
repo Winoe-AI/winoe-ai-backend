@@ -1,3 +1,5 @@
+"""Application module for submissions services service recruiter submissions recruiter parse output service workflows."""
+
 from __future__ import annotations
 
 import json

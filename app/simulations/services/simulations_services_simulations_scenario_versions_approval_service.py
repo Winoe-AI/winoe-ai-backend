@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions approval service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -35,6 +37,7 @@ async def approve_scenario_version(
     actor_user_id: int,
     now: datetime | None = None,
 ) -> tuple[Simulation, ScenarioVersion]:
+    """Approve scenario version."""
     approved_at = now or datetime.now(UTC)
     simulation = await require_owned_simulation_for_update(
         db, simulation_id, actor_user_id

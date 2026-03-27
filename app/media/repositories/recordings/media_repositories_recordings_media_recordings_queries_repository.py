@@ -1,3 +1,5 @@
+"""Application module for media repositories recordings media recordings queries repository workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -11,6 +13,7 @@ from app.media.repositories.recordings.media_repositories_recordings_media_recor
 
 
 async def get_by_id(db: AsyncSession, recording_id: int) -> RecordingAsset | None:
+    """Return by id."""
     stmt = select(RecordingAsset).where(RecordingAsset.id == recording_id)
     return (await db.execute(stmt)).scalar_one_or_none()
 
@@ -18,6 +21,7 @@ async def get_by_id(db: AsyncSession, recording_id: int) -> RecordingAsset | Non
 async def get_by_id_for_update(
     db: AsyncSession, recording_id: int
 ) -> RecordingAsset | None:
+    """Return by id for update."""
     stmt = (
         select(RecordingAsset)
         .where(RecordingAsset.id == recording_id)
@@ -32,6 +36,7 @@ async def get_latest_for_task_session(
     candidate_session_id: int,
     task_id: int,
 ) -> RecordingAsset | None:
+    """Return latest for task session."""
     stmt = (
         select(RecordingAsset)
         .where(
@@ -51,6 +56,7 @@ async def get_expired_for_retention(
     now: datetime | None = None,
     limit: int = 200,
 ) -> list[RecordingAsset]:
+    """Return expired for retention."""
     cutoff = (now or datetime.now(UTC)) - timedelta(days=max(1, int(retention_days)))
     stmt = (
         select(RecordingAsset)

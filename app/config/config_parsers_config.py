@@ -1,3 +1,5 @@
+"""Application module for config parsers config workflows."""
+
 from __future__ import annotations
 
 import json

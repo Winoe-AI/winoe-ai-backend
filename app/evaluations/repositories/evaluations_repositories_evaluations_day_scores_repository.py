@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations day scores repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -23,6 +25,7 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_validatio
 def normalize_day_score_payload(
     day_scores: Sequence[Mapping[str, Any]], *, allow_empty: bool
 ) -> list[dict[str, Any]]:
+    """Normalize day score payload."""
     if isinstance(day_scores, str | bytes):
         raise ValueError("day_scores must be a sequence of objects.")
     if not day_scores:
@@ -69,6 +72,7 @@ async def add_day_scores(
     allow_empty: bool = False,
     commit: bool = True,
 ) -> list[EvaluationDayScore]:
+    """Add day scores."""
     if run.id is None:
         raise ValueError("run must be persisted before adding day scores.")
     normalized_entries = normalize_day_score_payload(

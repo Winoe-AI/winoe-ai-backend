@@ -1,3 +1,5 @@
+"""Expose the FastAPI application instance and API-entrypoint helpers."""
+
 from app.config import settings
 from app.shared.database import init_db_if_needed
 from app.shared.http.shared_http_app_builder_service import create_app
@@ -12,10 +14,12 @@ app = create_app()
 
 
 def _cors_config() -> tuple[list[str], str | None]:
+    """Return effective CORS origin settings after environment normalization."""
     return _resolved_cors_config()
 
 
 def _configure_perf_logging(app) -> None:
+    """Attach SQL/per-request perf middleware when perf logging is enabled."""
     if not perf_logging_enabled():
         return
     from app.shared.utils import shared_utils_db_utils as db

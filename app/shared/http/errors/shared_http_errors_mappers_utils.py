@@ -1,3 +1,5 @@
+"""Application module for http errors mappers utils workflows."""
+
 from __future__ import annotations
 
 from fastapi import status

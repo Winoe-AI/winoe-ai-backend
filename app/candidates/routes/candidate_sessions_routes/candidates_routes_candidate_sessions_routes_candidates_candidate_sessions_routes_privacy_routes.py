@@ -1,3 +1,5 @@
+"""Application module for candidates routes candidate sessions routes candidates candidate sessions routes privacy routes workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -27,6 +29,18 @@ router = APIRouter()
     "/session/{candidate_session_id}/privacy/consent",
     response_model=CandidatePrivacyConsentResponse,
     status_code=status.HTTP_200_OK,
+    summary="Record Candidate Privacy Consent",
+    description=(
+        "Persist candidate consent acknowledgements for recording/privacy notices"
+        " tied to a claimed session."
+    ),
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Candidate authentication required."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate does not own session."},
+        status.HTTP_404_NOT_FOUND: {"description": "Candidate session not found."},
+    },
 )
 async def record_candidate_privacy_consent(
     candidate_session_id: Annotated[int, Path(..., ge=1)],
@@ -34,6 +48,7 @@ async def record_candidate_privacy_consent(
     principal: Annotated[Principal, Depends(require_candidate_principal)],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> CandidatePrivacyConsentResponse:
+    """Record candidate privacy consent."""
     candidate_session = await cs_service.fetch_owned_session(
         db,
         candidate_session_id,

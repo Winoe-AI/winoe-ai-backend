@@ -1,3 +1,5 @@
+"""Application module for submissions repositories precommit bundles submissions precommit bundles core model workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -36,6 +38,8 @@ def _status_check_expr() -> str:
 
 
 class PrecommitBundle(Base):
+    """Represent precommit bundle data and behavior."""
+
     __tablename__ = "precommit_bundles"
     __table_args__ = (
         UniqueConstraint(

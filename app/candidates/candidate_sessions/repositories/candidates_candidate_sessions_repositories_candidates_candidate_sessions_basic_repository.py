@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions repositories candidates candidate sessions basic repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import or_, select
@@ -36,6 +38,7 @@ def _build_get_by_id_for_update_stmt(session_id: int) -> Select:
 
 
 async def get_by_id(db: AsyncSession, session_id: int) -> CandidateSession | None:
+    """Return by id."""
     res = await db.execute(_build_get_by_id_stmt(session_id))
     return res.scalar_one_or_none()
 
@@ -43,6 +46,7 @@ async def get_by_id(db: AsyncSession, session_id: int) -> CandidateSession | Non
 async def get_by_id_for_update(
     db: AsyncSession, session_id: int
 ) -> CandidateSession | None:
+    """Return by id for update."""
     res = await db.execute(_build_get_by_id_for_update_stmt(session_id))
     return res.scalar_one_or_none()
 

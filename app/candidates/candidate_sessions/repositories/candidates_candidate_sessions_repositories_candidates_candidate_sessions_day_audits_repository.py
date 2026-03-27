@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions repositories candidates candidate sessions day audits repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -13,6 +15,7 @@ from app.shared.database.shared_database_models_model import CandidateDayAudit
 async def get_day_audit(
     db: AsyncSession, *, candidate_session_id: int, day_index: int
 ) -> CandidateDayAudit | None:
+    """Return day audit."""
     stmt = select(CandidateDayAudit).where(
         CandidateDayAudit.candidate_session_id == candidate_session_id,
         CandidateDayAudit.day_index == day_index,
@@ -26,6 +29,7 @@ async def list_day_audits(
     candidate_session_ids: Iterable[int],
     day_indexes: Iterable[int] | None = None,
 ) -> list[CandidateDayAudit]:
+    """Return day audits."""
     normalized_session_ids = sorted({int(value) for value in candidate_session_ids})
     if not normalized_session_ids:
         return []
@@ -56,6 +60,7 @@ async def create_day_audit_once(
     eval_basis_ref: str,
     commit: bool = True,
 ) -> tuple[CandidateDayAudit, bool]:
+    """Create day audit once."""
     existing = await get_day_audit(
         db,
         candidate_session_id=candidate_session_id,

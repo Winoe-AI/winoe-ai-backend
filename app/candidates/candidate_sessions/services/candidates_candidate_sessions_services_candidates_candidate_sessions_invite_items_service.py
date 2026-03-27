@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions invite items service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -30,6 +32,7 @@ async def build_invite_item(
     tasks_loader: Callable[[int], Awaitable[list[Task]]],
     completed_ids: set[int] | None = None,
 ) -> CandidateInviteListItem:
+    """Build invite item."""
     expires_at = candidate_session.expires_at
     expires_at = (
         expires_at.replace(tzinfo=UTC)

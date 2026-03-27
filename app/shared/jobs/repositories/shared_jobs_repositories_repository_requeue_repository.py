@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository requeue repository workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -28,6 +30,7 @@ async def requeue_nonterminal_idempotent_job(
     payload_json: dict[str, Any] | None = None,
     commit: bool = True,
 ) -> Job | None:
+    """Requeue nonterminal idempotent job."""
     normalized_type = job_type.strip()
     normalized_key = idempotency_key.strip()
     if not normalized_type:

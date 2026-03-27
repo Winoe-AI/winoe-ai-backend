@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile composer day scores service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

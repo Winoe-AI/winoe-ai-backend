@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations ownership service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -14,6 +16,7 @@ async def require_owned_simulation(
     include_terminated: bool = True,
     for_update: bool = False,
 ) -> Simulation:
+    """Require owned simulation."""
     from app.simulations import services as sim_service
 
     sim = await sim_service.sim_repo.get_owned(
@@ -38,6 +41,7 @@ async def require_owned_simulation_with_tasks(
     include_terminated: bool = True,
     for_update: bool = False,
 ) -> tuple[Simulation, list[Task]]:
+    """Require owned simulation with tasks."""
     from app.simulations import services as sim_service
 
     sim, tasks = await sim_service.sim_repo.get_owned_with_tasks(

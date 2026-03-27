@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions submission builder service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -28,6 +30,7 @@ def build_submission(
     test_output,
     last_run_at,
 ) -> Submission:
+    """Build submission."""
     checkpoint_sha = commit_sha if task.day_index == 2 else None
     final_sha = commit_sha if task.day_index == 3 else None
     return Submission(

@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule gates errors service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -24,6 +26,7 @@ def build_task_window_closed_error(
     task_window: TaskWindow,
     serialize_optional_datetime: Callable[[datetime | None], str | None],
 ) -> ApiError:
+    """Build task window closed error."""
     return ApiError(
         status_code=status.HTTP_409_CONFLICT,
         detail="Task is closed outside the scheduled window.",
@@ -45,6 +48,7 @@ def build_schedule_invalid_window_error(
     coerce_task_day_index: Callable[[Any], int | None],
     serialize_optional_datetime: Callable[[datetime | None], str | None],
 ) -> ApiError:
+    """Build schedule invalid window error."""
     return ApiError(
         status_code=status.HTTP_409_CONFLICT,
         detail="Schedule window configuration is invalid.",
@@ -68,6 +72,7 @@ def build_schedule_not_started_error(
     normalize_optional_datetime: Callable[[datetime | None], datetime | None],
     serialize_optional_datetime: Callable[[datetime | None], str | None],
 ) -> ApiError:
+    """Build schedule not started error."""
     scheduled_start_at = normalize_optional_datetime(
         getattr(candidate_session, "scheduled_start_at", None)
     )

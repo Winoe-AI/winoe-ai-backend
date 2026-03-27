@@ -1,3 +1,5 @@
+"""Application module for jobs handlers scenario generation runtime handler workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -27,6 +29,7 @@ async def handle_scenario_generation_impl(
     apply_default_scenario_version,
     logger,
 ):
+    """Handle scenario generation impl."""
     started = perf_counter()
     simulation_id = parse_positive_int(payload_json.get("simulationId"))
     if simulation_id is None:

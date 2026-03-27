@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions ownership service workflows."""
+
 from __future__ import annotations
 
 from fastapi import status
@@ -26,6 +28,7 @@ def _forbidden(detail: str, error_code: str) -> None:
 
 
 def ensure_email_verified(principal: Principal) -> None:
+    """Ensure email verified."""
     if principal.claims.get("email_verified") is not True:
         _forbidden(
             "Authenticated email is not verified.",
@@ -36,6 +39,7 @@ def ensure_email_verified(principal: Principal) -> None:
 def ensure_candidate_ownership(
     candidate_session: CandidateSession, principal: Principal, *, now
 ) -> bool:
+    """Ensure candidate ownership."""
     ensure_email_verified(principal)
     email = normalize_email(principal.email)
     if not email:

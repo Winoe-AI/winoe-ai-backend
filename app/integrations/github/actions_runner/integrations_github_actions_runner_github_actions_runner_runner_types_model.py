@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner types model workflows."""
+
 from __future__ import annotations
 
 from typing import Any, Protocol
@@ -9,6 +11,8 @@ from app.integrations.github.client import GithubClient
 
 
 class RunnerContext(Protocol):
+    """Represent runner context data and behavior."""
+
     client: GithubClient
     cache: ActionsCache
     poll_interval_seconds: float

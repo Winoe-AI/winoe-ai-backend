@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations create run helpers repository workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -19,6 +21,7 @@ def normalize_run_time_fields(
     completed_at: datetime | None,
     generated_at: datetime | None,
 ) -> tuple[datetime, datetime | None, datetime | None]:
+    """Normalize run time fields."""
     normalized_started_at = normalize_datetime(
         started_at, field_name="started_at", default_now=True
     )

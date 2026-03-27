@@ -1,3 +1,5 @@
+"""Application module for recruiters routes admin routes recruiters admin routes demo ops routes workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -44,6 +46,18 @@ router = APIRouter()
     "/candidate_sessions/{candidate_session_id}/reset",
     response_model=CandidateSessionResetResponse,
     status_code=status.HTTP_200_OK,
+    summary="Reset Candidate Session",
+    description=(
+        "Reset a candidate session state during demo-mode operations for controlled QA"
+        " or replay flows."
+    ),
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Invalid reset request payload."},
+        status.HTTP_403_FORBIDDEN: {"description": "Admin access required."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Demo mode disabled or target session not found."
+        },
+    },
 )
 async def reset_candidate_session(
     candidate_session_id: Annotated[int, Path(..., gt=0)],
@@ -51,6 +65,7 @@ async def reset_candidate_session(
     db: Annotated[AsyncSession, Depends(get_session)],
     actor: Annotated[DemoAdminActor, Depends(require_demo_mode_admin)],
 ) -> CandidateSessionResetResponse:
+    """Reset candidate session."""
     result = await admin_ops_service.reset_candidate_session(
         db,
         actor=actor,
@@ -67,6 +82,18 @@ async def reset_candidate_session(
     "/jobs/{job_id}/requeue",
     response_model=JobRequeueResponse,
     status_code=status.HTTP_200_OK,
+    summary="Requeue Job",
+    description=(
+        "Force a durable background job back to queued state for demo-mode"
+        " recovery/testing."
+    ),
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Job cannot be requeued."},
+        status.HTTP_403_FORBIDDEN: {"description": "Admin access required."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Demo mode disabled or target job not found."
+        },
+    },
 )
 async def requeue_job(
     job_id: Annotated[str, Path(..., min_length=1, max_length=64)],
@@ -74,6 +101,7 @@ async def requeue_job(
     db: Annotated[AsyncSession, Depends(get_session)],
     actor: Annotated[DemoAdminActor, Depends(require_demo_mode_admin)],
 ) -> JobRequeueResponse:
+    """Requeue job."""
     result = await admin_ops_service.requeue_job(
         db,
         actor=actor,
@@ -88,6 +116,18 @@ async def requeue_job(
     "/simulations/{simulation_id}/scenario/use_fallback",
     response_model=SimulationFallbackResponse,
     status_code=status.HTTP_200_OK,
+    summary="Use Simulation Fallback",
+    description=(
+        "Apply a fallback scenario version to a simulation when generated content"
+        " must be overridden in demo mode."
+    ),
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Fallback request is invalid."},
+        status.HTTP_403_FORBIDDEN: {"description": "Admin access required."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Demo mode disabled or simulation not found."
+        },
+    },
 )
 async def use_simulation_fallback(
     simulation_id: Annotated[int, Path(..., gt=0)],
@@ -95,6 +135,7 @@ async def use_simulation_fallback(
     db: Annotated[AsyncSession, Depends(get_session)],
     actor: Annotated[DemoAdminActor, Depends(require_demo_mode_admin)],
 ) -> SimulationFallbackResponse:
+    """Use simulation fallback."""
     result = await admin_ops_service.use_simulation_fallback_scenario(
         db,
         actor=actor,
@@ -111,6 +152,16 @@ async def use_simulation_fallback(
     "/media/purge",
     response_model=MediaRetentionPurgeResponse,
     status_code=status.HTTP_200_OK,
+    summary="Purge Media Retention",
+    description=(
+        "Run retention cleanup for recording assets and mark expired media as"
+        " purged in demo environments."
+    ),
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Retention inputs are invalid."},
+        status.HTTP_403_FORBIDDEN: {"description": "Admin access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Demo mode disabled."},
+    },
 )
 async def purge_media_retention(
     payload: MediaRetentionPurgeRequest,
@@ -120,6 +171,7 @@ async def purge_media_retention(
         StorageMediaProvider, Depends(get_media_storage_provider)
     ],
 ) -> MediaRetentionPurgeResponse:
+    """Purge media retention."""
     del actor
     result = await purge_expired_media_assets(
         db,

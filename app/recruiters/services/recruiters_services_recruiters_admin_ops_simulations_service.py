@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops simulations service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +33,7 @@ async def use_simulation_fallback_scenario(
     reason: str,
     dry_run: bool,
 ) -> SimulationFallbackResult:
+    """Use simulation fallback scenario."""
     simulation = await load_simulation_for_update(db, simulation_id)
     scenario_version = await load_scenario_version_for_update(db, scenario_version_id)
     assert_fallback_eligible(

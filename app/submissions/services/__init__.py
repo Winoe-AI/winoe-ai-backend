@@ -1,3 +1,5 @@
+"""Application module for init workflows."""
+
 from app.shared.utils.shared_utils_lazy_module_aliases_utils import (
     LAZY_MODULE_ALIAS_EXEMPTIONS,
     resolve_lazy_module_alias,

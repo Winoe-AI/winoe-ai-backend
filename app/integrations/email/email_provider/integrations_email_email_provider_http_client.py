@@ -1,3 +1,5 @@
+"""Application module for integrations email provider http client workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -18,6 +20,7 @@ async def post_json(
     transport: httpx.BaseTransport | None = None,
     headers: dict | None = None,
 ) -> httpx.Response:
+    """Execute post json."""
     headers = headers or {}
     try:
         async with httpx.AsyncClient(
@@ -32,6 +35,7 @@ async def post_json(
 
 
 def ensure_success(provider: str, resp: httpx.Response) -> None:
+    """Ensure success."""
     if resp.status_code < 400:
         return
     logger.error(

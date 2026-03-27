@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations create run repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -50,6 +52,7 @@ async def create_run(
     metadata_json: Mapping[str, Any] | None = None,
     commit: bool = True,
 ) -> EvaluationRun:
+    """Create run."""
     normalized_status = normalize_status(status)
     (
         normalized_started_at,

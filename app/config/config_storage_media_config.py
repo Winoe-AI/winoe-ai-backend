@@ -1,3 +1,5 @@
+"""Application module for config storage media config workflows."""
+
 from __future__ import annotations
 
 from pydantic import field_validator, model_validator

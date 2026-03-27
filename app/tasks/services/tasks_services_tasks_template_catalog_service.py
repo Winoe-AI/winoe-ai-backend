@@ -1,3 +1,5 @@
+"""Application module for tasks services tasks template catalog service workflows."""
+
 from __future__ import annotations
 
 from app.tasks.services.tasks_services_tasks_template_catalog_constants import (
@@ -39,6 +41,7 @@ TEMPLATE_KEY_ALIASES = _build_template_key_aliases()
 
 
 def validate_template_key(template_key: str) -> str:
+    """Validate template key."""
     if not isinstance(template_key, str):
         raise TemplateKeyError("templateKey must be a string")
     normalized = template_key.strip()
@@ -50,12 +53,14 @@ def validate_template_key(template_key: str) -> str:
 
 
 def resolve_template_repo_full_name(template_key: str) -> str:
+    """Resolve template repo full name."""
     return TEMPLATE_CATALOG[validate_template_key(template_key)]["repo_full_name"]
 
 
 def normalize_template_repo_value(
     template_repo: str | None, *, template_key: str | None = None
 ) -> str | None:
+    """Normalize template repo value."""
     template_repo = (template_repo or "").strip()
     validated_key: str | None = None
     if template_key:

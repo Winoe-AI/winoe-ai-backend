@@ -1,3 +1,5 @@
+"""Application module for submissions repositories task drafts submissions task drafts core repository workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -25,6 +27,7 @@ async def get_by_session_and_task(
     candidate_session_id: int,
     task_id: int,
 ) -> TaskDraft | None:
+    """Return by session and task."""
     stmt = select(TaskDraft).where(
         TaskDraft.candidate_session_id == candidate_session_id,
         TaskDraft.task_id == task_id,
@@ -44,6 +47,7 @@ async def upsert_draft(
     updated_at: datetime | None = None,
     commit: bool = True,
 ) -> TaskDraft:
+    """Upsert draft."""
     resolved_updated_at = updated_at or datetime.now(UTC)
     existing = await get_by_session_and_task(
         db,
@@ -93,6 +97,7 @@ async def mark_finalized(
     finalized_at: datetime | None = None,
     commit: bool = True,
 ) -> TaskDraft:
+    """Mark finalized."""
     if draft.finalized_submission_id is not None:
         return draft
 

@@ -1,3 +1,5 @@
+"""Application module for http middleware http csrf middleware workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +24,8 @@ logger = logging.getLogger("app.shared.http.shared_http_middleware_http_middlewa
 
 
 class CsrfOriginEnforcementMiddleware:
+    """Represent csrf origin enforcement middleware data and behavior."""
+
     def __init__(
         self,
         app,

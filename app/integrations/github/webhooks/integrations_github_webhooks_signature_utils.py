@@ -1,3 +1,5 @@
+"""Application module for integrations github webhooks signature utils workflows."""
+
 from __future__ import annotations
 
 import hashlib

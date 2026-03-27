@@ -47,6 +47,72 @@ jobs:
       - name: Ruff format check
         run: poetry run ruff format --check .
 
+  docs-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=${PYTHONPATH}:$(pwd)" >> $GITHUB_ENV
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Upgrade pip
+        run: python -m pip install -U pip
+
+      - name: Install Poetry
+        run: python -m pip install poetry
+
+      - name: Install dependencies
+        run: poetry install --no-interaction --no-root
+
+      - name: Validate docs inventory
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_inventory.py
+          --strict
+          --markdown-output code-quality/documentation/latest/artifacts/docs_inventory.md
+
+      - name: Validate env parity
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_env_inventory.py
+          --strict
+          --markdown-output code-quality/documentation/latest/artifacts/env_inventory.md
+
+      - name: Regenerate OpenAPI and API docs with parity checks
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_api_export.py
+          --strict
+          --verify-doc README.md docs/api.md
+
+      - name: Validate public docstring coverage
+        run: >
+          poetry run python code-quality/documentation/scripts/docs_docstring_audit.py
+          --include-module-docs
+          --strict
+          --json > code-quality/documentation/latest/artifacts/docstring_audit.json
+
+      - name: Fail on stale generated documentation artifacts
+        run: |
+          set -euo pipefail
+          tracked_paths=(
+            docs/api.md
+            code-quality/documentation/latest/artifacts/openapi_snapshot.json
+            code-quality/documentation/latest/artifacts/api_endpoint_matrix.md
+            code-quality/documentation/latest/artifacts/api_endpoint_matrix.json
+            code-quality/documentation/latest/artifacts/docs_inventory.md
+            code-quality/documentation/latest/artifacts/env_inventory.md
+            code-quality/documentation/latest/artifacts/docstring_audit.json
+          )
+          if [[ -n "$(git status --porcelain -- "${tracked_paths[@]}")" ]]; then
+            echo "Generated documentation artifacts are out of date or untracked."
+            git status --short -- "${tracked_paths[@]}"
+            git diff -- "${tracked_paths[@]}" || true
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
 

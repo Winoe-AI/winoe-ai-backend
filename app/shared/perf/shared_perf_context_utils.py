@@ -1,3 +1,5 @@
+"""Application module for perf context utils workflows."""
+
 from __future__ import annotations
 
 from contextvars import ContextVar, Token
@@ -16,6 +18,7 @@ class PerfStats:
     external_wait_ms: dict[str, float] = field(default_factory=dict)
 
     def record_sql(self, fingerprint: str, elapsed_ms: float) -> None:
+        """Record sql."""
         normalized = (fingerprint or "").strip()
         if not normalized:
             return
@@ -27,6 +30,7 @@ class PerfStats:
         ) + float(elapsed_ms)
 
     def record_external_wait(self, provider: str, elapsed_ms: float) -> None:
+        """Record external wait."""
         normalized_provider = (provider or "").strip().lower() or "unknown"
         self.external_call_counts[normalized_provider] = (
             self.external_call_counts.get(normalized_provider, 0) + 1

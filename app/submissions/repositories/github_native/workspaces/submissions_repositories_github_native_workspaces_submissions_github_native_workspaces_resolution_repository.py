@@ -1,3 +1,5 @@
+"""Application module for submissions repositories github native workspaces submissions github native workspaces resolution repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -84,6 +86,7 @@ async def resolve_workspace_resolution_impl(
     ] = _resolve_workspace_key_for_task_id,
     workspace_key_state: Callable[..., object] = _workspace_key_state,
 ) -> WorkspaceResolution:
+    """Resolve workspace resolution impl."""
     resolved_key = workspace_key
     if resolved_key is None:
         if task_day_index is not None and task_type is not None:

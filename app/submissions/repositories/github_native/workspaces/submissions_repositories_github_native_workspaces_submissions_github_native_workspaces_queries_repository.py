@@ -1,3 +1,5 @@
+"""Application module for submissions repositories github native workspaces submissions github native workspaces queries repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -12,6 +14,7 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 async def get_by_session_and_workspace_key(
     db: AsyncSession, *, candidate_session_id: int, workspace_key: str
 ) -> Workspace | None:
+    """Return by session and workspace key."""
     stmt = (
         select(Workspace)
         .join(WorkspaceGroup, Workspace.workspace_group_id == WorkspaceGroup.id)
@@ -29,6 +32,7 @@ async def get_by_session_and_workspace_key(
 async def get_by_workspace_group_id(
     db: AsyncSession, *, workspace_group_id: str
 ) -> Workspace | None:
+    """Return by workspace group id."""
     stmt = (
         select(Workspace)
         .where(Workspace.workspace_group_id == workspace_group_id)
@@ -41,6 +45,7 @@ async def get_by_workspace_group_id(
 async def get_workspace_group(
     db: AsyncSession, *, candidate_session_id: int, workspace_key: str
 ) -> WorkspaceGroup | None:
+    """Return workspace group."""
     stmt = select(WorkspaceGroup).where(
         WorkspaceGroup.candidate_session_id == candidate_session_id,
         WorkspaceGroup.workspace_key == workspace_key,

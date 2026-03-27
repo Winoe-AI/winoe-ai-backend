@@ -1,3 +1,5 @@
+"""Application module for jobs handlers github workflow artifact parse handler workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -59,6 +61,7 @@ def _build_actions_runner() -> tuple[GithubActionsRunner, GithubClient]:
 async def handle_github_workflow_artifact_parse(
     payload_json: dict[str, Any],
 ) -> dict[str, Any]:
+    """Handle github workflow artifact parse."""
     payload = build_payload(
         payload_json,
         parse_positive_int=_parse_positive_int,

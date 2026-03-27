@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions branch validation service workflows."""
+
 from __future__ import annotations
 
 import re

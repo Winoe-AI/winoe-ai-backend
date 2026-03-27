@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions rate limits constants workflows."""
+
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -31,6 +33,7 @@ def _rule_for(action: str) -> rate_limit.RateLimitRule:
 
 
 def apply_rate_limit(candidate_session_id: int, action: str) -> None:
+    """Apply rate limit."""
     if rate_limit.rate_limit_enabled():
         rate_limit.limiter.allow(
             rate_limit.rate_limit_key("tasks", str(candidate_session_id), action),
@@ -39,6 +42,7 @@ def apply_rate_limit(candidate_session_id: int, action: str) -> None:
 
 
 def throttle_poll(candidate_session_id: int, run_id: int) -> None:
+    """Throttle poll."""
     if rate_limit.rate_limit_enabled():
         rate_limit.limiter.throttle(
             rate_limit.rate_limit_key(
@@ -50,6 +54,7 @@ def throttle_poll(candidate_session_id: int, run_id: int) -> None:
 
 @asynccontextmanager
 async def concurrency_guard(candidate_session_id: int, action: str):
+    """Execute concurrency guard."""
     if rate_limit.rate_limit_enabled():
         key = rate_limit.rate_limit_key("tasks", str(candidate_session_id), action)
         async with rate_limit.limiter.concurrency_guard(key, RUN_CONCURRENCY_LIMIT):

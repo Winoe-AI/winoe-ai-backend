@@ -1,3 +1,5 @@
+"""Application module for integrations email provider smtp transport client workflows."""
+
 from __future__ import annotations
 
 import asyncio
@@ -49,6 +51,7 @@ async def send_smtp(
     use_tls: bool,
     sender: str | None,
 ) -> None:
+    """Send smtp."""
     email = _build_std_email(message, sender or username)
     try:
         await asyncio.to_thread(

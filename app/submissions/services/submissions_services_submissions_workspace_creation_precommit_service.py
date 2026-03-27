@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation precommit service workflows."""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +13,7 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 
 
 def serialize_no_bundle_details(precommit_result: object) -> str | None:
+    """Serialize no bundle details."""
     if getattr(precommit_result, "state", None) != "no_bundle":
         return None
     details = getattr(precommit_result, "details", None)
@@ -23,6 +26,7 @@ def serialize_no_bundle_details(precommit_result: object) -> str | None:
 async def persist_precommit_result(
     db, *, workspace: Workspace, precommit_result, commit: bool
 ) -> Workspace:
+    """Execute persist precommit result."""
     if (
         precommit_result.precommit_sha
         and workspace.precommit_sha != precommit_result.precommit_sha

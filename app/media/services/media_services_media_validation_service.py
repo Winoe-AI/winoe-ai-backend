@@ -1,3 +1,5 @@
+"""Application module for media services media validation service workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,6 +20,8 @@ DEFAULT_EXTENSION_BY_CONTENT_TYPE = {
 
 @dataclass(frozen=True)
 class UploadInput:
+    """Represent upload input data and behavior."""
+
     content_type: str
     size_bytes: int
     extension: str

@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions regeneration service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -38,6 +40,7 @@ async def regenerate_active_scenario_version(
     simulation_id: int,
     actor_user_id: int,
 ) -> tuple[Simulation, ScenarioVersion]:
+    """Regenerate active scenario version."""
     simulation, regenerated, _job = await request_scenario_regeneration(
         db, simulation_id=simulation_id, actor_user_id=actor_user_id
     )
@@ -50,6 +53,7 @@ async def request_scenario_regeneration(
     simulation_id: int,
     actor_user_id: int,
 ) -> tuple[Simulation, ScenarioVersion, Job]:
+    """Execute request scenario regeneration."""
     regenerated_at = datetime.now(UTC)
     simulation = await require_owned_simulation_for_update(
         db, simulation_id, actor_user_id

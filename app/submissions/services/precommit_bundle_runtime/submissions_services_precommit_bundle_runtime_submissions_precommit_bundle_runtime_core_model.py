@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime core model workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,6 +12,8 @@ DEFAULT_PRECOMMIT_BRANCH = "main"
 
 @dataclass(slots=True)
 class PrecommitBundleApplyResult:
+    """Represent precommit bundle apply result data and behavior."""
+
     state: str
     precommit_sha: str | None
     bundle_id: int | None
@@ -18,6 +22,8 @@ class PrecommitBundleApplyResult:
 
 @dataclass(slots=True)
 class BundleFileChange:
+    """Represent bundle file change data and behavior."""
+
     path: str
     content: str | None
     delete: bool
@@ -26,6 +32,8 @@ class BundleFileChange:
 
 @dataclass(slots=True)
 class BundleLookupContext:
+    """Represent bundle lookup context data and behavior."""
+
     candidate_session_id: Any
     scenario_version_id: int
     task_id: Any

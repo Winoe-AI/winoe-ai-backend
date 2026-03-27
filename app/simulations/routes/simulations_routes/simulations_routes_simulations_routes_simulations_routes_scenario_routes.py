@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes scenario routes workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated, Any
@@ -36,6 +38,18 @@ router = APIRouter()
     "/{simulation_id}/scenario/regenerate",
     response_model=ScenarioRegenerateResponse,
     status_code=status.HTTP_200_OK,
+    summary="Regenerate Scenario Version",
+    description=(
+        "Request a regenerated scenario version for a simulation and return the"
+        " created job reference."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Simulation not found."},
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "description": "Scenario regeneration rate limit exceeded."
+        },
+    },
 )
 async def regenerate_scenario_version(
     simulation_id: int,
@@ -43,6 +57,7 @@ async def regenerate_scenario_version(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
 ):
+    """Regenerate scenario version."""
     ensure_recruiter_or_none(user)
     enforce_scenario_regenerate_limit(request, user.id)
     (
@@ -61,6 +76,16 @@ async def regenerate_scenario_version(
     "/{simulation_id}/scenario/{scenario_version_id}/approve",
     response_model=ScenarioApproveResponse,
     status_code=status.HTTP_200_OK,
+    summary="Approve Scenario Version",
+    description=(
+        "Approve a scenario version and promote it for active simulation usage."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Simulation or scenario version not found."
+        },
+    },
 )
 async def approve_scenario_version(
     simulation_id: int,
@@ -68,6 +93,7 @@ async def approve_scenario_version(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
 ):
+    """Approve scenario version."""
     ensure_recruiter_or_none(user)
     simulation, scenario_version = await sim_service.approve_scenario_version(
         db,
@@ -82,6 +108,14 @@ async def approve_scenario_version(
     "/{simulation_id}/scenario/active",
     response_model=ScenarioActiveUpdateResponse,
     status_code=status.HTTP_200_OK,
+    summary="Update Active Scenario Version",
+    description=(
+        "Update active scenario metadata and assignment fields for the" " simulation."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Simulation not found."},
+    },
 )
 async def update_active_scenario_version(
     simulation_id: int,
@@ -89,6 +123,7 @@ async def update_active_scenario_version(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
 ):
+    """Update active scenario version."""
     ensure_recruiter_or_none(user)
     scenario_version = await sim_service.update_active_scenario_version(
         db,
@@ -103,6 +138,17 @@ async def update_active_scenario_version(
     "/{simulation_id}/scenario/{scenario_version_id}",
     response_model=ScenarioVersionPatchResponse,
     status_code=status.HTTP_200_OK,
+    summary="Patch Scenario Version",
+    description=(
+        "Patch editable scenario version content and return the updated"
+        " scenario payload."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Simulation or scenario version not found."
+        },
+    },
 )
 async def patch_scenario_version(
     simulation_id: int,
@@ -111,6 +157,7 @@ async def patch_scenario_version(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
 ):
+    """Patch scenario version."""
     ensure_recruiter_or_none(user)
     scenario_version = await sim_service.patch_scenario_version(
         db,

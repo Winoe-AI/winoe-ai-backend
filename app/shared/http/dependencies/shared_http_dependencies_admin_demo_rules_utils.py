@@ -1,3 +1,5 @@
+"""Application module for http dependencies admin demo rules utils workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -32,6 +34,7 @@ def _normalized_tokens(value: Any) -> list[str]:
 
 
 def is_admin_claim(principal: Principal) -> bool:
+    """Return whether admin claim."""
     claims = principal.claims or {}
     role_tokens: list[str] = []
     role_tokens.extend(_normalized_tokens(principal.roles))
@@ -47,6 +50,7 @@ def _normalize_subject(value: str | None) -> str:
 
 
 async def lookup_recruiter_id(db: AsyncSession, *, email: str) -> int | None:
+    """Look up recruiter id."""
     normalized_email = _normalize_email(email)
     if not normalized_email:
         return None
@@ -58,6 +62,7 @@ async def lookup_recruiter_id(db: AsyncSession, *, email: str) -> int | None:
 
 
 def allowlist_contains_email(email: str) -> bool:
+    """Execute allowlist contains email."""
     allowed = {
         _normalize_email(value)
         for value in settings.DEMO_ADMIN_ALLOWLIST_EMAILS or []
@@ -68,6 +73,7 @@ def allowlist_contains_email(email: str) -> bool:
 
 
 def allowlist_contains_subject(subject: str) -> bool:
+    """Execute allowlist contains subject."""
     allowed = {
         _normalize_subject(value)
         for value in settings.DEMO_ADMIN_ALLOWLIST_SUBJECTS or []
@@ -78,12 +84,14 @@ def allowlist_contains_subject(subject: str) -> bool:
 
 
 def allowlist_contains_recruiter_id(recruiter_id: int | None) -> bool:
+    """Execute allowlist contains recruiter id."""
     if recruiter_id is None:
         return False
     return recruiter_id in set(settings.DEMO_ADMIN_ALLOWLIST_RECRUITER_IDS or [])
 
 
 def build_actor(principal: Principal, recruiter_id: int | None) -> DemoAdminActor:
+    """Build actor."""
     if recruiter_id is not None:
         return DemoAdminActor(
             principal=principal,

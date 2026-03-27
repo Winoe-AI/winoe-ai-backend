@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner run fetcher service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.actions_runner.integrations_github_actions_runner_github_actions_runner_model import (
@@ -17,6 +19,7 @@ from app.integrations.github.actions_runner.integrations_github_actions_runner_g
 async def fetch_run_result(
     ctx: RunnerContext, *, repo_full_name: str, run_id: int
 ) -> ActionsRunResult:
+    """Return run result."""
     cache_key = run_cache_key(repo_full_name, run_id)
     cached = ctx.cache.run_cache.get(cache_key)
     if cached and ctx.cache.is_terminal(cached):

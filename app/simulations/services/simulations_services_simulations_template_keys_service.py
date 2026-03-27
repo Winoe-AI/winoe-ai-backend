@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations template keys service workflows."""
+
 from __future__ import annotations
 
 from fastapi import status
@@ -12,6 +14,7 @@ from app.tasks.services.tasks_services_tasks_template_catalog_service import (
 
 
 def resolve_template_key(payload) -> str:
+    """Resolve template key."""
     try:
         return validate_template_key(
             getattr(payload, "templateKey", DEFAULT_TEMPLATE_KEY)

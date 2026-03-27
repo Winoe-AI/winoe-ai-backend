@@ -1,3 +1,5 @@
+"""Application module for integrations github artifacts zip parser utils workflows."""
+
 from __future__ import annotations
 
 import io
@@ -16,6 +18,7 @@ from app.integrations.github.artifacts.integrations_github_artifacts_models_mode
 
 
 def parse_test_results_zip(content: bytes) -> ParsedTestResults | None:
+    """Parse test results zip."""
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as zf:
             return parse_named_json(zf) or parse_any_json(zf) or parse_junit(zf)

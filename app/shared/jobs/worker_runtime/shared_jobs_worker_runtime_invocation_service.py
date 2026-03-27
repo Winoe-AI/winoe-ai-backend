@@ -1,3 +1,5 @@
+"""Application module for jobs worker runtime invocation service workflows."""
+
 from __future__ import annotations
 
 import inspect
@@ -12,6 +14,7 @@ from app.shared.jobs.worker_runtime.shared_jobs_worker_runtime_types_model impor
 async def invoke_handler(
     handler: JobHandler, payload_json: dict[str, Any]
 ) -> dict[str, Any] | None:
+    """Execute invoke handler."""
     value = handler(payload_json)
     if inspect.isawaitable(value):
         value = await value

@@ -1,3 +1,5 @@
+"""Application module for media repositories transcripts media transcripts update repository workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -19,6 +21,7 @@ async def update_status(
     status: str,
     commit: bool = True,
 ) -> Transcript:
+    """Update status."""
     if transcript.status != status:
         transcript.status = status
     if commit:
@@ -40,6 +43,7 @@ async def update_transcript(
     last_error: str | None | object = _UNSET,
     commit: bool = True,
 ) -> Transcript:
+    """Update transcript."""
     if status is not _UNSET:
         transcript.status = status
     if text is not _UNSET:
@@ -65,6 +69,7 @@ async def mark_deleted(
     now: datetime | None = None,
     commit: bool = True,
 ) -> Transcript:
+    """Mark deleted."""
     if transcript.deleted_at is None:
         transcript.deleted_at = now or datetime.now(UTC)
     transcript.text = None

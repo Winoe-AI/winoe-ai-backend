@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations scenario patch schema workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping

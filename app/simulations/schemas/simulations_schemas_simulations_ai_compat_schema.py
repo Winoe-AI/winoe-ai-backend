@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations ai compat schema workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -24,6 +26,7 @@ def build_simulation_ai_config_with_resolver(
     eval_enabled_by_day: Any,
     resolver: Resolver,
 ) -> SimulationAIConfig | None:
+    """Build simulation ai config with resolver."""
     resolved_notice_version, resolved_notice_text, resolved_eval = resolver(
         notice_version=notice_version,
         notice_text=notice_text,

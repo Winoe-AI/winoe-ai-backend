@@ -1,3 +1,5 @@
+"""Application module for utils errors utils workflows."""
+
 from __future__ import annotations
 
 from typing import Any, Final

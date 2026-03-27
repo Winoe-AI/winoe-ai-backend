@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions detail presenter utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_commit_basis_utils import (
@@ -37,6 +39,7 @@ def present_detail(
     transcript=None,
     recording_download_url: str | None = None,
 ):
+    """Present detail."""
     parsed_output = recruiter_sub_service.parse_test_output(
         getattr(sub, "test_output", None)
     )

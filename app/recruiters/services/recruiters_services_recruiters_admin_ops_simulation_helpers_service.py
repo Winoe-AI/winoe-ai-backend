@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops simulation helpers service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -21,6 +23,7 @@ from app.simulations.repositories.simulations_repositories_simulations_simulatio
 async def load_simulation_for_update(
     db: AsyncSession, simulation_id: int
 ) -> Simulation:
+    """Load simulation for update."""
     simulation = (
         await db.execute(
             select(Simulation).where(Simulation.id == simulation_id).with_for_update()
@@ -37,6 +40,7 @@ async def load_simulation_for_update(
 async def load_scenario_version_for_update(
     db: AsyncSession, scenario_version_id: int
 ) -> ScenarioVersion:
+    """Load scenario version for update."""
     scenario_version = (
         await db.execute(
             select(ScenarioVersion)
@@ -59,6 +63,7 @@ def assert_fallback_eligible(
     simulation_id: int,
     scenario_version_id: int,
 ) -> None:
+    """Assert fallback eligible."""
     if simulation.status == SIMULATION_STATUS_TERMINATED:
         unsafe_operation(
             "Cannot switch fallback scenario for a terminated simulation.",

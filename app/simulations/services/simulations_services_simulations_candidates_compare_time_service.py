@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare time service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -9,6 +11,7 @@ from app.simulations.services.simulations_services_simulations_candidates_compar
 
 
 def normalize_datetime(value: datetime | None) -> datetime | None:
+    """Normalize datetime."""
     if not isinstance(value, datetime):
         return None
     if value.tzinfo is None:
@@ -17,16 +20,19 @@ def normalize_datetime(value: datetime | None) -> datetime | None:
 
 
 def max_datetime(*values: datetime | None) -> datetime | None:
+    """Execute max datetime."""
     normalized = [normalize_datetime(value) for value in values]
     filtered = [value for value in normalized if value is not None]
     return max(filtered) if filtered else None
 
 
 def default_day_completion() -> dict[str, bool]:
+    """Execute default day completion."""
     return {str(day): False for day in COMPARE_DAYS}
 
 
 def fit_profile_updated_at(row: Any) -> datetime | None:
+    """Execute fit profile updated at."""
     return max_datetime(
         row.fit_profile_generated_at,
         row.latest_run_started_at,
@@ -42,6 +48,7 @@ def fit_profile_updated_at(row: Any) -> datetime | None:
 def candidate_session_updated_at(
     row: Any, *, latest_submission_at: datetime | None
 ) -> datetime | None:
+    """Execute candidate session updated at."""
     return max_datetime(
         row.candidate_session_updated_at,
         row.claimed_at,
@@ -55,6 +62,7 @@ def candidate_session_updated_at(
 
 
 def candidate_session_created_at(row: Any) -> datetime | None:
+    """Execute candidate session created at."""
     return normalize_datetime(row.candidate_session_created_at)
 
 

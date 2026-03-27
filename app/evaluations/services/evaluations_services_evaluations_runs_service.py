@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations runs service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -45,14 +47,17 @@ logger = logging.getLogger(__name__)
 
 
 async def start_run(db: AsyncSession, **kwargs):
+    """Execute start run."""
     return await _start_run_impl(db, logger=logger, **kwargs)
 
 
 async def complete_run(db: AsyncSession, **kwargs):
+    """Complete run."""
     return await _complete_run_impl(db, logger=logger, **kwargs)
 
 
 async def fail_run(db: AsyncSession, **kwargs):
+    """Execute fail run."""
     return await _fail_run_impl(db, logger=logger, **kwargs)
 
 

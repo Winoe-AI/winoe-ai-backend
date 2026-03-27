@@ -1,3 +1,5 @@
+"""Application module for jobs worker runtime run once service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -46,6 +48,7 @@ async def run_once(
     base_backoff_seconds: int = DEFAULT_BASE_BACKOFF_SECONDS,
     max_backoff_seconds: int = DEFAULT_MAX_BACKOFF_SECONDS,
 ) -> bool:
+    """Run once."""
     claim_time = now or datetime.now(UTC)
     async with session_maker() as db:
         job = await jobs_repo.claim_next_runnable(

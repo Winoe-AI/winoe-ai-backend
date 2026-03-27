@@ -1,3 +1,5 @@
+"""Application module for auth principal builder utils workflows."""
+
 from __future__ import annotations
 
 from .shared_auth_principal_identity_utils import extract_identity
@@ -6,6 +8,7 @@ from .shared_auth_principal_permissions_utils import build_permissions
 
 
 def build_principal(claims: dict) -> Principal:
+    """Build principal."""
     sub, email, name, roles = extract_identity(claims)
     permissions = build_permissions(claims, roles)
     return Principal(

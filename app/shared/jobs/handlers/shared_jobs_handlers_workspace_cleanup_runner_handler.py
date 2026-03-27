@@ -1,3 +1,5 @@
+"""Application module for jobs handlers workspace cleanup runner handler workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -15,6 +17,7 @@ from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_utils impor
 async def handle_workspace_cleanup_impl(
     payload_json: dict[str, Any], **deps
 ) -> dict[str, Any]:
+    """Handle workspace cleanup impl."""
     company_id = _parse_positive_int(payload_json.get("companyId"))
     if company_id is None:
         return {"status": "skipped_invalid_payload", "companyId": company_id}

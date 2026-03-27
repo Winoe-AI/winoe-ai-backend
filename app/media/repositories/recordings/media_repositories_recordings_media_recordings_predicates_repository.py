@@ -1,3 +1,5 @@
+"""Application module for media repositories recordings media recordings predicates repository workflows."""
+
 from __future__ import annotations
 
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
@@ -17,6 +19,7 @@ DOWNLOADABLE_RECORDING_STATUSES = {
 
 
 def is_deleted_or_purged(recording: RecordingAsset | None) -> bool:
+    """Return whether deleted or purged."""
     if recording is None:
         return False
     deleted_at = getattr(recording, "deleted_at", None)
@@ -28,6 +31,7 @@ def is_deleted_or_purged(recording: RecordingAsset | None) -> bool:
 
 
 def is_downloadable(recording: RecordingAsset | None) -> bool:
+    """Return whether downloadable."""
     if recording is None or is_deleted_or_purged(recording):
         return False
     return recording.status in DOWNLOADABLE_RECORDING_STATUSES

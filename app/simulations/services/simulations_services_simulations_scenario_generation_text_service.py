@@ -1,13 +1,17 @@
+"""Application module for simulations services simulations scenario generation text service workflows."""
+
 from __future__ import annotations
 
 import hashlib
 
 
 def normalize_text(value: str | None) -> str:
+    """Normalize text."""
     return " ".join((value or "").split()).strip()
 
 
 def seed_from_inputs(role: str, tech_stack: str, template_key: str) -> int:
+    """Execute seed from inputs."""
     seed_source = "||".join(
         (
             normalize_text(role).lower(),

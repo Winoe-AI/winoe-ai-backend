@@ -1,3 +1,5 @@
+"""Application module for tasks repositories tasks repository model workflows."""
+
 from sqlalchemy import ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

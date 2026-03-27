@@ -1,3 +1,5 @@
+"""Application module for integrations email provider sendgrid client workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -20,6 +22,7 @@ class SendGridEmailProvider:
         self.transport = transport
 
     async def send(self, message: EmailMessage) -> str | None:
+        """Send the requested communication."""
         from_email, from_name = parse_sender(message.sender or self.sender)
         from_obj = {"email": from_email}
         if from_name:

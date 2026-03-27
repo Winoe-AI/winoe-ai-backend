@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions submission actions service workflows."""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +12,7 @@ from app.integrations.github.actions_runner import ActionsRunResult
 def derive_actions_metadata(
     actions_result: ActionsRunResult | None, now: datetime
 ) -> dict[str, Any]:
+    """Derive actions metadata."""
     meta = {
         "tests_passed": None,
         "tests_failed": None,

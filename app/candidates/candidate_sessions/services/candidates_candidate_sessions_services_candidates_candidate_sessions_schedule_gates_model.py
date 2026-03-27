@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule gates model workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

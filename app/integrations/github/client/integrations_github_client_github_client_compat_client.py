@@ -1,3 +1,5 @@
+"""Application module for integrations github client github client compat client workflows."""
+
 from __future__ import annotations
 
 from .integrations_github_client_github_client_names_utils import split_full_name
@@ -9,6 +11,8 @@ from .integrations_github_client_github_client_transport_client import GithubTra
 
 
 class CompatOperations:
+    """Represent compat operations data and behavior."""
+
     transport: GithubTransport
 
     def _split_full_name(self, full_name: str):

@@ -1,3 +1,5 @@
+"""Application module for submissions repositories submissions fit profile repository workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -13,6 +15,7 @@ async def get_by_candidate_session_id(
     *,
     candidate_session_id: int,
 ) -> FitProfile | None:
+    """Return by candidate session id."""
     stmt = select(FitProfile).where(
         FitProfile.candidate_session_id == candidate_session_id
     )
@@ -26,6 +29,7 @@ async def upsert_marker(
     generated_at: datetime,
     commit: bool = True,
 ) -> FitProfile:
+    """Upsert marker."""
     existing = await get_by_candidate_session_id(
         db,
         candidate_session_id=candidate_session_id,

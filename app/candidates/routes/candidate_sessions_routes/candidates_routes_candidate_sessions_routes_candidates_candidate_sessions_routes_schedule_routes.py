@@ -1,8 +1,10 @@
+"""Application module for candidates routes candidate sessions routes candidates candidate sessions routes schedule routes workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request
+from fastapi import APIRouter, Depends, Path, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions import services as cs_service
@@ -31,6 +33,19 @@ router = APIRouter()
 @router.post(
     "/session/{token}/schedule",
     response_model=CandidateSessionScheduleResponse,
+    summary="Schedule Candidate Session",
+    description=(
+        "Persist candidate-proposed schedule details and send confirmation"
+        " notifications for the session token."
+    ),
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Candidate authentication required."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": "Token does not match principal."},
+        status.HTTP_404_NOT_FOUND: {"description": "Candidate session not found."},
+        status.HTTP_410_GONE: {"description": "Candidate invite token is expired."},
+    },
 )
 async def schedule_candidate_session(
     token: Annotated[str, Path(..., min_length=20, max_length=255)],
@@ -40,6 +55,7 @@ async def schedule_candidate_session(
     db: Annotated[AsyncSession, Depends(get_session)],
     email_service: Annotated[EmailService, Depends(get_email_service)],
 ) -> CandidateSessionScheduleResponse:
+    """Schedule candidate session."""
     correlation_id = (
         request.headers.get("x-correlation-id")
         or request.headers.get("x-request-id")

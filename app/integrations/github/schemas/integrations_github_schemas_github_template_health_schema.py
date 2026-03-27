@@ -1,3 +1,5 @@
+"""Application module for integrations github schemas github template health schema workflows."""
+
 from __future__ import annotations
 
 from typing import Literal

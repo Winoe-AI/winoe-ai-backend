@@ -1,3 +1,5 @@
+"""Application module for integrations storage media storage media base client workflows."""
+
 from __future__ import annotations
 
 import re
@@ -60,15 +62,19 @@ class StorageMediaProvider(Protocol):
         size_bytes: int,
         expires_seconds: int,
     ) -> str:
+        """Create signed upload url."""
         ...
 
     def create_signed_download_url(self, key: str, expires_seconds: int) -> str:
+        """Create signed download url."""
         ...
 
     def get_object_metadata(self, key: str) -> StorageObjectMetadata | None:
+        """Return object metadata."""
         ...
 
     def delete_object(self, key: str) -> None:
+        """Delete object."""
         ...
 
 

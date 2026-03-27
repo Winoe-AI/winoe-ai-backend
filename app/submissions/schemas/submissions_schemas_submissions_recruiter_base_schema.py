@@ -1,3 +1,5 @@
+"""Application module for submissions schemas submissions recruiter base schema workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -7,6 +9,8 @@ from app.shared.types.shared_types_base_model import APIModel
 
 
 class RecruiterTaskMetaOut(APIModel):
+    """Represent recruiter task meta out data and behavior."""
+
     taskId: int
     dayIndex: int
     type: str
@@ -15,12 +19,16 @@ class RecruiterTaskMetaOut(APIModel):
 
 
 class RecruiterCodeArtifactOut(APIModel):
+    """Represent recruiter code artifact out data and behavior."""
+
     repoPath: str | None = None
     repoFullName: str | None = None
     repoUrl: str | None = None
 
 
 class RecruiterTestResultsOut(APIModel):
+    """Represent recruiter test results out data and behavior."""
+
     status: str | None = None
     passed: int | None = None
     failed: int | None = None
@@ -46,6 +54,8 @@ class RecruiterTestResultsOut(APIModel):
 
 
 class RecruiterRecordingAssetOut(APIModel):
+    """Represent recruiter recording asset out data and behavior."""
+
     recordingId: str
     contentType: str
     bytes: int
@@ -55,6 +65,8 @@ class RecruiterRecordingAssetOut(APIModel):
 
 
 class RecruiterTranscriptOut(APIModel):
+    """Represent recruiter transcript out data and behavior."""
+
     status: str
     modelName: str | None = None
     text: str | None = None

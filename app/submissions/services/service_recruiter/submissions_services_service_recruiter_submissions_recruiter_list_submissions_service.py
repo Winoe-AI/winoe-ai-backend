@@ -1,3 +1,5 @@
+"""Application module for submissions services service recruiter submissions recruiter list submissions service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -20,6 +22,7 @@ async def list_submissions(
     limit: int | None = None,
     offset: int = 0,
 ) -> list[tuple[Submission, Task]]:
+    """Return submissions."""
     stmt = (
         select(Submission, Task)
         .join(Task, Task.id == Submission.task_id)

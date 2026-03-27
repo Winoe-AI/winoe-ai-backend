@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations listing service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -23,6 +25,7 @@ async def list_simulations(
 async def list_candidates_with_profile(
     db: AsyncSession, simulation_id: int
 ) -> list[tuple[CandidateSession, int | None]]:
+    """Return candidates with profile."""
     stmt = (
         select(CandidateSession, FitProfile.id)
         .options(

@@ -1,3 +1,5 @@
+"""Application module for integrations storage media storage media s3 provider network utils workflows."""
+
 from __future__ import annotations
 
 import time
@@ -15,6 +17,7 @@ def get_object_metadata(
     perf_record_external_wait,
     metadata_expires_seconds: int,
 ):
+    """Return object metadata."""
     signed_head_url = provider._presign(
         method="HEAD",
         key=key,
@@ -73,6 +76,7 @@ def delete_object(
     perf_record_external_wait,
     metadata_expires_seconds: int,
 ) -> None:
+    """Delete object."""
     signed_delete_url = provider._presign(
         method="DELETE",
         key=key,

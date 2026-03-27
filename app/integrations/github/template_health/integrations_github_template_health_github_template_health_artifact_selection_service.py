@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health artifact selection service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.template_health.integrations_github_template_health_github_template_health_schema import (
@@ -7,6 +9,7 @@ from app.shared.utils.shared_utils_brand_utils import TEST_ARTIFACT_NAMESPACE
 
 
 def select_artifacts(artifacts):
+    """Execute select artifacts."""
     tenon_artifact = legacy_artifact = None
     artifact_name_found = None
     for artifact in artifacts:

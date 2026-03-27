@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations core schema workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -72,6 +74,7 @@ def build_simulation_ai_config(
     notice_text: str | None,
     eval_enabled_by_day: Any,
 ) -> SimulationAIConfig | None:
+    """Build simulation ai config."""
     return build_simulation_ai_config_with_resolver(
         notice_version=notice_version,
         notice_text=notice_text,

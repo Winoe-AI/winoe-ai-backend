@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks handoff upload init handler workflows."""
+
 from __future__ import annotations
 
 from app.submissions.schemas.submissions_schemas_submissions_core_schema import (
@@ -15,6 +17,7 @@ async def init_handoff_upload_route_impl(
     init_handoff_upload_fn,
     recording_public_id_fn,
 ) -> HandoffUploadInitResponse:
+    """Initialize handoff upload route impl."""
     recording, upload_url, expires_seconds = await init_handoff_upload_fn(
         db,
         candidate_session=candidate_session,

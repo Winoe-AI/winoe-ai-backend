@@ -1,3 +1,5 @@
+"""Application module for jobs handlers day close finalize text submission handler workflows."""
+
 from __future__ import annotations
 
 from copy import deepcopy

@@ -1,3 +1,5 @@
+"""Application module for recruiters routes admin templates recruiters admin templates validation routes workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -11,6 +13,7 @@ MAX_LIVE_TEMPLATE_KEYS = 5
 
 
 def validate_live_request(payload) -> tuple[list[str], int, int]:
+    """Validate live request."""
     if payload.mode != "live":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

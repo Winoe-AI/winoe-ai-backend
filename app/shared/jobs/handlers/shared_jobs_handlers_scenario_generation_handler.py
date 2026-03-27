@@ -1,3 +1,5 @@
+"""Application module for jobs handlers scenario generation handler workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -28,6 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 async def handle_scenario_generation(payload_json: dict[str, Any]) -> dict[str, Any]:
+    """Handle scenario generation."""
     return await handle_scenario_generation_impl(
         payload_json,
         parse_positive_int=_parse_positive_int,

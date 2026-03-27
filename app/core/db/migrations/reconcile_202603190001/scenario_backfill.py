@@ -11,6 +11,7 @@ from .introspection import has_column, table_exists
 
 
 def ensure_scenario_versions_backfill(bind: sa.Connection) -> None:
+    """Ensure scenario versions backfill."""
     if not table_exists(bind, "scenario_versions"):
         return
     if not has_column(bind, "simulations", "active_scenario_version_id"):

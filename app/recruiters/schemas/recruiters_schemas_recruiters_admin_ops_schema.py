@@ -1,3 +1,5 @@
+"""Application module for recruiters schemas recruiters admin ops schema workflows."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -11,6 +13,8 @@ AdminApplyTo = Literal["future_invites_only"]
 
 
 class CandidateSessionResetRequest(APIModel):
+    """Represent candidate session reset request data and behavior."""
+
     targetState: AdminResetTargetState
     reason: str = Field(..., min_length=3, max_length=500)
     overrideIfEvaluated: bool = False
@@ -18,6 +22,8 @@ class CandidateSessionResetRequest(APIModel):
 
 
 class CandidateSessionResetResponse(APIModel):
+    """Represent candidate session reset response data and behavior."""
+
     candidateSessionId: int
     status: Literal["ok", "dry_run"]
     resetTo: AdminResetTargetState
@@ -25,11 +31,15 @@ class CandidateSessionResetResponse(APIModel):
 
 
 class JobRequeueRequest(APIModel):
+    """Represent job requeue request data and behavior."""
+
     reason: str = Field(..., min_length=3, max_length=500)
     force: bool = False
 
 
 class JobRequeueResponse(APIModel):
+    """Represent job requeue response data and behavior."""
+
     jobId: str
     previousStatus: str
     newStatus: str
@@ -37,6 +47,8 @@ class JobRequeueResponse(APIModel):
 
 
 class SimulationFallbackRequest(APIModel):
+    """Represent simulation fallback request data and behavior."""
+
     scenarioVersionId: int = Field(..., gt=0)
     applyTo: AdminApplyTo = "future_invites_only"
     reason: str = Field(..., min_length=3, max_length=500)
@@ -44,6 +56,8 @@ class SimulationFallbackRequest(APIModel):
 
 
 class SimulationFallbackResponse(APIModel):
+    """Represent simulation fallback response data and behavior."""
+
     simulationId: int
     activeScenarioVersionId: int
     applyTo: AdminApplyTo
@@ -51,11 +65,15 @@ class SimulationFallbackResponse(APIModel):
 
 
 class MediaRetentionPurgeRequest(APIModel):
+    """Represent media retention purge request data and behavior."""
+
     retentionDays: int | None = Field(default=None, gt=0)
     batchLimit: int = Field(default=200, gt=0, le=1000)
 
 
 class MediaRetentionPurgeResponse(APIModel):
+    """Represent media retention purge response data and behavior."""
+
     status: Literal["ok"]
     scannedCount: int
     purgedCount: int

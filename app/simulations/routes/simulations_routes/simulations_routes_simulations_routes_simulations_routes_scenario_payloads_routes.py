@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes scenario payloads routes workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -27,6 +29,7 @@ _PATCH_UPDATE_FIELD_MAP = {
 
 
 def build_scenario_state_summary(scenario_version: Any) -> ScenarioStateSummary:
+    """Build scenario state summary."""
     return ScenarioStateSummary(
         id=scenario_version.id,
         versionIndex=scenario_version.version_index,
@@ -39,6 +42,7 @@ def build_regenerate_response(
     scenario_version: Any,
     scenario_job: Any,
 ) -> ScenarioRegenerateResponse:
+    """Build regenerate response."""
     return ScenarioRegenerateResponse(
         scenarioVersionId=scenario_version.id,
         jobId=scenario_job.id,
@@ -49,6 +53,7 @@ def build_regenerate_response(
 def build_approve_response(
     simulation: Any, scenario_version: Any
 ) -> ScenarioApproveResponse:
+    """Build approve response."""
     return ScenarioApproveResponse(
         simulationId=simulation.id,
         status=sim_service.normalize_simulation_status_or_raise(simulation.status),
@@ -63,6 +68,7 @@ def build_active_update_response(
     simulation_id: int,
     scenario_version: Any,
 ) -> ScenarioActiveUpdateResponse:
+    """Build active update response."""
     return ScenarioActiveUpdateResponse(
         simulationId=simulation_id,
         scenario=build_scenario_state_summary(scenario_version),
@@ -70,6 +76,7 @@ def build_active_update_response(
 
 
 def build_patch_response(scenario_version: Any) -> ScenarioVersionPatchResponse:
+    """Build patch response."""
     return ScenarioVersionPatchResponse(
         scenarioVersionId=scenario_version.id,
         status=scenario_version.status,
@@ -77,6 +84,7 @@ def build_patch_response(scenario_version: Any) -> ScenarioVersionPatchResponse:
 
 
 def normalize_active_updates(payload: Any) -> dict[str, Any]:
+    """Normalize active updates."""
     updates = payload.model_dump(exclude_unset=True)
     return {
         mapped_name: updates[field_name]
@@ -86,6 +94,7 @@ def normalize_active_updates(payload: Any) -> dict[str, Any]:
 
 
 def normalize_patch_updates(payload: Any) -> dict[str, Any]:
+    """Normalize patch updates."""
     updates = payload.model_dump(exclude_unset=True, exclude_none=False)
     return {
         mapped_name: updates[field_name]

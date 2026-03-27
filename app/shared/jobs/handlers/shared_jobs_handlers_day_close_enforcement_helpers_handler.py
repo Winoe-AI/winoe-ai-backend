@@ -1,3 +1,5 @@
+"""Application module for jobs handlers day close enforcement helpers handler workflows."""
+
 from __future__ import annotations
 
 import logging

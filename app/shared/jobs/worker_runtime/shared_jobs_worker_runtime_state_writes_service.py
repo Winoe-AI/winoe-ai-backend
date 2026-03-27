@@ -1,3 +1,5 @@
+"""Application module for jobs worker runtime state writes service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,6 +17,7 @@ async def mark_dead_letter(
     error_str: str,
     claim_time: datetime,
 ) -> None:
+    """Mark dead letter."""
     async with session_maker() as db:
         await jobs_repo.mark_dead_letter(
             db, job_id=job_id, error_str=error_str, now=claim_time
@@ -29,6 +32,7 @@ async def mark_failed_and_reschedule(
     next_run_at: datetime,
     claim_time: datetime,
 ) -> None:
+    """Mark failed and reschedule."""
     async with session_maker() as db:
         await jobs_repo.mark_failed_and_reschedule(
             db,
@@ -44,6 +48,7 @@ async def get_job_by_id(
     *,
     job_id: str,
 ) -> Any:
+    """Return job by id."""
     async with session_maker() as db:
         return await jobs_repo.get_by_id(db, job_id)
 
@@ -55,6 +60,7 @@ async def mark_succeeded(
     result: dict[str, Any] | None,
     claim_time: datetime,
 ) -> None:
+    """Mark succeeded."""
     async with session_maker() as db:
         await jobs_repo.mark_succeeded(
             db, job_id=job_id, result_json=result, now=claim_time

@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner result builder service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.actions_runner.integrations_github_actions_runner_github_actions_runner_artifacts_service import (
@@ -23,6 +25,7 @@ from app.integrations.github.actions_runner.integrations_github_actions_runner_g
 async def build_result(
     ctx: RunnerContext, repo_full_name: str, run
 ) -> ActionsRunResult:
+    """Build result."""
     base = normalize_run(run)
     parse_fn = getattr(ctx, "_parse_artifacts", None)
     parsed, artifact_error = await (

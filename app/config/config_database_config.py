@@ -1,3 +1,5 @@
+"""Application module for config database config workflows."""
+
 from __future__ import annotations
 
 from pydantic import Field

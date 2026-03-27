@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations lifecycle termination service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -25,6 +27,8 @@ from app.simulations.services.simulations_services_simulations_lifecycle_transit
 
 @dataclass(slots=True)
 class TerminateSimulationResult:
+    """Represent terminate simulation result data and behavior."""
+
     simulation: Simulation
     cleanup_job_ids: list[str]
 
@@ -42,6 +46,7 @@ async def terminate_simulation_with_cleanup_impl(
     normalize_status: Callable[..., str | None],
     logger: logging.Logger,
 ) -> TerminateSimulationResult:
+    """Terminate simulation with cleanup impl."""
     changed_at = now or datetime.now(UTC)
     normalized_reason = (reason or "").strip() or None
     simulation = await require_owner(db, simulation_id, actor_user_id, for_update=True)

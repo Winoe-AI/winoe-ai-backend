@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations invite tokens service workflows."""
+
 from __future__ import annotations
 
 import secrets

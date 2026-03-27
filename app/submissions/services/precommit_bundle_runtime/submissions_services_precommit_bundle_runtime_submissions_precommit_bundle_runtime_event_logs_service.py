@@ -1,7 +1,10 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime event logs service workflows."""
+
 from __future__ import annotations
 
 
 def log_marker_found(logger, *, context, existing_marker_sha: str) -> None:
+    """Execute log marker found."""
     logger.info(
         "precommit_bundle_marker_found_existing_commit",
         extra={
@@ -17,6 +20,7 @@ def log_marker_found(logger, *, context, existing_marker_sha: str) -> None:
 
 
 def log_apply_attempt(logger, *, context, file_change_count: int) -> None:
+    """Execute log apply attempt."""
     logger.info(
         "precommit_bundle_apply_attempt",
         extra={
@@ -33,6 +37,7 @@ def log_apply_attempt(logger, *, context, file_change_count: int) -> None:
 
 
 def log_apply_success(logger, *, context, commit_sha: str) -> None:
+    """Execute log apply success."""
     logger.info(
         "precommit_bundle_apply_success",
         extra={

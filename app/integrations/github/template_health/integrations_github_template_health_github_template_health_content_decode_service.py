@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health content decode service workflows."""
+
 from __future__ import annotations
 
 import base64

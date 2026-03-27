@@ -1,3 +1,5 @@
+"""Application module for notifications services notifications email sender service workflows."""
+
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +28,7 @@ class EmailSender:
     async def send_email(
         self, *, to: str, subject: str, text: str, html: str | None = None
     ) -> EmailSendResult:
+        """Send email."""
         last_error: EmailSendError | None = None
         for attempt in range(self.max_attempts):
             try:

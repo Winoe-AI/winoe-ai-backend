@@ -1,3 +1,5 @@
+"""Application module for integrations storage media storage media fake provider client workflows."""
+
 from __future__ import annotations
 
 import time
@@ -31,6 +33,7 @@ class FakeStorageMediaProvider:
         size_bytes: int,
         expires_seconds: int,
     ) -> str:
+        """Create signed upload url."""
         started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
         token = self._token(
@@ -57,6 +60,7 @@ class FakeStorageMediaProvider:
             )
 
     def create_signed_download_url(self, key: str, expires_seconds: int) -> str:
+        """Create signed download url."""
         started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
         token = self._token("download", safe_key, str(expires_seconds))
@@ -69,6 +73,7 @@ class FakeStorageMediaProvider:
             )
 
     def get_object_metadata(self, key: str) -> StorageObjectMetadata | None:
+        """Return object metadata."""
         started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
         try:
@@ -85,6 +90,7 @@ class FakeStorageMediaProvider:
         content_type: str,
         size_bytes: int,
     ) -> None:
+        """Set object metadata."""
         safe_key = ensure_safe_storage_key(key)
         normalized_content_type = (content_type or "").split(";", 1)[0].strip().lower()
         self._objects[safe_key] = StorageObjectMetadata(
@@ -93,6 +99,7 @@ class FakeStorageMediaProvider:
         )
 
     def delete_object(self, key: str) -> None:
+        """Delete object."""
         started = time.perf_counter()
         safe_key = ensure_safe_storage_key(key)
         try:

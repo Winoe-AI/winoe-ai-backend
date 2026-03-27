@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services scheduling candidates candidate sessions scheduling day windows utils workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -7,12 +9,14 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def coerce_utc_datetime(value: datetime) -> datetime:
+    """Execute coerce utc datetime."""
     if value.tzinfo is None:
         return value.replace(tzinfo=UTC)
     return value.astimezone(UTC)
 
 
 def validate_timezone(tz_str: str) -> str:
+    """Validate timezone."""
     timezone_name = (tz_str or "").strip()
     if not timezone_name:
         raise ValueError("Timezone is required")
@@ -23,6 +27,7 @@ def validate_timezone(tz_str: str) -> str:
 
 
 def parse_local_time(value: Any) -> time:
+    """Parse local time."""
     if isinstance(value, time):
         return value.replace(second=0, microsecond=0)
     if not isinstance(value, str):

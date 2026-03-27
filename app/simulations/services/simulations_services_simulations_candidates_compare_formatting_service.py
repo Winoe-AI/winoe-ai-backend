@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare formatting service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -9,6 +11,7 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
 
 def anonymized_candidate_label(position: int) -> str:
     # 0 -> A, 25 -> Z, 26 -> AA, 27 -> AB
+    """Execute anonymized candidate label."""
     if position < 0:
         position = 0
     encoded: list[str] = []
@@ -23,6 +26,7 @@ def anonymized_candidate_label(position: int) -> str:
 
 
 def display_name(candidate_name: Any, *, position: int) -> str:
+    """Execute display name."""
     if isinstance(candidate_name, str):
         normalized = candidate_name.strip()
         if normalized:
@@ -31,6 +35,7 @@ def display_name(candidate_name: Any, *, position: int) -> str:
 
 
 def normalize_score(value: Any) -> float | None:
+    """Normalize score."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         return None
     normalized = float(value)
@@ -38,6 +43,7 @@ def normalize_score(value: Any) -> float | None:
 
 
 def normalize_recommendation(value: Any) -> str | None:
+    """Normalize recommendation."""
     if not isinstance(value, str):
         return None
     normalized = value.strip().lower()

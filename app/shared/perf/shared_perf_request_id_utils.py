@@ -1,3 +1,5 @@
+"""Application module for perf request id utils workflows."""
+
 from __future__ import annotations
 
 import uuid

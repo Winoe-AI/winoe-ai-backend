@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository create update many recovery repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.exc import IntegrityError
@@ -21,6 +23,7 @@ async def recover_bulk_insert_conflicts(
     new_specs: list[IdempotentJobSpec],
     existing_map: dict[tuple[str, str], Job],
 ) -> None:
+    """Execute recover bulk insert conflicts."""
     try:
         await _insert_rows(db, company_id=company_id, new_specs=new_specs)
     except IntegrityError:

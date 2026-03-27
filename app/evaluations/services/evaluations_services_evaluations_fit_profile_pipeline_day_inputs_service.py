@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile pipeline day inputs service workflows."""
+
 from __future__ import annotations
 
 from app.evaluations.services import (

@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations ai values schema workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -20,6 +22,7 @@ def normalize_eval_enabled_by_day(
     *,
     strict: bool,
 ) -> dict[str, bool] | None:
+    """Normalize eval enabled by day."""
     if value is None:
         return None
     if not isinstance(value, Mapping):
@@ -62,6 +65,7 @@ def resolve_simulation_ai_fields(
     fallback_notice_text: Any = None,
     fallback_eval_enabled_by_day: Any = None,
 ) -> tuple[str, str, dict[str, bool]]:
+    """Resolve simulation ai fields."""
     resolved_notice_version = (
         _coerce_notice_value(notice_version, max_length=MAX_AI_NOTICE_VERSION_CHARS)
         or _coerce_notice_value(

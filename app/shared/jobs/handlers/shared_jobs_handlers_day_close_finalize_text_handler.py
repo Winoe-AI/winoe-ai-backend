@@ -1,3 +1,5 @@
+"""Application module for jobs handlers day close finalize text handler workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -46,6 +48,7 @@ async def _get_existing_submission(db, *, candidate_session_id: int, task_id: in
 async def handle_day_close_finalize_text(
     payload_json: dict[str, Any],
 ) -> dict[str, Any]:
+    """Handle day close finalize text."""
     candidate_session_id = _parse_positive_int(payload_json.get("candidateSessionId"))
     task_id = _parse_positive_int(payload_json.get("taskId"))
     day_index = _parse_positive_int(payload_json.get("dayIndex"))

@@ -1,3 +1,5 @@
+"""Application module for upgrade workflows."""
+
 from __future__ import annotations
 
 from .constants import (
@@ -14,6 +16,7 @@ from .constants import (
 
 
 def run_upgrade(op, sa) -> None:
+    """Run upgrade."""
     _create_evaluation_runs(op, sa)
     _create_evaluation_day_scores(op, sa)
 

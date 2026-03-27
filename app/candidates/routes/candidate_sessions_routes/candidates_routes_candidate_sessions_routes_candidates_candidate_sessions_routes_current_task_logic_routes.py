@@ -49,6 +49,7 @@ def _require_candidate_session_header_match(candidate_session_id: int, request) 
 
 
 async def build_current_task_view(candidate_session_id, request, principal, db):
+    """Build current task view."""
     _require_candidate_session_header_match(candidate_session_id, request)
     if rate_limit.rate_limit_enabled():
         key = rate_limit.rate_limit_key(

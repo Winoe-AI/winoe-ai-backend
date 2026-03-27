@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace precommit bundle service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -43,6 +45,7 @@ async def apply_precommit_bundle_if_available(
     base_template_sha: str | None,
     existing_precommit_sha: str | None,
 ) -> PrecommitBundleApplyResult:
+    """Apply precommit bundle if available."""
     return await _apply_precommit_bundle_if_available(
         db,
         scenario_repo_module=scenario_repo,

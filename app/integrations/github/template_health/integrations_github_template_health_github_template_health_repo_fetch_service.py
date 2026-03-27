@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health repo fetch service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient, GithubError
@@ -15,6 +17,7 @@ async def fetch_repo_and_branch(
     checks: TemplateHealthChecks,
     errors: list[str],
 ) -> str | None:
+    """Return repo and branch."""
     try:
         repo = await github_client.get_repo(repo_full_name)
         checks.repoReachable = True

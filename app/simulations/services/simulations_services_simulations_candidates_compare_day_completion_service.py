@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare day completion service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -26,6 +28,7 @@ async def load_day_completion(
     simulation_id: int,
     candidate_session_ids: list[int],
 ) -> tuple[dict[int, dict[str, bool]], dict[int, datetime | None]]:
+    """Load day completion."""
     completion_by_session = {
         session_id: default_day_completion() for session_id in candidate_session_ids
     }

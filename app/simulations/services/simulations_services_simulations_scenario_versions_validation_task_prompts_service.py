@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions validation task prompts service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -14,6 +16,7 @@ from app.simulations.services.simulations_services_simulations_scenario_versions
 
 
 def validate_task_prompts(task_prompts_json: Any) -> list[dict[str, Any]]:
+    """Validate task prompts."""
     if not isinstance(task_prompts_json, list):
         raise_patch_validation_error(
             "taskPrompts must be an array.",

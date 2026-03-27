@@ -3,9 +3,6 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
-import pytest
-
-
 def _star_export_modules() -> list[str]:
     repo_root = Path(__file__).resolve().parents[3]
     app_root = repo_root / "app"
@@ -37,6 +34,6 @@ def _star_export_modules() -> list[str]:
     return sorted(set(modules))
 
 
-@pytest.mark.parametrize("module_name", _star_export_modules())
-def test_star_export_module_imports(module_name: str):
-    importlib.import_module(module_name)
+def test_star_export_module_imports():
+    for module_name in _star_export_modules():
+        importlib.import_module(module_name)

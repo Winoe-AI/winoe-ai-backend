@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions repositories candidates candidate sessions submissions repository workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -11,6 +13,7 @@ from app.shared.database.shared_database_models_model import Submission
 async def last_submission_at(
     db: AsyncSession, candidate_session_id: int
 ) -> datetime | None:
+    """Execute last submission at."""
     stmt = select(func.max(Submission.submitted_at)).where(
         Submission.candidate_session_id == candidate_session_id
     )
@@ -21,6 +24,7 @@ async def last_submission_at(
 async def last_submission_at_bulk(
     db: AsyncSession, candidate_session_ids: list[int]
 ) -> dict[int, datetime | None]:
+    """Execute last submission at bulk."""
     if not candidate_session_ids:
         return {}
     stmt = (

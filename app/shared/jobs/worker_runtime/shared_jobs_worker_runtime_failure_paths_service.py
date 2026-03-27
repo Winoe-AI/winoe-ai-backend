@@ -1,3 +1,5 @@
+"""Application module for jobs worker runtime failure paths service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -32,6 +34,7 @@ async def retry_or_dead_letter(
     warn_event: str,
     log_as_warning: bool = False,
 ) -> None:
+    """Execute retry or dead letter."""
     if job.attempt < job.max_attempts:
         delay_seconds = compute_backoff_seconds(
             job.attempt,
@@ -76,6 +79,7 @@ async def handle_handler_exception(
     max_backoff_seconds: int,
     logger: logging.Logger,
 ) -> None:
+    """Handle handler exception."""
     if isinstance(error, PermanentJobError):
         await mark_dead_letter(
             session_maker,

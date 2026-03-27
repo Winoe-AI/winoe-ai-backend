@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule gates runtime service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +23,7 @@ def require_active_window_impl(
     build_task_window_closed_error: Callable[..., Exception],
     logger: logging.Logger,
 ) -> None:
+    """Require active window impl."""
     task_window = compute_task_window(candidate_session, task, now_utc=now)
     if task_window.is_open:
         return
@@ -56,6 +59,7 @@ def is_schedule_started_for_content_impl(
     now: datetime | None = None,
     compute_day1_window: Callable[..., tuple[datetime | None, datetime | None]],
 ) -> bool:
+    """Return whether schedule started for content impl."""
     resolved_now = coerce_utc_datetime(now or datetime.now(UTC))
     window_start_at, _ = compute_day1_window(candidate_session)
     return window_start_at is not None and resolved_now >= window_start_at
@@ -72,6 +76,7 @@ def ensure_schedule_started_for_content_impl(
     build_schedule_not_started_error: Callable[..., Exception],
     logger: logging.Logger,
 ) -> None:
+    """Ensure schedule started for content impl."""
     resolved_now = coerce_utc_datetime(now or datetime.now(UTC))
     window_start_at, window_end_at = compute_day1_window(candidate_session)
     if is_schedule_started_for_content(candidate_session, now=resolved_now):

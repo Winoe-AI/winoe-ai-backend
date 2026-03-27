@@ -1,3 +1,5 @@
+"""Application module for candidates routes candidate sessions routes candidates candidate sessions routes claim logic routes workflows."""
+
 from __future__ import annotations
 
 from fastapi import Request
@@ -16,6 +18,7 @@ from app.shared.auth.principal import Principal
 async def claim_token(
     token: str, request: Request, principal: Principal, db: AsyncSession
 ):
+    """Claim token."""
     rate_limit_claim(request, token)
     return await cs_service.claim_invite_with_principal(
         db, token, principal, now=utcnow()

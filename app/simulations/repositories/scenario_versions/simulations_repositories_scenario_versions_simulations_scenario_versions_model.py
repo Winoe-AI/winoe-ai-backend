@@ -1,3 +1,5 @@
+"""Application module for simulations repositories scenario versions simulations scenario versions model workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -35,6 +37,8 @@ def _status_check_expr() -> str:
 
 
 class ScenarioVersion(Base, TimestampMixin):
+    """Represent scenario version data and behavior."""
+
     __tablename__ = "scenario_versions"
     __table_args__ = (
         UniqueConstraint(

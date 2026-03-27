@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks handlers tasks run handler workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -30,6 +32,7 @@ async def handle_run_tests(
     actions_runner: GithubActionsRunner,
     candidate_session: CandidateSession,
 ) -> RunTestsResponse:
+    """Handle run tests."""
     try:
         _, workspace, result = await run_task_tests(
             db,

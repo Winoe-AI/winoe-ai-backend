@@ -1,3 +1,5 @@
+"""Application module for media services media handoff upload lookup service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -14,6 +16,7 @@ from app.shared.database.shared_database_models_model import (
 async def load_task_with_company_or_404(
     db: AsyncSession, task_id: int
 ) -> tuple[Task, int]:
+    """Load task with company or 404."""
     row = (
         await db.execute(
             select(Task, Simulation.company_id)
@@ -41,6 +44,7 @@ async def resolve_company_id(
     candidate_session: CandidateSession,
     simulation_id: int,
 ) -> int:
+    """Resolve company id."""
     simulation = candidate_session.__dict__.get("simulation")
     if simulation is not None and isinstance(
         getattr(simulation, "company_id", None), int

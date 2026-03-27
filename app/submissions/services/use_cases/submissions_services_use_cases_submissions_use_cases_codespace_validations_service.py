@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases codespace validations service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +14,7 @@ from app.submissions.services import (
 async def validate_codespace_request(
     db: AsyncSession, candidate_session: CandidateSession, task_id: int
 ):
+    """Validate codespace request."""
     task_list, _, current, *_ = await cs_service.progress_snapshot(
         db, candidate_session
     )

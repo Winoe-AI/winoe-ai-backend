@@ -1,3 +1,5 @@
+"""Admin route for executing live GitHub template health checks on demand."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -28,12 +30,24 @@ router = APIRouter()
     "/templates/health/run",
     response_model=TemplateHealthResponse,
     status_code=status.HTTP_200_OK,
+    summary="Run Template Health",
+    description=(
+        "Execute live template health checks by dispatching workflow runs and"
+        " validating artifact contracts."
+    ),
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Invalid or missing admin key."},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {
+            "description": "Live check payload validation failed."
+        },
+    },
 )
 async def run_template_health(
     payload: TemplateHealthRunRequest,
     _: Annotated[None, Depends(require_admin_key)],
     github_client: Annotated[GithubClient, Depends(get_github_client)],
 ) -> TemplateHealthResponse:
+    """Validate input and run live workflow-based template health checks."""
     template_keys, timeout_seconds, concurrency = validate_live_request(payload)
     return await check_template_health(
         github_client,

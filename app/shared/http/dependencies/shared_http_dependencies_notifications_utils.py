@@ -1,3 +1,5 @@
+"""Application module for http dependencies notifications utils workflows."""
+
 from __future__ import annotations
 
 from functools import lru_cache

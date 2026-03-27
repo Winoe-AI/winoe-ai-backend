@@ -1,3 +1,5 @@
+"""Application module for media services media handoff upload init service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -49,6 +51,7 @@ async def init_handoff_upload(
     filename: str | None,
     storage_provider: StorageMediaProvider,
 ) -> tuple[RecordingAsset, str, int]:
+    """Initialize handoff upload."""
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     ensure_handoff_task(task.type)

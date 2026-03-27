@@ -1,3 +1,5 @@
+"""Application module for http dependencies storage media utils workflows."""
+
 from __future__ import annotations
 
 from app.integrations.storage_media import (

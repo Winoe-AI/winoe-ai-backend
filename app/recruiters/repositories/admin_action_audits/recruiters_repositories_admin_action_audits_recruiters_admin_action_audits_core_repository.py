@@ -1,3 +1,5 @@
+"""Application module for recruiters repositories admin action audits recruiters admin action audits core repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -21,6 +23,7 @@ async def create_audit(
     payload_json: Mapping[str, Any],
     commit: bool = False,
 ) -> AdminActionAudit:
+    """Create audit."""
     audit = AdminActionAudit(
         actor_type=actor_type.strip(),
         actor_id=str(actor_id).strip(),

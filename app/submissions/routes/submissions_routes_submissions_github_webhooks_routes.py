@@ -1,3 +1,5 @@
+"""Application module for submissions routes submissions github webhooks routes workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -26,11 +28,29 @@ router = APIRouter(prefix="/github/webhooks")
 GITHUB_WEBHOOK_RATE_LIMIT = rate_limit.RateLimitRule(limit=240, window_seconds=60.0)
 
 
-@router.post("", status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Receive Github Webhook",
+    description=(
+        "Validate GitHub webhook deliveries, process completed workflow_run"
+        " events, and enqueue artifact parse jobs."
+    ),
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Webhook signature is invalid."},
+        status.HTTP_413_REQUEST_ENTITY_TOO_LARGE: {
+            "description": "Webhook payload exceeded configured max size."
+        },
+        status.HTTP_503_SERVICE_UNAVAILABLE: {
+            "description": "Webhook secret not configured."
+        },
+    },
+)
 async def receive_github_webhook(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, str]:
+    """Ingest GitHub workflow webhook deliveries and enqueue artifact parsing."""
     delivery_id = (request.headers.get("X-GitHub-Delivery") or "").strip() or None
     event_type = (request.headers.get("X-GitHub-Event") or "").strip().lower()
     apply_rate_limit(rate_limit, request, GITHUB_WEBHOOK_RATE_LIMIT)

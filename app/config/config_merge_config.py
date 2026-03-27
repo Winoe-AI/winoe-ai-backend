@@ -1,3 +1,5 @@
+"""Application module for config merge config workflows."""
+
 from __future__ import annotations
 
 import os
@@ -95,6 +97,7 @@ def _merge_section(
 
 
 def merge_nested_settings(values: dict) -> dict:
+    """Execute merge nested settings."""
     data = dict(values)
     for section_key, (keys, prefix) in _SECTIONS.items():
         _merge_section(data, section_key, keys, env_prefix=prefix)

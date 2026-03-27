@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations creation builder service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -23,6 +25,7 @@ from .simulations_services_simulations_template_keys_service import resolve_temp
 def build_simulation_for_create(
     payload: Any, user: Any
 ) -> tuple[Simulation, str, dict[str, bool]]:
+    """Build simulation for create."""
     template_key = resolve_template_key(payload)
     started_at = datetime.now(UTC)
     ai_notice_version, ai_notice_text, ai_eval_enabled_by_day = extract_ai_fields(

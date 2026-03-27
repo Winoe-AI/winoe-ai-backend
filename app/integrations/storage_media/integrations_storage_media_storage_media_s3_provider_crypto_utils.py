@@ -1,3 +1,5 @@
+"""Application module for integrations storage media storage media s3 provider crypto utils workflows."""
+
 from __future__ import annotations
 
 import hashlib

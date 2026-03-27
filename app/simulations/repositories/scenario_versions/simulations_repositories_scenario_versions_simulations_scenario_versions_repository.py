@@ -1,3 +1,5 @@
+"""Application module for simulations repositories scenario versions simulations scenario versions repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import func, select
@@ -14,6 +16,7 @@ from app.simulations.repositories.simulations_repositories_simulations_simulatio
 async def get_by_id(
     db: AsyncSession, scenario_version_id: int, *, for_update: bool = False
 ) -> ScenarioVersion | None:
+    """Return by id."""
     stmt = select(ScenarioVersion).where(ScenarioVersion.id == scenario_version_id)
     if for_update:
         stmt = stmt.with_for_update()
@@ -26,6 +29,7 @@ async def get_active_for_simulation(
     *,
     for_update: bool = False,
 ) -> ScenarioVersion | None:
+    """Return active for simulation."""
     stmt = select(ScenarioVersion).join(
         Simulation,
         Simulation.active_scenario_version_id == ScenarioVersion.id,
@@ -37,6 +41,7 @@ async def get_active_for_simulation(
 
 
 async def next_version_index(db: AsyncSession, simulation_id: int) -> int:
+    """Execute next version index."""
     max_idx = (
         await db.execute(
             select(func.max(ScenarioVersion.version_index)).where(

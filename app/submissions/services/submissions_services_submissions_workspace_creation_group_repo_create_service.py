@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation group repo create service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.client import GithubClient
@@ -16,6 +18,7 @@ async def create_group_repo(
     repo_prefix: str,
     template_default_owner: str | None,
 ):
+    """Create group repo."""
     return await generate_template_repo(
         github_client=github_client,
         candidate_session=candidate_session,

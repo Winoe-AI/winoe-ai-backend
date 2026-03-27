@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health runs service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta

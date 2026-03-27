@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule flow service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -35,6 +37,7 @@ async def schedule_candidate_session_impl(
     result_type,
     logger,
 ):
+    """Schedule candidate session impl."""
     resolved_now = coerce_utc_datetime(now or datetime.now(UTC))
     scheduled_start_at_utc = coerce_utc_datetime(scheduled_start_at).replace(
         microsecond=0

@@ -1,3 +1,5 @@
+"""Application module for downgrade workflows."""
+
 from __future__ import annotations
 
 from .constants import (
@@ -12,6 +14,7 @@ from .constants import (
 
 
 def run_downgrade(op) -> None:
+    """Run downgrade."""
     op.drop_index(IX_TRANSCRIPTS_STATUS_CREATED_AT, table_name=TRANSCRIPTS_TABLE)
     op.drop_index(IX_TRANSCRIPTS_RECORDING_ID, table_name=TRANSCRIPTS_TABLE)
     op.drop_table(TRANSCRIPTS_TABLE)

@@ -1,3 +1,5 @@
+"""Build response payloads for candidate-session claim and resolve endpoints."""
+
 from __future__ import annotations
 
 from app.candidates.candidate_sessions import services as cs_service
@@ -18,6 +20,7 @@ from app.simulations.schemas.simulations_schemas_simulations_core_schema import 
 def render_claim_response(
     cs, *, resolve_simulation_summary
 ) -> CandidateSessionResolveResponse:
+    """Project session state into the public claim response schema."""
     now_utc = utcnow()
     schedule_payload = schedule_payload_for_candidate_session(cs, now_utc=now_utc)
     window_start_at, window_end_at = cs_service.compute_day1_window(cs)

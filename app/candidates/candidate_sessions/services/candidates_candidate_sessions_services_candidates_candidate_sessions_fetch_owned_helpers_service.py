@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions fetch owned helpers service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -47,6 +49,7 @@ def ensure_can_access(
     now=None,
     allow_missing=True,
 ) -> CandidateSession:
+    """Ensure can access."""
     if cs is None and allow_missing:
         raise _NOT_FOUND
     if cs is None:
@@ -58,6 +61,7 @@ def ensure_can_access(
 
 
 def apply_auth_updates(cs: CandidateSession, principal: Principal, *, now) -> bool:
+    """Apply auth updates."""
     changed = False
     email = normalize_email(principal.email)
     if email and getattr(cs, "candidate_auth0_email", None) is None:

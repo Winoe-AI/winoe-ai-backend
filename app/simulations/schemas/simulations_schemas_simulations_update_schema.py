@@ -1,3 +1,5 @@
+"""Application module for simulations schemas simulations update schema workflows."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field

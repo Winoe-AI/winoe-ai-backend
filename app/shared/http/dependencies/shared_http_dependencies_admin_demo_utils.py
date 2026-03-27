@@ -1,3 +1,5 @@
+"""Application module for http dependencies admin demo utils workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -27,6 +29,7 @@ async def require_demo_mode_admin(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> DemoAdminActor:
+    """Require demo mode admin."""
     if not bool(settings.DEMO_MODE):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 

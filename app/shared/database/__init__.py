@@ -1,3 +1,5 @@
+"""Application module for init workflows."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator

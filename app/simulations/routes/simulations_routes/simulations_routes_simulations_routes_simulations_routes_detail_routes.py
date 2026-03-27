@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes detail routes workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated, Any

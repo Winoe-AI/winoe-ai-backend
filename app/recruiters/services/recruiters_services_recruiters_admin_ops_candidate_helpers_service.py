@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops candidate helpers service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -21,6 +23,7 @@ from app.shared.database.shared_database_models_model import (
 async def load_candidate_session_for_update(
     db: AsyncSession, candidate_session_id: int
 ) -> CandidateSession:
+    """Load candidate session for update."""
     candidate_session = (
         await db.execute(
             select(CandidateSession)
@@ -39,6 +42,7 @@ async def load_candidate_session_for_update(
 async def is_evaluated_candidate_session(
     db: AsyncSession, candidate_session_id: int
 ) -> bool:
+    """Return whether evaluated candidate session."""
     completed_run_id = (
         await db.execute(
             select(EvaluationRun.id)
@@ -58,6 +62,7 @@ def build_session_reset_fields(
     target_state: str,
     now: datetime,
 ) -> dict[str, object]:
+    """Build session reset fields."""
     if target_state == "not_started":
         return {
             "status": "not_started",
@@ -95,6 +100,7 @@ def build_session_reset_fields(
 
 
 def apply_model_updates(model: object, updates: dict[str, object]) -> list[str]:
+    """Apply model updates."""
     changed_fields: list[str] = []
     for field_name, target_value in updates.items():
         current_value = getattr(model, field_name)

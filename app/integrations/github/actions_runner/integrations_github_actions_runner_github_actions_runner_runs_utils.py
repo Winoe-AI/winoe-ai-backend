@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner runs utils workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -6,6 +8,7 @@ from app.integrations.github.client import WorkflowRun
 
 
 def is_dispatched_run(run: WorkflowRun, dispatch_started_at: datetime) -> bool:
+    """Return whether dispatched run."""
     if run.event and run.event != "workflow_dispatch":
         return False
     if run.created_at:
@@ -18,4 +21,5 @@ def is_dispatched_run(run: WorkflowRun, dispatch_started_at: datetime) -> bool:
 
 
 def run_cache_key(repo_full_name: str, run_id: int) -> tuple[str, int]:
+    """Run cache key."""
     return (repo_full_name, int(run_id))

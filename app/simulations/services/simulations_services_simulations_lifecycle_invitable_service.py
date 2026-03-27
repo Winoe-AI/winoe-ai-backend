@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations lifecycle invitable service workflows."""
+
 from __future__ import annotations
 
 from fastapi import status
@@ -14,6 +16,7 @@ from app.simulations.services.simulations_services_simulations_lifecycle_status_
 
 
 def require_simulation_invitable(simulation: Simulation) -> None:
+    """Require simulation invitable."""
     current_status = normalize_simulation_status(simulation.status)
     if current_status == SIMULATION_STATUS_TERMINATED:
         raise ApiError(

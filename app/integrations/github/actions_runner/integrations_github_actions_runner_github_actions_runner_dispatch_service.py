@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner dispatch service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -17,6 +19,7 @@ async def dispatch_with_fallbacks(
     inputs: dict[str, Any] | None,
     preferred_workflow: str,
 ) -> str:
+    """Dispatch with fallbacks."""
     errors: list[tuple[str, GithubError]] = []
     tried: list[str] = []
     for wf in workflow_fallbacks:

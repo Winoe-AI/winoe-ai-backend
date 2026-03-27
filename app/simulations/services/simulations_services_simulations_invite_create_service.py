@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations invite create service workflows."""
+
 from __future__ import annotations
 
 import secrets
@@ -26,6 +28,7 @@ async def create_invite(
     scenario_version_id: int | None = None,
     now: datetime | None = None,
 ) -> tuple[CandidateSession, bool]:
+    """Create invite."""
     now = now or datetime.now(UTC)
     invite_email = str(payload.inviteEmail).strip().lower()
     expires_at = now + timedelta(days=INVITE_TOKEN_TTL_DAYS)

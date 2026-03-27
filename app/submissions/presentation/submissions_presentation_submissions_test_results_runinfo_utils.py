@@ -1,7 +1,10 @@
+"""Application module for submissions presentation submissions test results runinfo utils workflows."""
+
 from __future__ import annotations
 
 
 def enrich_run_info(sub, run_id, conclusion, timeout):
+    """Execute enrich run info."""
     workflow_run_id = getattr(sub, "workflow_run_id", None)
     commit_sha = getattr(sub, "commit_sha", None)
     last_run_at = getattr(sub, "last_run_at", None)

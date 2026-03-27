@@ -1,3 +1,5 @@
+"""Application module for integrations transcription base client workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,6 +28,7 @@ class TranscriptionProvider(Protocol):
         source_url: str,
         content_type: str,
     ) -> TranscriptionResult:
+        """Execute transcribe recording."""
         ...
 
 

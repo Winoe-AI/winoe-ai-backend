@@ -1,3 +1,5 @@
+"""Application module for submissions schemas submissions requests schema workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -10,6 +12,8 @@ from app.shared.types.shared_types_progress_model import ProgressSummary
 
 
 class SubmissionCreateRequest(BaseModel):
+    """Represent submission create request data and behavior."""
+
     contentText: str | None = Field(default=None)
     reflection: Any | None = Field(default=None)
     branch: str | None = Field(default=None)
@@ -17,11 +21,15 @@ class SubmissionCreateRequest(BaseModel):
 
 
 class RunTestsRequest(BaseModel):
+    """Represent run tests request data and behavior."""
+
     workflowInputs: dict[str, Any] | None = Field(default=None)
     branch: str | None = Field(default=None)
 
 
 class RunTestsResponse(APIModel):
+    """Represent run tests response data and behavior."""
+
     status: str
     passed: int | None = None
     failed: int | None = None
@@ -37,10 +45,14 @@ class RunTestsResponse(APIModel):
 
 
 class CodespaceInitRequest(BaseModel):
+    """Represent codespace init request data and behavior."""
+
     githubUsername: str
 
 
 class CodespaceInitResponse(APIModel):
+    """Represent codespace init response data and behavior."""
+
     repoFullName: str
     repoUrl: str
     codespaceUrl: str
@@ -51,6 +63,8 @@ class CodespaceInitResponse(APIModel):
 
 
 class CodespaceStatusResponse(APIModel):
+    """Represent codespace status response data and behavior."""
+
     repoFullName: str
     repoUrl: str
     codespaceUrl: str | None = None
@@ -67,6 +81,8 @@ class CodespaceStatusResponse(APIModel):
 
 
 class SubmissionCreateResponse(APIModel):
+    """Represent submission create response data and behavior."""
+
     submissionId: int
     taskId: int
     candidateSessionId: int

@@ -1,3 +1,5 @@
+"""Application module for submissions repositories github native workspaces submissions github native workspaces lookup repository workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -25,6 +27,7 @@ async def get_by_session_and_task_impl(
     get_by_workspace_group_id: Callable[..., object],
     get_by_session_and_workspace_key: Callable[..., object],
 ) -> Workspace | None:
+    """Return by session and task impl."""
     resolution = workspace_resolution or await resolve_workspace_resolution(
         db,
         candidate_session_id=candidate_session_id,

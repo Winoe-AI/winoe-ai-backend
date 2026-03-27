@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops types service workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,6 +12,8 @@ SIMULATION_USE_FALLBACK_ACTION = "simulation_use_fallback"
 
 @dataclass(frozen=True, slots=True)
 class CandidateSessionResetResult:
+    """Represent candidate session reset result data and behavior."""
+
     candidate_session_id: int
     reset_to: str
     status: str
@@ -18,6 +22,8 @@ class CandidateSessionResetResult:
 
 @dataclass(frozen=True, slots=True)
 class JobRequeueResult:
+    """Represent job requeue result data and behavior."""
+
     job_id: str
     previous_status: str
     new_status: str
@@ -26,6 +32,8 @@ class JobRequeueResult:
 
 @dataclass(frozen=True, slots=True)
 class SimulationFallbackResult:
+    """Represent simulation fallback result data and behavior."""
+
     simulation_id: int
     active_scenario_version_id: int
     apply_to: str

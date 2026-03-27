@@ -1,3 +1,5 @@
+"""Application module for jobs handlers github workflow artifact parse persist handler workflows."""
+
 from __future__ import annotations
 
 import json
@@ -24,6 +26,7 @@ async def persist_artifact_parse_result(
     build_actions_runner: Callable[[], tuple[Any, Any]],
     normalized_text: Callable[[Any], str | None],
 ) -> dict[str, Any]:
+    """Execute persist artifact parse result."""
     async with async_session_maker() as db:
         submission = (
             await db.execute(

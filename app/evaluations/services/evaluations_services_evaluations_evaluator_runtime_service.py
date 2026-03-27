@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations evaluator runtime service workflows."""
+
 from __future__ import annotations
 
 from app.evaluations.services.evaluations_services_evaluations_evaluator_evidence_service import (
@@ -16,7 +18,10 @@ from app.evaluations.services.evaluations_services_evaluations_evaluator_scoring
 
 
 class DeterministicFitProfileEvaluator:
+    """Represent deterministic fit profile evaluator data and behavior."""
+
     async def evaluate(self, bundle: EvaluationInputBundle) -> EvaluationResult:
+        """Execute evaluate."""
         disabled = set(bundle.disabled_day_indexes)
         day_results: list[DayEvaluationResult] = []
         report_day_scores: list[dict[str, object]] = []
@@ -92,6 +97,7 @@ _default_evaluator: FitProfileEvaluator = DeterministicFitProfileEvaluator()
 
 
 def get_fit_profile_evaluator() -> FitProfileEvaluator:
+    """Return fit profile evaluator."""
     return _default_evaluator
 
 

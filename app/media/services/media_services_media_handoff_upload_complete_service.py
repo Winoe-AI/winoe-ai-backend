@@ -1,3 +1,5 @@
+"""Application module for media services media handoff upload complete service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -62,6 +64,7 @@ async def complete_handoff_upload(
     recording_id_value: str,
     storage_provider: StorageMediaProvider,
 ) -> RecordingAsset:
+    """Complete handoff upload."""
     task, company_id = await load_task_with_company_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     ensure_handoff_task(task.type)

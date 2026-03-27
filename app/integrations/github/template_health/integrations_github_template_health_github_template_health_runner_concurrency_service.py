@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health runner concurrency service workflows."""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,6 +9,7 @@ from collections.abc import Awaitable, Callable
 async def run_with_concurrency(
     template_keys: list[str], *, concurrency: int, worker: Callable[[str], Awaitable]
 ):
+    """Run with concurrency."""
     semaphore = asyncio.Semaphore(concurrency or 1)
     results: list = [None] * len(template_keys)
 

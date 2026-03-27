@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations validation scalars repository workflows."""
+
 from __future__ import annotations
 
 import math
@@ -12,18 +14,21 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
 
 
 def normalize_non_empty_str(value: Any, *, field_name: str) -> str:
+    """Normalize non empty str."""
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string.")
     return value.strip()
 
 
 def normalize_optional_non_empty_str(value: Any, *, field_name: str) -> str | None:
+    """Normalize optional non empty str."""
     if value is None:
         return None
     return normalize_non_empty_str(value, field_name=field_name)
 
 
 def normalize_datetime(value: datetime | None, *, field_name: str, default_now: bool):
+    """Normalize datetime."""
     if value is None:
         return datetime.now(UTC).replace(microsecond=0) if default_now else None
     if not isinstance(value, datetime):
@@ -32,6 +37,7 @@ def normalize_datetime(value: datetime | None, *, field_name: str, default_now: 
 
 
 def normalize_status(status: str) -> str:
+    """Normalize status."""
     normalized = (status or "").strip().lower()
     if normalized not in EVALUATION_RUN_STATUSES:
         raise ValueError(f"invalid evaluation run status: {status}")
@@ -41,6 +47,7 @@ def normalize_status(status: str) -> str:
 def coerce_object(
     value: Mapping[str, Any] | None, *, field_name: str
 ) -> dict[str, Any] | None:
+    """Execute coerce object."""
     if value is None:
         return None
     if not isinstance(value, Mapping):
@@ -49,6 +56,7 @@ def coerce_object(
 
 
 def coerce_unit_interval_score(value: Any, *, field_name: str, required: bool = False):
+    """Execute coerce unit interval score."""
     if value is None:
         if required:
             raise ValueError(f"{field_name} is required.")
@@ -64,6 +72,7 @@ def coerce_unit_interval_score(value: Any, *, field_name: str, required: bool = 
 
 
 def coerce_recommendation(value: Any, *, required: bool = False) -> str | None:
+    """Execute coerce recommendation."""
     if value is None:
         if required:
             raise ValueError("recommendation is required.")
@@ -77,6 +86,7 @@ def coerce_recommendation(value: Any, *, required: bool = False) -> str | None:
 
 
 def coerce_day_index(value: Any, *, field_path: str) -> int:
+    """Execute coerce day index."""
     if isinstance(value, bool) or not isinstance(value, int):
         raise ValueError(f"{field_path} must be an integer.")
     if value < 1 or value > 5:
@@ -85,6 +95,7 @@ def coerce_day_index(value: Any, *, field_path: str) -> int:
 
 
 def coerce_score(value: Any, *, field_path: str) -> float:
+    """Execute coerce score."""
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise ValueError(f"{field_path} must be numeric.")
     normalized = float(value)
@@ -94,6 +105,7 @@ def coerce_score(value: Any, *, field_path: str) -> float:
 
 
 def coerce_rubric_results_json(value: Any, *, field_path: str) -> dict[str, Any]:
+    """Execute coerce rubric results json."""
     if not isinstance(value, Mapping):
         raise ValueError(f"{field_path} must be an object.")
     return dict(value)

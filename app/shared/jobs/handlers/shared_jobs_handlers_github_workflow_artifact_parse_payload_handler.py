@@ -1,3 +1,5 @@
+"""Application module for jobs handlers github workflow artifact parse payload handler workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -8,6 +10,8 @@ from typing import Any
 
 @dataclass(slots=True)
 class ArtifactParsePayload:
+    """Represent artifact parse payload data and behavior."""
+
     submission_id: int | None
     workflow_run_id: int | None
     workflow_run_attempt: int | None
@@ -24,6 +28,7 @@ def build_payload(
     parse_iso_datetime: Callable[[Any], datetime | None],
     normalized_text: Callable[[Any], str | None],
 ) -> ArtifactParsePayload:
+    """Build payload."""
     return ArtifactParsePayload(
         submission_id=parse_positive_int(payload_json.get("submissionId")),
         workflow_run_id=parse_positive_int(payload_json.get("workflowRunId")),
@@ -40,6 +45,7 @@ def build_payload(
 
 
 def invalid_payload_response(payload: ArtifactParsePayload) -> dict[str, Any] | None:
+    """Execute invalid payload response."""
     if (
         payload.submission_id is not None
         and payload.workflow_run_id is not None

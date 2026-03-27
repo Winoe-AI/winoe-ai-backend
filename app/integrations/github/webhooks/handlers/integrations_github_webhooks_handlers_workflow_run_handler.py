@@ -1,3 +1,5 @@
+"""Application module for integrations github webhooks handlers workflow run handler workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -44,6 +46,7 @@ async def process_workflow_run_completed_event(
     payload: dict[str, Any],
     delivery_id: str | None,
 ) -> WorkflowRunWebhookOutcome:
+    """Process workflow run completed event."""
     event = parse_workflow_run_completed_event(payload)
     if event is None:
         return WorkflowRunWebhookOutcome(

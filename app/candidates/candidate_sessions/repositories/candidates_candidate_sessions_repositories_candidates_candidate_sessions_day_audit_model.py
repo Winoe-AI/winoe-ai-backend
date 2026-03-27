@@ -1,3 +1,5 @@
+"""SQLAlchemy model for immutable day-cutoff audit records per candidate session."""
+
 from __future__ import annotations
 
 from datetime import datetime

@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation group repo service workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -36,6 +38,7 @@ async def get_or_create_workspace_group(
     commit: bool = True,
     workspace_group_checked: bool = False,
 ) -> tuple[WorkspaceGroup, int | None]:
+    """Return or create workspace group."""
     existing = existing_group or await _load_existing_group(
         db, candidate_session.id, workspace_key, workspace_group_checked
     )

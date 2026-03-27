@@ -1,3 +1,5 @@
+"""Application module for jobs worker runtime reschedule paths service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -43,6 +45,7 @@ async def handle_handler_reschedule(
     max_backoff_seconds: int,
     logger: logging.Logger,
 ) -> bool:
+    """Handle handler reschedule."""
     if result is None or result.get("_jobDisposition") != "rescheduled":
         return False
     if await _verify_handler_rescheduled(session_maker, job_id=job.id):

@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime commit apply service workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +17,8 @@ from app.submissions.services.precommit_bundle_runtime.submissions_services_prec
 
 @dataclass(slots=True)
 class CommitApplyOutcome:
+    """Represent commit apply outcome data and behavior."""
+
     commit_sha: str
     recovered_from_conflict: bool = False
 
@@ -28,6 +32,7 @@ async def apply_bundle_commit(
     find_marker_commit_sha,
     logger,
 ) -> CommitApplyOutcome:
+    """Apply bundle commit."""
     head_sha, base_tree_sha = await resolve_head_and_tree_sha(
         github_client,
         repo_full_name=context.repo_full_name,

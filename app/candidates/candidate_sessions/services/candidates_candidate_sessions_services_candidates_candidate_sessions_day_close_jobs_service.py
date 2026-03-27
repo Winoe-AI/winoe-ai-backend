@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions day close jobs service workflows."""
+
 from __future__ import annotations
 
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_day_close_jobs_constants import (
@@ -37,6 +39,7 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 async def enqueue_day_close_finalize_text_jobs(
     db, *, candidate_session, commit: bool = False
 ):
+    """Enqueue day close finalize text jobs."""
     return await enqueue_day_close_finalize_text_jobs_impl(
         db=db,
         candidate_session=candidate_session,
@@ -51,6 +54,7 @@ async def enqueue_day_close_finalize_text_jobs(
 async def enqueue_day_close_enforcement_jobs(
     db, *, candidate_session, commit: bool = False
 ):
+    """Enqueue day close enforcement jobs."""
     return await enqueue_day_close_enforcement_jobs_impl(
         db=db,
         candidate_session=candidate_session,
@@ -63,6 +67,7 @@ async def enqueue_day_close_enforcement_jobs(
 
 
 async def enqueue_day_close_jobs(db, *, candidate_session, commit: bool = False):
+    """Enqueue day close jobs."""
     return await enqueue_day_close_jobs_impl(
         db=db,
         candidate_session=candidate_session,

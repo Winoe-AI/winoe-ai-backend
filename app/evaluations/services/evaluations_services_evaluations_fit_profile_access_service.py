@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile access service workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -14,6 +16,8 @@ from app.shared.database.shared_database_models_model import (
 
 @dataclass(slots=True)
 class CandidateSessionEvaluationContext:
+    """Represent candidate session evaluation context data and behavior."""
+
     candidate_session: CandidateSession
     simulation: Simulation
     scenario_version: ScenarioVersion | None
@@ -24,6 +28,7 @@ async def get_candidate_session_evaluation_context(
     *,
     candidate_session_id: int,
 ) -> CandidateSessionEvaluationContext | None:
+    """Return candidate session evaluation context."""
     row = (
         await db.execute(
             select(CandidateSession, Simulation, ScenarioVersion)
@@ -51,6 +56,7 @@ def has_company_access(
     simulation_company_id: int | None,
     expected_company_id: int | None,
 ) -> bool:
+    """Execute has company access."""
     if expected_company_id is None:
         return True
     return simulation_company_id == expected_company_id

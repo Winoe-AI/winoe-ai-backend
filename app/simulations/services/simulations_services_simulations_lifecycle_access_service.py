@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations lifecycle access service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -28,6 +30,7 @@ async def require_owner_for_lifecycle(
     *,
     for_update: bool = False,
 ) -> Simulation:
+    """Require owner for lifecycle."""
     simulation = await _load_for_lifecycle(db, simulation_id, for_update=for_update)
     if simulation.created_by != actor_user_id:
         raise HTTPException(

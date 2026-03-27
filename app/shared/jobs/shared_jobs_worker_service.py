@@ -1,3 +1,5 @@
+"""Application module for jobs worker service workflows."""
+
 from __future__ import annotations
 
 import asyncio
@@ -36,6 +38,7 @@ async def run_once(
     worker_id: str | None = None,
     **kwargs,
 ) -> bool:
+    """Run once."""
     return await _run_once(
         session_maker=session_maker,
         worker_id=worker_id or _build_worker_id(),
@@ -49,6 +52,7 @@ async def run_forever(
     worker_id: str | None = None,
     idle_sleep_seconds: float = DEFAULT_IDLE_SLEEP_SECONDS,
 ) -> None:  # pragma: no cover - exercised manually via CLI
+    """Run forever."""
     resolved_worker_id = worker_id or _build_worker_id()
     logger.info("jobs_worker_started", extra={"worker_id": resolved_worker_id})
     while True:
@@ -60,6 +64,7 @@ async def run_forever(
 
 
 def main() -> None:  # pragma: no cover - thin CLI wrapper
+    """Execute main."""
     register_builtin_handlers()
     asyncio.run(run_forever())
 

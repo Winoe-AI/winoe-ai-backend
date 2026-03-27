@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare queries service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -32,6 +34,7 @@ def _candidate_session_timestamp_columns() -> tuple[Any, Any]:
 
 
 def candidate_compare_rows_stmt(*, simulation_id: int) -> Any:
+    """Execute candidate compare rows stmt."""
     latest_run_any = latest_run_subquery(completed_only=False)
     latest_run_success = latest_run_subquery(completed_only=True)
     (
@@ -86,6 +89,7 @@ def candidate_compare_rows_stmt(*, simulation_id: int) -> Any:
 async def fetch_candidate_compare_rows(
     db: AsyncSession, *, simulation_id: int
 ) -> list[Any]:
+    """Return candidate compare rows."""
     stmt = candidate_compare_rows_stmt(simulation_id=simulation_id)
     return list((await db.execute(stmt)).all())
 

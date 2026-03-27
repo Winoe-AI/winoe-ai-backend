@@ -1,3 +1,5 @@
+"""Application module for http dependencies candidate sessions utils workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

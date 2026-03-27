@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository workflows."""
+
 from __future__ import annotations
 
 from app.shared.jobs.repositories import (
@@ -45,17 +47,20 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_status_rep
 
 
 async def create_or_get_idempotent(db, **kwargs):
+    """Create or get idempotent."""
     _create_get_module.load_idempotent_job = _load_idempotent_job
     return await _create_get_module.create_or_get_idempotent(db, **kwargs)
 
 
 async def create_or_update_idempotent(db, **kwargs):
+    """Create or update idempotent."""
     _create_update_module.load_idempotent_job = _load_idempotent_job
     _create_update_module.create_or_get_idempotent = create_or_get_idempotent
     return await _create_update_module.create_or_update_idempotent(db, **kwargs)
 
 
 async def create_or_update_many_idempotent(db, **kwargs):
+    """Create or update many idempotent."""
     _create_update_many_module.load_idempotent_jobs_for_keys = (
         _load_idempotent_jobs_for_keys
     )

@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations runs fail service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -40,6 +42,7 @@ async def fail_run(
     commit: bool = True,
     logger: Any = None,
 ) -> EvaluationRun:
+    """Execute fail run."""
     run = await evaluation_repo.get_run_by_id(db, run_id, for_update=True)
     if run is None:
         raise EvaluationRunStateError(f"evaluation run not found: {run_id}")

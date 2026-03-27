@@ -1,3 +1,5 @@
+"""Application module for candidates routes candidate sessions routes candidates candidate sessions routes responses current task routes workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -32,6 +34,7 @@ def build_current_task_response(
     day_audit=None,
     now_utc,
 ):
+    """Build current task response."""
     current_window = None
     if not is_complete and current_task is not None:
         task_window = cs_service.compute_task_window(cs, current_task, now_utc=now_utc)

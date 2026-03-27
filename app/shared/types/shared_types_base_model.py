@@ -1,3 +1,5 @@
+"""Application module for types base model workflows."""
+
 from pydantic import BaseModel, ConfigDict
 
 

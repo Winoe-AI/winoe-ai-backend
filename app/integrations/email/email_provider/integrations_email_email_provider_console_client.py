@@ -1,3 +1,5 @@
+"""Application module for integrations email provider console client workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -14,6 +16,7 @@ class ConsoleEmailProvider:
         self.sender = sender
 
     async def send(self, message: EmailMessage) -> str | None:
+        """Send the requested communication."""
         logger.info(
             "email_console_send",
             extra={

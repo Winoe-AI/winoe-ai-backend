@@ -1,3 +1,5 @@
+"""Application module for evaluations repositories evaluations constants model workflows."""
+
 from __future__ import annotations
 
 EVALUATION_RUN_STATUS_PENDING = "pending"
@@ -36,10 +38,12 @@ EVALUATION_DAY_SCORE_RUN_DAY_UNIQUE_CONSTRAINT_NAME = "uq_evaluation_day_scores_
 
 
 def status_check_expr() -> str:
+    """Execute status check expr."""
     allowed = ",".join(f"'{status}'" for status in EVALUATION_RUN_STATUSES)
     return f"status IN ({allowed})"
 
 
 def recommendation_check_expr() -> str:
+    """Execute recommendation check expr."""
     allowed = ",".join(f"'{value}'" for value in EVALUATION_RECOMMENDATIONS)
     return f"recommendation IS NULL OR recommendation IN ({allowed})"

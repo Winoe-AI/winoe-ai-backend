@@ -1,3 +1,5 @@
+"""Application module for media services media privacy delete service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -23,6 +25,7 @@ async def delete_recording_asset(
     recording_id: int,
     candidate_session: CandidateSession,
 ) -> RecordingAsset:
+    """Delete recording asset."""
     if not settings.storage_media.MEDIA_DELETE_ENABLED:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Media deletion is disabled"

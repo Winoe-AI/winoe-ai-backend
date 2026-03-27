@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations lifecycle transition rules service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -66,6 +68,7 @@ def apply_status_transition(
     target_status: str,
     changed_at: datetime | None = None,
 ) -> bool:
+    """Apply status transition."""
     changed_at = changed_at or datetime.now(UTC)
     current_status = normalize_simulation_status(simulation.status)
     target_status = normalize_simulation_status(target_status)

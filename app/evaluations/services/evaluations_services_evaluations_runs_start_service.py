@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations runs start service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -36,6 +38,7 @@ async def start_run(
     commit: bool = True,
     logger: Any = None,
 ) -> EvaluationRun:
+    """Execute start run."""
     run = await evaluation_repo.create_run(
         db,
         candidate_session_id=candidate_session_id,

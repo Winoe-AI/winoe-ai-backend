@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule fields service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -19,6 +21,7 @@ def _normalize_optional_datetime(value: datetime | None) -> datetime | None:
 def schedule_payload_for_candidate_session(
     candidate_session: Any, *, now_utc: datetime | None = None
 ) -> dict[str, Any]:
+    """Schedule payload for candidate session."""
     day_windows = deserialize_day_windows(
         getattr(candidate_session, "day_windows_json", None)
     )

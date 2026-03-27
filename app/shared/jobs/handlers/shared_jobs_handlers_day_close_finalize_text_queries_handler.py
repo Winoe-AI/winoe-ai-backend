@@ -1,3 +1,5 @@
+"""Application module for jobs handlers day close finalize text queries handler workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select

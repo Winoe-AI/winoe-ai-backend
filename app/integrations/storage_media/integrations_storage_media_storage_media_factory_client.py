@@ -1,3 +1,5 @@
+"""Application module for integrations storage media storage media factory client workflows."""
+
 from __future__ import annotations
 
 from functools import lru_cache

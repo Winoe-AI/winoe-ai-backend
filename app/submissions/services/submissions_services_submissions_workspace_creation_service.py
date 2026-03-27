@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace creation service workflows."""
+
 from __future__ import annotations
 
 from app.submissions.repositories.github_native.workspaces import (
@@ -69,6 +71,7 @@ async def _provision_grouped_workspace(*args, **kwargs):
 
 
 async def provision_workspace(*args, **kwargs):
+    """Execute provision workspace."""
     _sync_dependencies()
     _provision_module.provision_grouped_workspace = _provision_grouped_workspace
     _provision_module.provision_single_workspace = (

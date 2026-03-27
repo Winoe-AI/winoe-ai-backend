@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions progress service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -28,6 +30,7 @@ from app.shared.database.shared_database_models_model import CandidateSession, T
 
 
 async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
+    """Load tasks."""
     return await _load_tasks(
         db,
         simulation_id,
@@ -36,6 +39,7 @@ async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
 
 
 async def completed_task_ids(db: AsyncSession, candidate_session_id: int) -> set[int]:
+    """Execute completed task ids."""
     return await _completed_task_ids(
         db,
         candidate_session_id,
@@ -68,6 +72,7 @@ async def progress_snapshot(
     tasks: list[Task] | None = None,
     now: datetime | None = None,
 ) -> tuple[list[Task], set[int], Task | None, int, int, bool]:
+    """Execute progress snapshot."""
     if tasks:
         task_list = tasks
         completed_ids = await completed_task_ids(db, candidate_session.id)

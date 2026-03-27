@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner dispatch loop service workflows."""
+
 from __future__ import annotations
 
 import asyncio
@@ -26,6 +28,7 @@ from app.integrations.github.client import GithubError
 async def dispatch_and_wait(
     ctx: RunnerContext, *, repo_full_name: str, ref: str, inputs: dict[str, Any] | None
 ) -> Any:
+    """Dispatch and wait."""
     dispatch_started_at = datetime.now(UTC)
     workflow_file = await ctx._dispatch_with_fallbacks(
         repo_full_name, ref=ref, inputs=inputs

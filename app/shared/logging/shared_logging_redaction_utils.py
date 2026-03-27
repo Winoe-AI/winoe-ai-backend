@@ -1,3 +1,5 @@
+"""Application module for logging redaction utils workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -56,7 +58,10 @@ def _redact_mapping(mapping: dict[str, Any]) -> dict[str, Any]:
 
 
 class RedactionFilter(logging.Filter):
+    """Represent redaction filter data and behavior."""
+
     def filter(self, record: logging.LogRecord) -> bool:
+        """Execute filter."""
         if isinstance(record.args, dict):
             record.args = _redact_mapping(record.args)
         elif isinstance(record.args, tuple):

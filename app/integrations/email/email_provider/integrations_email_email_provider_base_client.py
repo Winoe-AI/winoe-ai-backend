@@ -1,3 +1,5 @@
+"""Application module for integrations email provider base client workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -29,4 +31,5 @@ class EmailProvider(Protocol):
     async def send(
         self, message: EmailMessage
     ) -> str | None:  # pragma: no cover - protocol
+        """Send the requested communication."""
         ...

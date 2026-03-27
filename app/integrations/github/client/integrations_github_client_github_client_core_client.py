@@ -1,3 +1,5 @@
+"""Application module for integrations github client github client core client workflows."""
+
 from __future__ import annotations
 
 from .integrations_github_client_github_client_artifacts_client import (
@@ -21,6 +23,8 @@ class GithubClient(
     ArtifactOperations,
     CompatOperations,
 ):
+    """Represent github client data and behavior."""
+
     def __init__(
         self,
         *,
@@ -37,4 +41,5 @@ class GithubClient(
         self.default_org = default_org
 
     async def aclose(self) -> None:
+        """Execute aclose."""
         await self.transport.aclose()

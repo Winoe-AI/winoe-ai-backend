@@ -1,3 +1,5 @@
+"""Application module for perf sqlalchemy hooks utils workflows."""
+
 from __future__ import annotations
 
 import re
@@ -16,6 +18,7 @@ _IN_PARAMETER_RE = re.compile(
 
 
 def normalize_sql_statement(statement: str | None) -> str:
+    """Normalize sql statement."""
     normalized = (statement or "").strip().lower()
     if not normalized:
         return ""

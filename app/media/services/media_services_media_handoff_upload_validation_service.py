@@ -1,3 +1,5 @@
+"""Application module for media services media handoff upload validation service workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, status
@@ -12,6 +14,7 @@ from app.shared.database.shared_database_models_model import (
 
 
 def ensure_handoff_task(task_type: str) -> None:
+    """Ensure handoff task."""
     if (task_type or "").lower() != "handoff":
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -20,6 +23,7 @@ def ensure_handoff_task(task_type: str) -> None:
 
 
 def parse_recording_id_or_422(recording_id_value: str) -> int:
+    """Parse recording id or 422."""
     try:
         return parse_recording_public_id(recording_id_value)
     except ValueError as exc:
@@ -32,6 +36,7 @@ def parse_recording_id_or_422(recording_id_value: str) -> int:
 def require_recording_access(
     recording: RecordingAsset | None, *, candidate_session_id: int, task_id: int
 ) -> RecordingAsset:
+    """Require recording access."""
     if recording is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -52,6 +57,7 @@ def copy_candidate_consent_if_missing(
     recording: RecordingAsset,
     candidate_session: CandidateSession,
 ) -> None:
+    """Execute copy candidate consent if missing."""
     if (
         recording.consent_timestamp is not None
         or candidate_session.consent_timestamp is None

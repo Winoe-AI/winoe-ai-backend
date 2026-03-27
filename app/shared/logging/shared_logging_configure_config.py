@@ -1,3 +1,5 @@
+"""Application module for logging configure config workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +15,7 @@ def _attach_filter_to_handlers() -> None:
 
 
 def configure_logging() -> None:
+    """Execute configure logging."""
     _attach_filter_to_handlers()
     if getattr(configure_logging, "_configured", False):
         return

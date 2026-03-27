@@ -1,3 +1,5 @@
+"""Application module for config claims config workflows."""
+
 from __future__ import annotations
 
 from .config_defaults_config import DEFAULT_CLAIM_NAMESPACE

@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops audit service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -21,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_datetime(value: datetime | None) -> datetime | None:
+    """Normalize datetime."""
     if value is None:
         return None
     if value.tzinfo is None:
@@ -29,6 +32,7 @@ def normalize_datetime(value: datetime | None) -> datetime | None:
 
 
 def unsafe_operation(detail: str, *, details: dict | None = None) -> None:
+    """Execute unsafe operation."""
     raise ApiError(
         status_code=status.HTTP_409_CONFLICT,
         detail=detail,
@@ -39,6 +43,7 @@ def unsafe_operation(detail: str, *, details: dict | None = None) -> None:
 
 
 def sanitized_reason(reason: str) -> str:
+    """Execute sanitized reason."""
     return " ".join((reason or "").split()).strip()
 
 
@@ -51,6 +56,7 @@ async def insert_audit(
     target_id: str | int,
     payload: dict,
 ) -> str:
+    """Execute insert audit."""
     audit = await admin_audit_repo.create_audit(
         db,
         actor_type=actor.actor_type,
@@ -72,6 +78,7 @@ def log_admin_action(
     target_id: str | int,
     actor_id: str,
 ) -> None:
+    """Execute log admin action."""
     logger.info(
         "admin_action_applied",
         extra={

@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile api helpers service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,6 +24,7 @@ async def has_active_evaluation_job(
     candidate_session_id: int,
     job_type: str,
 ) -> bool:
+    """Execute has active evaluation job."""
     stmt = (
         select(Job.id)
         .where(
@@ -35,6 +38,7 @@ async def has_active_evaluation_job(
 
 
 def build_latest_run_status(latest_run: Any) -> dict[str, Any]:
+    """Build latest run status."""
     if latest_run.status in {
         EVALUATION_RUN_STATUS_PENDING,
         EVALUATION_RUN_STATUS_RUNNING,

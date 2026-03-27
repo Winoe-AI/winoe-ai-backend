@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions repositories candidates candidate sessions candidate session model workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime

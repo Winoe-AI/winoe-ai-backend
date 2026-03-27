@@ -1,3 +1,5 @@
+"""Application module for integrations github actions runner github actions runner normalize service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.actions_runner.integrations_github_actions_runner_github_actions_runner_model import (
@@ -10,6 +12,7 @@ from app.integrations.github.client import WorkflowRun
 def normalize_run(
     run: WorkflowRun, *, timed_out: bool = False, running: bool = False
 ) -> ActionsRunResult:
+    """Normalize run."""
     status = (run.status or "").lower()
     conclusion = (run.conclusion or "").lower() if run.conclusion else None
     if running or timed_out:

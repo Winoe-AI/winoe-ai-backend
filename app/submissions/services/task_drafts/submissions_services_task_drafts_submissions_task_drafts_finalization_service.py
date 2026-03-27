@@ -1,3 +1,5 @@
+"""Application module for submissions services task drafts submissions task drafts finalization service workflows."""
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -16,6 +18,7 @@ def build_submission_payload(
     content_text: str | None,
     content_json: dict[str, Any] | None,
 ):
+    """Build submission payload."""
     return SimpleNamespace(contentText=content_text, contentJson=content_json)
 
 

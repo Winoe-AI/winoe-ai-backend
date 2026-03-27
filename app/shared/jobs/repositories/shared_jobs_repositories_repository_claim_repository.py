@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository claim repository workflows."""
+
 from __future__ import annotations
 
 from datetime import timedelta
@@ -16,6 +18,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_lookup_rep
 
 
 def runnable_filter(now, *, stale_before):
+    """Execute runnable filter."""
     return or_(
         and_(
             Job.status == JOB_STATUS_QUEUED,
@@ -35,6 +38,7 @@ async def claim_next_runnable(
     now,
     lease_seconds: int,
 ) -> Job | None:
+    """Claim next runnable."""
     stale_before = now - timedelta(seconds=lease_seconds)
     order = (func.coalesce(Job.next_run_at, Job.created_at).asc(), Job.created_at.asc())
     for _ in range(8):

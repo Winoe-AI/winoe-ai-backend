@@ -1,3 +1,5 @@
+"""Application module for recruiters repositories users recruiters users core model workflows."""
+
 from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

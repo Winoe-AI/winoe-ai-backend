@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository create update repository workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -31,6 +33,7 @@ async def create_or_update_idempotent(
     next_run_at: datetime | None = None,
     commit: bool = True,
 ) -> Job:
+    """Create or update idempotent."""
     normalized_type, normalized_key = normalize_idempotent_create_inputs(
         job_type=job_type, idempotency_key=idempotency_key, max_attempts=max_attempts
     )

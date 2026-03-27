@@ -1,3 +1,5 @@
+"""Application module for integrations storage media storage media s3 provider client workflows."""
+
 from __future__ import annotations
 
 from urllib.parse import urlsplit
@@ -62,6 +64,7 @@ class S3StorageMediaProvider:
     def create_signed_upload_url(
         self, key: str, content_type: str, size_bytes: int, expires_seconds: int
     ) -> str:
+        """Create signed upload url."""
         del size_bytes
         normalized_type = (content_type or "").strip()
         if not normalized_type:
@@ -74,11 +77,13 @@ class S3StorageMediaProvider:
         )
 
     def create_signed_download_url(self, key: str, expires_seconds: int) -> str:
+        """Create signed download url."""
         return self._presign(
             method="GET", key=key, expires_seconds=expires_seconds, extra_headers={}
         )
 
     def get_object_metadata(self, key: str) -> StorageObjectMetadata | None:
+        """Return object metadata."""
         return _get_object_metadata_impl(
             self,
             key=key,
@@ -91,6 +96,7 @@ class S3StorageMediaProvider:
         )
 
     def delete_object(self, key: str) -> None:
+        """Delete object."""
         return _delete_object_impl(
             self,
             key=key,

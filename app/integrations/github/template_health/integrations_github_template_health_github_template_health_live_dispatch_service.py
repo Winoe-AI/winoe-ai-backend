@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health live dispatch service workflows."""
+
 from __future__ import annotations
 
 import asyncio
@@ -21,6 +23,7 @@ async def dispatch_and_poll(
     default_branch: str,
     timeout_seconds: int,
 ) -> tuple[list[str], int | None, str | None]:
+    """Dispatch and poll."""
     errors: list[str] = []
     dispatch_started_at = datetime.now(UTC)
     try:

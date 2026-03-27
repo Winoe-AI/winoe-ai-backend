@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario versions create service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -29,6 +31,7 @@ async def create_initial_scenario_version(
     simulation: Simulation,
     tasks: list[Task],
 ) -> ScenarioVersion:
+    """Create initial scenario version."""
     scenario_version = ScenarioVersion(
         simulation_id=simulation.id,
         version_index=1,
@@ -57,4 +60,5 @@ async def create_initial_scenario_version(
 async def get_active_scenario_version(
     db: AsyncSession, simulation_id: int
 ) -> ScenarioVersion | None:
+    """Return active scenario version."""
     return await scenario_repo.get_active_for_simulation(db, simulation_id)

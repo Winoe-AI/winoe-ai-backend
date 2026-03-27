@@ -1,3 +1,5 @@
+"""Application module for integrations github artifacts models model workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

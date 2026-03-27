@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile composer service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -23,6 +25,7 @@ from .evaluations_services_evaluations_fit_profile_composer_normalize_service im
 
 
 def compose_report(run: EvaluationRun) -> dict[str, Any]:
+    """Execute compose report."""
     persisted_report = (
         dict(run.raw_report_json) if isinstance(run.raw_report_json, Mapping) else {}
     )
@@ -85,6 +88,7 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
 
 
 def build_ready_payload(run: EvaluationRun) -> dict[str, Any]:
+    """Build ready payload."""
     generated_at = _normalize_datetime(
         run.generated_at or run.completed_at or run.started_at
     )

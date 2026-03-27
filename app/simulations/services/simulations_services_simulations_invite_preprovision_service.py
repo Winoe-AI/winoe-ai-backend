@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations invite preprovision service workflows."""
+
 from __future__ import annotations
 
 import inspect
@@ -27,6 +29,7 @@ async def preprovision_workspaces(
     now,
     fresh_candidate_session: bool = False,
 ) -> None:
+    """Execute preprovision workspaces."""
     repo_prefix = settings.github.GITHUB_REPO_PREFIX
     template_owner = settings.github.GITHUB_TEMPLATE_OWNER or settings.github.GITHUB_ORG
     processed_workspace_keys: set[str] = set()

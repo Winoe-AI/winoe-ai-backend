@@ -1,3 +1,5 @@
+"""Application module for integrations github artifacts junit parser utils workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -10,6 +12,7 @@ from app.integrations.github.artifacts.integrations_github_artifacts_models_mode
 
 
 def parse_junit(zf: ZipFile) -> ParsedTestResults | None:
+    """Parse junit."""
     for name in zf.namelist():
         if not name.lower().endswith(".xml"):
             continue

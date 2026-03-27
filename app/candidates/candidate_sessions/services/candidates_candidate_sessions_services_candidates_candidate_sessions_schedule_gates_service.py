@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule gates service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -58,6 +60,7 @@ def _load_or_derive_day_windows(candidate_session, *, minimum_total_days: int):
 
 
 def compute_day1_window(candidate_session) -> tuple[datetime | None, datetime | None]:
+    """Compute day1 window."""
     return compute_day1_window_impl(
         candidate_session,
         load_day_windows=_load_or_derive_day_windows,
@@ -69,6 +72,7 @@ def compute_day1_window(candidate_session) -> tuple[datetime | None, datetime | 
 def compute_task_window(
     candidate_session, task, *, now_utc: datetime | None = None
 ) -> TaskWindow:
+    """Compute task window."""
     return compute_task_window_impl(
         candidate_session,
         task,
@@ -84,6 +88,7 @@ def compute_task_window(
 def build_task_window_closed_error(
     _candidate_session, _task, *, task_window: TaskWindow
 ):
+    """Build task window closed error."""
     return _build_task_window_closed_error_impl(
         _candidate_session,
         _task,
@@ -95,6 +100,7 @@ def build_task_window_closed_error(
 def build_schedule_invalid_window_error(
     candidate_session, task, *, task_window: TaskWindow
 ):
+    """Build schedule invalid window error."""
     return _build_schedule_invalid_window_error_impl(
         candidate_session,
         task,
@@ -107,6 +113,7 @@ def build_schedule_invalid_window_error(
 def require_active_window(
     candidate_session, task, *, now: datetime | None = None
 ) -> None:
+    """Require active window."""
     require_active_window_impl(
         candidate_session,
         task,
@@ -123,6 +130,7 @@ def require_active_window(
 def build_schedule_not_started_error(
     candidate_session, window_start_at: datetime | None, window_end_at: datetime | None
 ):
+    """Build schedule not started error."""
     return _build_schedule_not_started_error_impl(
         candidate_session,
         window_start_at,
@@ -135,6 +143,7 @@ def build_schedule_not_started_error(
 def is_schedule_started_for_content(
     candidate_session, *, now: datetime | None = None
 ) -> bool:
+    """Return whether schedule started for content."""
     return is_schedule_started_for_content_impl(
         candidate_session, now=now, compute_day1_window=compute_day1_window
     )
@@ -143,6 +152,7 @@ def is_schedule_started_for_content(
 def ensure_schedule_started_for_content(
     candidate_session, *, now: datetime | None = None
 ) -> None:
+    """Ensure schedule started for content."""
     ensure_schedule_started_for_content_impl(
         candidate_session,
         now=now,

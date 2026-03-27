@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime lookup service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -35,6 +37,7 @@ async def lookup_bundle_context(
     default_branch: str | None,
     existing_precommit_sha: str | None,
 ):
+    """Look up bundle context."""
     candidate_session_id = _obj_id(candidate_session, "id")
     scenario_version_id = _obj_id(candidate_session, "scenario_version_id")
     task_id = _obj_id(task, "id")

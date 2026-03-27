@@ -1,3 +1,5 @@
+"""Application module for media repositories transcripts media transcripts delete repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import delete
@@ -14,6 +16,7 @@ async def hard_delete_by_recording_id(
     *,
     commit: bool = True,
 ) -> int:
+    """Execute hard delete by recording id."""
     result = await db.execute(
         delete(Transcript).where(Transcript.recording_id == recording_id)
     )

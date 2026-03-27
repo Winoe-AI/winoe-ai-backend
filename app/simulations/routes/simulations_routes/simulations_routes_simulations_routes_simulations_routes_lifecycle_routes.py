@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes lifecycle routes workflows."""
+
 from __future__ import annotations
 
 from typing import Annotated, Any
@@ -35,6 +37,18 @@ def _require_confirmation(payload: SimulationLifecycleRequest) -> None:
     "/{simulation_id}/activate",
     response_model=SimulationActivateResponse,
     status_code=status.HTTP_200_OK,
+    summary="Activate Simulation",
+    description=(
+        "Transition a simulation into the active state once recruiter confirms"
+        " readiness."
+    ),
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Activation confirmation missing."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Simulation not found."},
+    },
 )
 async def activate_simulation(
     simulation_id: int,
@@ -42,6 +56,7 @@ async def activate_simulation(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
 ):
+    """Activate simulation."""
     ensure_recruiter_or_none(user)
     _require_confirmation(payload)
     simulation = await sim_service.activate_simulation(
@@ -59,6 +74,18 @@ async def activate_simulation(
     "/{simulation_id}/terminate",
     response_model=SimulationTerminateResponse,
     status_code=status.HTTP_200_OK,
+    summary="Terminate Simulation",
+    description=(
+        "Terminate an active simulation and enqueue workspace cleanup jobs for"
+        " associated candidate workspaces."
+    ),
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Termination confirmation missing."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Simulation not found."},
+    },
 )
 async def terminate_simulation(
     simulation_id: int,
@@ -66,6 +93,7 @@ async def terminate_simulation(
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
 ):
+    """Terminate simulation."""
     ensure_recruiter_or_none(user)
     _require_confirmation(payload)
     terminated = await sim_service.terminate_simulation_with_cleanup(

@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations runs validation service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -30,6 +32,7 @@ class EvaluationRunStateError(ValueError):
 
 
 def normalize_datetime(value: datetime | None, *, field_name: str) -> datetime:
+    """Normalize datetime."""
     if value is None:
         return datetime.now(UTC).replace(microsecond=0)
     if not isinstance(value, datetime):
@@ -38,12 +41,14 @@ def normalize_datetime(value: datetime | None, *, field_name: str) -> datetime:
 
 
 def normalize_stored_datetime(value: datetime, *, field_name: str) -> datetime:
+    """Normalize stored datetime."""
     if not isinstance(value, datetime):
         raise EvaluationRunStateError(f"{field_name} must be a datetime.")
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 def ensure_transition(*, current_status: str, target_status: str) -> None:
+    """Ensure transition."""
     allowed = ALLOWED_TRANSITIONS.get(current_status, set())
     if target_status not in allowed:
         raise EvaluationRunStateError(
@@ -52,6 +57,7 @@ def ensure_transition(*, current_status: str, target_status: str) -> None:
 
 
 def linked_job_id(metadata_json: Any) -> str | int | None:
+    """Execute linked job id."""
     if not isinstance(metadata_json, Mapping):
         return None
     return metadata_json.get("jobId") or metadata_json.get("job_id")

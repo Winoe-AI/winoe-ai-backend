@@ -1,3 +1,5 @@
+"""Application module for jobs handlers transcribe recording handler workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -68,6 +70,7 @@ async def _mark_ready(
 
 
 async def handle_transcribe_recording(payload_json: dict[str, Any]) -> dict[str, Any]:
+    """Handle transcribe recording."""
     return await handle_transcribe_recording_impl(
         payload_json,
         parse_positive_int=_parse_positive_int,

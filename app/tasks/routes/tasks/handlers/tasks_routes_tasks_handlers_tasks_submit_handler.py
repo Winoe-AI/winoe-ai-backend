@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks handlers tasks submit handler workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -27,6 +29,7 @@ async def handle_submit_task(
     github_client: GithubClient,
     actions_runner: GithubActionsRunner,
 ) -> SubmissionCreateResponse:
+    """Handle submit task."""
     try:
         task, submission, completed, total, is_complete = await submit_task(
             db,

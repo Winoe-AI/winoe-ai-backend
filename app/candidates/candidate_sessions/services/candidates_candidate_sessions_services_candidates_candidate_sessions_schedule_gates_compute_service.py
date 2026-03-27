@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule gates compute service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -29,6 +31,7 @@ def compute_day1_window_impl(
     pick_day1_window: Callable[[list[dict[str, Any]]], dict[str, Any] | None],
     normalize_optional_datetime: Callable[[datetime | None], datetime | None],
 ) -> tuple[datetime | None, datetime | None]:
+    """Compute day1 window impl."""
     day_windows = load_day_windows(candidate_session, minimum_total_days=1)
     day1_window = pick_day1_window(day_windows)
     if day1_window is not None:
@@ -52,6 +55,7 @@ def compute_task_window_impl(
     next_window_start_for_day: Callable[[list[dict[str, Any]], int], datetime | None],
     normalize_optional_datetime: Callable[[datetime | None], datetime | None],
 ) -> TaskWindow:
+    """Compute task window impl."""
     resolved_now = coerce_utc_datetime(now_utc or datetime.now(UTC))
     day_index = coerce_task_day_index(task)
     if day_index is None:

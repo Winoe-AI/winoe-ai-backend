@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services scheduling candidates candidate sessions scheduling day windows current service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -11,6 +13,7 @@ def derive_current_day_window(
     coerce_utc_datetime: Callable[[datetime], datetime],
     now_utc: datetime | None = None,
 ) -> dict[str, Any] | None:
+    """Derive current day window."""
     if not day_windows:
         return None
 

@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions codespace urls service workflows."""
+
 from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse

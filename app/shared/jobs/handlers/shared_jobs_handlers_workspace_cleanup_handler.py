@@ -1,3 +1,5 @@
+"""Application module for jobs handlers workspace cleanup handler workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -87,6 +89,7 @@ async def _apply_retention_cleanup(
 
 
 async def handle_workspace_cleanup(payload_json: dict[str, Any]) -> dict[str, Any]:
+    """Handle workspace cleanup."""
     return await handle_workspace_cleanup_impl(
         payload_json,
         async_session_maker=async_session_maker,

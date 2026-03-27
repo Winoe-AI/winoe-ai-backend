@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations fit profile api service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -45,6 +47,7 @@ async def require_recruiter_candidate_session_context(
     candidate_session_id: int,
     user: User,
 ) -> CandidateSessionEvaluationContext:
+    """Require recruiter candidate session context."""
     context = await get_candidate_session_evaluation_context(
         db,
         candidate_session_id=candidate_session_id,
@@ -70,6 +73,7 @@ async def generate_fit_profile(
     candidate_session_id: int,
     user: User,
 ) -> dict[str, Any]:
+    """Generate fit profile."""
     context = await require_recruiter_candidate_session_context(
         db,
         candidate_session_id=candidate_session_id,
@@ -91,6 +95,7 @@ async def fetch_fit_profile(
     candidate_session_id: int,
     user: User,
 ) -> dict[str, Any]:
+    """Return fit profile."""
     context = await require_recruiter_candidate_session_context(
         db,
         candidate_session_id=candidate_session_id,

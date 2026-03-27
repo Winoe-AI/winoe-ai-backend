@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops candidate sessions service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -37,6 +39,7 @@ async def reset_candidate_session(
     dry_run: bool,
     now: datetime | None = None,
 ) -> CandidateSessionResetResult:
+    """Reset candidate session."""
     resolved_now = normalize_datetime(now) or datetime.now(UTC)
     candidate_session = await load_candidate_session_for_update(
         db, candidate_session_id

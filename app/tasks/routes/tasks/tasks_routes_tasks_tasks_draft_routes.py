@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks draft routes workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -37,7 +39,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/{task_id}/draft", response_model=TaskDraftResponse)
+@router.get(
+    "/{task_id}/draft",
+    response_model=TaskDraftResponse,
+    summary="Get Task Draft Route",
+    description=(
+        "Return the saved draft payload for a candidate task in the current"
+        " session context."
+    ),
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Draft or task not found."},
+        status.HTTP_409_CONFLICT: {"description": "Task draft is finalized."},
+    },
+)
 async def get_task_draft_route(
     task_id: Annotated[int, Path(..., ge=1)],
     candidate_session: Annotated[
@@ -45,6 +59,7 @@ async def get_task_draft_route(
     ],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> TaskDraftResponse:
+    """Handle the get task draft API route."""
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     draft = await task_drafts_repo.get_by_session_and_task(
@@ -62,7 +77,19 @@ async def get_task_draft_route(
     return build_draft_response(task.id, draft)
 
 
-@router.put("/{task_id}/draft", response_model=TaskDraftUpsertResponse)
+@router.put(
+    "/{task_id}/draft",
+    response_model=TaskDraftUpsertResponse,
+    summary="Put Task Draft Route",
+    description=(
+        "Create or update a candidate task draft while enforcing active-window"
+        " and finalization constraints."
+    ),
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Task not found."},
+        status.HTTP_409_CONFLICT: {"description": "Task draft is finalized."},
+    },
+)
 async def put_task_draft_route(
     task_id: Annotated[int, Path(..., ge=1)],
     payload: TaskDraftUpsertRequest,
@@ -71,6 +98,7 @@ async def put_task_draft_route(
     ],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> TaskDraftUpsertResponse:
+    """Handle the put task draft API route."""
     task, duplicate_submission = await resolve_task_and_duplicate(
         db,
         candidate_session=candidate_session,

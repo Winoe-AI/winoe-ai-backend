@@ -1,3 +1,5 @@
+"""Application module for http meta service workflows."""
+
 from __future__ import annotations
 
 from app.shared.utils.shared_utils_env_utils import env_name

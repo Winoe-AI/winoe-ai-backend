@@ -1,3 +1,5 @@
+"""Application module for auth roles utils workflows."""
+
 from fastapi import HTTPException, status
 
 from app.shared.database.shared_database_models_model import User

@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health repo check service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient
@@ -26,6 +28,7 @@ async def check_template_repo(
     mode: RunMode,
     timeout_seconds: int,
 ) -> TemplateHealthItem:
+    """Check template repo."""
     errors: list[str] = []
     checks = TemplateHealthChecks()
     default_branch = await run_static_checks(

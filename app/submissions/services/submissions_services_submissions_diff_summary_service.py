@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions diff summary service workflows."""
+
 from __future__ import annotations
 
 from typing import Any

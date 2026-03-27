@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services scheduling candidates candidate sessions scheduling day windows serialization service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
@@ -17,6 +19,7 @@ def serialize_day_windows(
     *,
     coerce_utc_datetime: Callable[[datetime], datetime],
 ) -> list[dict[str, Any]]:
+    """Serialize day windows."""
     return [
         {
             "dayIndex": int(window["dayIndex"]),
@@ -37,6 +40,7 @@ def deserialize_day_windows(
     coerce_day_index: Callable[[Any], int | None],
     coerce_utc_datetime: Callable[[datetime], datetime],
 ) -> list[dict[str, Any]]:
+    """Execute deserialize day windows."""
     if not isinstance(raw_value, list):
         return []
 

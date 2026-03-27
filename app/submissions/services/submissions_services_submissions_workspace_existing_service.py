@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions workspace existing service workflows."""
+
 from __future__ import annotations
 
 import contextlib
@@ -37,6 +39,7 @@ async def ensure_existing_workspace(
     commit: bool = True,
     hydrate_precommit_bundle: bool = True,
 ) -> Workspace | None:
+    """Ensure existing workspace."""
     task_day_index = getattr(task, "day_index", None)
     task_type = getattr(task, "type", None)
     task_identity: dict[str, int | str] = {}

@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health artifacts service workflows."""
+
 from __future__ import annotations
 
 import io

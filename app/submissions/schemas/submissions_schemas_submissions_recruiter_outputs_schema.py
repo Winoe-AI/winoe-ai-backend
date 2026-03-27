@@ -1,3 +1,5 @@
+"""Application module for submissions schemas submissions recruiter outputs schema workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -15,12 +17,16 @@ from .submissions_schemas_submissions_recruiter_base_schema import (
 
 
 class RecruiterHandoffOut(APIModel):
+    """Represent recruiter handoff out data and behavior."""
+
     recordingId: str | None = None
     downloadUrl: str | None = None
     transcript: RecruiterTranscriptOut | None = None
 
 
 class RecruiterSubmissionDetailOut(APIModel):
+    """Represent recruiter submission detail out data and behavior."""
+
     submissionId: int
     candidateSessionId: int
     task: RecruiterTaskMetaOut
@@ -43,6 +49,8 @@ class RecruiterSubmissionDetailOut(APIModel):
 
 
 class RecruiterSubmissionListItemOut(APIModel):
+    """Represent recruiter submission list item out data and behavior."""
+
     submissionId: int
     candidateSessionId: int
     taskId: int
@@ -64,4 +72,6 @@ class RecruiterSubmissionListItemOut(APIModel):
 
 
 class RecruiterSubmissionListOut(APIModel):
+    """Represent recruiter submission list out data and behavior."""
+
     items: list[RecruiterSubmissionListItemOut]

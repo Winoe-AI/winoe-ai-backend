@@ -1,3 +1,5 @@
+"""Application module for jobs repositories repository specs repository workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -17,6 +19,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_rep
 
 
 def normalize_many_specs(specs: list[IdempotentJobSpec]) -> list[IdempotentJobSpec]:
+    """Normalize many specs."""
     normalized_specs: list[IdempotentJobSpec] = []
     for spec in specs:
         normalized_type, normalized_key = normalize_idempotent_create_inputs(
@@ -40,6 +43,7 @@ def normalize_many_specs(specs: list[IdempotentJobSpec]) -> list[IdempotentJobSp
 
 
 def job_from_spec(*, company_id: int, spec: IdempotentJobSpec) -> Job:
+    """Execute job from spec."""
     return Job(
         job_type=spec.job_type,
         status=JOB_STATUS_QUEUED,
@@ -59,6 +63,7 @@ def job_from_spec(*, company_id: int, spec: IdempotentJobSpec) -> Job:
 
 
 def job_insert_row(*, company_id: int, spec: IdempotentJobSpec) -> dict[str, object]:
+    """Execute job insert row."""
     job = job_from_spec(company_id=company_id, spec=spec)
     return {
         "job_type": job.job_type,
@@ -81,6 +86,7 @@ def job_insert_row(*, company_id: int, spec: IdempotentJobSpec) -> dict[str, obj
 async def load_idempotent_jobs_for_keys(
     db: AsyncSession, *, company_id: int, keys: list[tuple[str, str]]
 ) -> dict[tuple[str, str], Job]:
+    """Load idempotent jobs for keys."""
     if not keys:
         return {}
     rows = (

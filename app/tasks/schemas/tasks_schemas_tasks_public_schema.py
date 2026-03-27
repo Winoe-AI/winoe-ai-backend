@@ -1,3 +1,5 @@
+"""Application module for tasks schemas tasks public schema workflows."""
+
 from datetime import datetime
 
 from app.shared.types.shared_types_base_model import APIModel

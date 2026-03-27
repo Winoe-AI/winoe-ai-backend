@@ -1,3 +1,5 @@
+"""Application module for submissions routes submissions helpers routes workflows."""
+
 from contextlib import suppress
 
 from app.submissions.presentation import present_detail, present_list_item
@@ -15,6 +17,7 @@ from app.submissions.services import service_recruiter as recruiter_sub_service
 async def get_submission_detail(
     submission_id: int, db, user
 ) -> RecruiterSubmissionDetailOut:
+    """Return submission detail."""
     ensure_recruiter_guard(user)
     sub, task, cs, sim = await recruiter_sub_service.fetch_detail(
         db, submission_id, user.id
@@ -30,6 +33,7 @@ async def list_submissions(
     limit: int | None = None,
     offset: int = 0,
 ) -> RecruiterSubmissionListOut:
+    """Return submissions."""
     ensure_recruiter_guard(user)
     rows = await recruiter_sub_service.list_submissions(
         db, user.id, candidateSessionId, taskId, limit, offset

@@ -1,3 +1,5 @@
+"""Application module for jobs handlers workspace cleanup processing status handler workflows."""
+
 from __future__ import annotations
 
 from app.shared.jobs.handlers.shared_jobs_handlers_workspace_cleanup_types_handler import (

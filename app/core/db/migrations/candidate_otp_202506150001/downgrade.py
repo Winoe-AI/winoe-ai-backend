@@ -1,3 +1,5 @@
+"""Application module for downgrade workflows."""
+
 from __future__ import annotations
 
 from .constants import TABLE_NAME
@@ -36,6 +38,7 @@ _COLUMN_SPECS = (
 
 
 def run_downgrade(op, sa) -> None:
+    """Run downgrade."""
     for name, type_factory, nullable, server_default in _COLUMN_SPECS:
         kwargs = {"nullable": nullable}
         if server_default is not None:

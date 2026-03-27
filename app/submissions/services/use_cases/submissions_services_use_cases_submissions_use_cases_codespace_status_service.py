@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases codespace status service workflows."""
+
 from __future__ import annotations
 
 import json

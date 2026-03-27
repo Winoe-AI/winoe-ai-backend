@@ -1,3 +1,5 @@
+"""Application module for submissions services service recruiter submissions recruiter derive status service workflows."""
+
 from __future__ import annotations
 
 from typing import Any

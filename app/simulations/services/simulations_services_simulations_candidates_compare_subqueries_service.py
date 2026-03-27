@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare subqueries service workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -18,6 +20,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
 
 
 def latest_run_subquery(*, completed_only: bool) -> Any:
+    """Execute latest run subquery."""
     base_stmt = select(
         EvaluationRun.candidate_session_id.label("candidate_session_id"),
         EvaluationRun.status.label("run_status"),
@@ -54,6 +57,7 @@ def latest_run_subquery(*, completed_only: bool) -> Any:
 
 
 def active_job_subquery() -> Any:
+    """Execute active job subquery."""
     return (
         select(
             Job.candidate_session_id.label("candidate_session_id"),

@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions invites service workflows."""
+
 from __future__ import annotations
 
 import inspect
@@ -22,6 +24,7 @@ from app.shared.database.shared_database_models_model import Task
 async def invite_list_for_principal(
     db: AsyncSession, principal: Principal, *, include_terminated: bool = False
 ) -> list[CandidateInviteListItem]:
+    """Execute invite list for principal."""
     email = (principal.email or "").strip().lower()
     sessions = await cs_repo.list_for_email(
         db, email, include_terminated=include_terminated

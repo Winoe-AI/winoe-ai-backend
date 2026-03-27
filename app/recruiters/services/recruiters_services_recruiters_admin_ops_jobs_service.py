@@ -1,3 +1,5 @@
+"""Application module for recruiters services recruiters admin ops jobs service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -40,6 +42,7 @@ async def requeue_job(
     force: bool,
     now: datetime | None = None,
 ) -> JobRequeueResult:
+    """Requeue job."""
     resolved_now = normalize_datetime(now) or datetime.now(UTC)
     job = await load_job_for_update(db, job_id)
     previous_status = job.status

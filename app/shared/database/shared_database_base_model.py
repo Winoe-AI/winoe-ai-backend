@@ -1,3 +1,5 @@
+"""Application module for database base model workflows."""
+
 from datetime import datetime
 
 from sqlalchemy import DateTime, func

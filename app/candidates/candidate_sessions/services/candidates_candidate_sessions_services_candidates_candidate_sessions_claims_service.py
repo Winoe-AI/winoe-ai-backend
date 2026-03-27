@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions claims service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -19,6 +21,7 @@ from app.shared.auth.principal import Principal
 async def claim_invite_with_principal(
     db: AsyncSession, token: str, principal: Principal, *, now: datetime | None = None
 ):
+    """Claim invite with principal."""
     now = now or datetime.now(UTC)
     async with db.begin_nested():
         cs = await fetch_by_token_for_update(db, token, now=now)

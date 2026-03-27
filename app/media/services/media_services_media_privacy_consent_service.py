@@ -1,3 +1,5 @@
+"""Application module for media services media privacy consent service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +24,7 @@ def _normalized_notice_version(value: str) -> str:
 
 
 def require_media_consent(candidate_session: CandidateSession) -> None:
+    """Require media consent."""
     if (
         not (candidate_session.consent_version or "").strip()
         or candidate_session.consent_timestamp is None
@@ -39,6 +42,7 @@ async def record_candidate_session_consent(
     notice_version: str,
     ai_notice_version: str | None = None,
 ) -> CandidateSession:
+    """Record candidate session consent."""
     resolved_notice_version = _normalized_notice_version(notice_version)
     resolved_ai_notice_version = (
         (ai_notice_version or "").strip()

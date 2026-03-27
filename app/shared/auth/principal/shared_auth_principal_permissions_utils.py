@@ -1,9 +1,12 @@
+"""Application module for auth principal permissions utils workflows."""
+
 from __future__ import annotations
 
 from app.config import settings
 
 
 def build_permissions(claims: dict, roles: list[str]) -> list[str]:
+    """Build permissions."""
     permissions_claim = claims.get("permissions")
     if not isinstance(permissions_claim, list):
         permissions_claim = claims.get(settings.auth.AUTH0_PERMISSIONS_CLAIM) or []

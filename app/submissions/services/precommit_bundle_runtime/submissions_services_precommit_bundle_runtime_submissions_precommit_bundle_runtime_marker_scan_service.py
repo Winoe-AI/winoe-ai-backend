@@ -1,3 +1,5 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime marker scan service workflows."""
+
 from __future__ import annotations
 
 from app.submissions.services.precommit_bundle_runtime.submissions_services_precommit_bundle_runtime_submissions_precommit_bundle_runtime_core_model import (
@@ -12,6 +14,7 @@ async def find_marker_commit_sha(
     branch: str,
     marker: str,
 ) -> str | None:
+    """Return marker commit sha."""
     commits = await github_client.list_commits(
         repo_full_name,
         sha=branch,

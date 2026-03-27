@@ -1,3 +1,5 @@
+"""Application module for submissions constants submissions exceptions constants workflows."""
+
 from fastapi import status
 
 from app.shared.utils.shared_utils_errors_utils import ApiError

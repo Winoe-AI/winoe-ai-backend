@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health repo result service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.template_health.integrations_github_template_health_github_template_health_item_builder_service import (
@@ -22,6 +24,7 @@ def build_repo_result(
     default_branch: str | None,
     live_result: LiveCheckResult | None,
 ):
+    """Build repo result."""
     return build_item(
         template_key,
         repo_full_name,

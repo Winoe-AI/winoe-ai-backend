@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions test results assemble utils workflows."""
+
 from __future__ import annotations
 
 
@@ -26,6 +28,7 @@ def assemble_result(
     sanitized_output,
     include_output: bool,
 ):
+    """Execute assemble result."""
     result = {
         "status": status_str,
         "passed": passed_val,

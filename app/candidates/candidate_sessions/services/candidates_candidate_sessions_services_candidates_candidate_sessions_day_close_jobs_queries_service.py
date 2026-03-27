@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions day close jobs queries service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select

@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases submit task runner service workflows."""
+
 from __future__ import annotations
 
 from fastapi import status
@@ -33,6 +35,7 @@ async def run_code_submission(
     github_client: GithubClient,
     actions_runner,
 ) -> tuple[ActionsRunResult | None, str | None, Workspace | None]:
+    """Run code submission."""
     workspace, branch = await fetch_workspace_and_branch(
         db,
         candidate_session_id,

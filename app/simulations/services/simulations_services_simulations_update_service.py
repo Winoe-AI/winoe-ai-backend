@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations update service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -31,6 +33,7 @@ async def update_simulation(
     actor_user_id: int,
     payload: Any,
 ) -> tuple[Simulation, list[Task]]:
+    """Update simulation."""
     simulation, tasks = await require_owned_simulation_with_tasks(
         db,
         simulation_id,

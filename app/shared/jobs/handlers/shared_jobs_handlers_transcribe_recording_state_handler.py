@@ -1,3 +1,5 @@
+"""Application module for jobs handlers transcribe recording state handler workflows."""
+
 from __future__ import annotations
 
 from app.media.repositories.recordings import repository as recordings_repo

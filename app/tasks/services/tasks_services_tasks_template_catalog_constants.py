@@ -1,3 +1,5 @@
+"""Application module for tasks services tasks template catalog constants workflows."""
+
 from __future__ import annotations
 
 from typing import Any

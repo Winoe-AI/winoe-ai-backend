@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare summary service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -91,6 +93,7 @@ async def list_candidates_compare_summary(
     require_access: RequireAccess = require_simulation_compare_access,
     load_day_completion_for_sessions: LoadDayCompletion = load_day_completion,
 ) -> dict[str, Any]:
+    """Return candidates compare summary."""
     access = await require_access(db, simulation_id=simulation_id, user=user)
     rows = await fetch_candidate_compare_rows(db, simulation_id=simulation_id)
     session_ids = [int(row.candidate_session_id) for row in rows]

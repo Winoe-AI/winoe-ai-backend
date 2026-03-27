@@ -1,3 +1,5 @@
+"""Application module for recruiters schemas recruiters users schema workflows."""
+
 from pydantic import ConfigDict
 
 from app.shared.types.shared_types_base_model import APIModel

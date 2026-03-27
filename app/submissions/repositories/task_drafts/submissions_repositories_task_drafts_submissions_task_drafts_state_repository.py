@@ -1,3 +1,5 @@
+"""Application module for submissions repositories task drafts submissions task drafts state repository workflows."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -9,6 +11,7 @@ from app.submissions.repositories.task_drafts.submissions_repositories_task_draf
 
 
 def is_finalized(draft: TaskDraft) -> bool:
+    """Return whether finalized."""
     return draft.finalized_at is not None or draft.finalized_submission_id is not None
 
 
@@ -19,6 +22,7 @@ def apply_draft_values(
     content_json: dict[str, Any] | None,
     updated_at: datetime,
 ) -> None:
+    """Apply draft values."""
     draft.content_text = content_text
     draft.content_json = content_json
     draft.updated_at = updated_at

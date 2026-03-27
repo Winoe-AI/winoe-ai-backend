@@ -1,3 +1,5 @@
+"""Application module for simulations routes simulations routes simulations routes invite resend logic routes workflows."""
+
 from __future__ import annotations
 
 from fastapi import HTTPException, Request, status
@@ -24,6 +26,7 @@ async def resend_invite(
     user,
     email_service: EmailService,
 ) -> CandidateSession:
+    """Resend invite."""
     ensure_recruiter_or_none(user)
     enforce_invite_resend_limit(request, user.id, candidate_session_id)
 

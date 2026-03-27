@@ -1,3 +1,5 @@
+"""Application module for submissions routes submissions github webhooks utils routes workflows."""
+
 from __future__ import annotations
 
 import json
@@ -20,6 +22,7 @@ def log_delivery(
     enqueued_artifact_parse: bool = False,
     level: int = logging.INFO,
 ) -> None:
+    """Execute log delivery."""
     logger.log(
         level,
         "github_webhook_delivery",
@@ -37,6 +40,7 @@ def log_delivery(
 
 
 def apply_rate_limit(rate_limit_module: Any, request: Request, rule: Any) -> None:
+    """Apply rate limit."""
     if rate_limit_module.rate_limit_enabled():
         client_fingerprint = rate_limit_module.hash_value(
             rate_limit_module.client_id(request)
@@ -51,6 +55,7 @@ def parse_payload(
     event_type: str,
     logger: logging.Logger,
 ) -> dict[str, Any]:
+    """Parse payload."""
     try:
         payload: Any = json.loads(raw_body)
     except json.JSONDecodeError as exc:

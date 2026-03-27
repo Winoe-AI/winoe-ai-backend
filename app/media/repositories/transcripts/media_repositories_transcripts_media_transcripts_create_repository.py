@@ -1,3 +1,5 @@
+"""Application module for media repositories transcripts media transcripts create repository workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -27,6 +29,7 @@ async def create_transcript(
     created_at: datetime | None = None,
     commit: bool = True,
 ) -> Transcript:
+    """Create transcript."""
     transcript = Transcript(
         recording_id=recording_id,
         status=status,
@@ -52,6 +55,7 @@ async def get_or_create_transcript(
     status: str,
     commit: bool = True,
 ) -> tuple[Transcript, bool]:
+    """Return or create transcript."""
     if not commit:
         try:
             async with db.begin_nested():

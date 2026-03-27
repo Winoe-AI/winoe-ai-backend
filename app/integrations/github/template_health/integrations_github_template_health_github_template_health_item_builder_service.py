@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health item builder service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github.template_health.integrations_github_template_health_github_template_health_schema import (
@@ -20,6 +22,7 @@ def build_item(
     workflow_conclusion: str | None = None,
     artifact_name_found: str | None = None,
 ) -> TemplateHealthItem:
+    """Build item."""
     return TemplateHealthItem(
         templateKey=template_key,
         repoFullName=repo_full_name,

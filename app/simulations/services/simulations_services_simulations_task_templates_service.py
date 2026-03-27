@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations task templates service workflows."""
+
 from __future__ import annotations
 
 from app.config import settings

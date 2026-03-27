@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health workflow eval service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient, GithubError
@@ -24,6 +26,7 @@ async def validate_workflow(
     checks: TemplateHealthChecks,
     errors: list[str],
 ) -> None:
+    """Validate workflow."""
     try:
         contents = await github_client.get_file_contents(
             repo_full_name, workflow_path, ref=default_branch

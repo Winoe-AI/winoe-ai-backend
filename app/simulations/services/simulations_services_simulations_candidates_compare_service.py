@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations candidates compare service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -61,6 +63,7 @@ async def list_candidates_compare_summary(
     simulation_id: int,
     user: User,
 ):
+    """Return candidates compare summary."""
     return await _list_candidates_compare_summary_impl(
         db,
         simulation_id=simulation_id,

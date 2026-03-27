@@ -1,3 +1,5 @@
+"""Application module for submissions presentation submissions list presenter utils workflows."""
+
 from __future__ import annotations
 
 from app.submissions.presentation.submissions_presentation_submissions_commit_basis_utils import (
@@ -18,6 +20,7 @@ from app.submissions.services import service_recruiter as recruiter_sub_service
 
 
 def present_list_item(sub, task, *, day_audit=None):
+    """Present list item."""
     parsed_output = recruiter_sub_service.parse_test_output(
         getattr(sub, "test_output", None)
     )

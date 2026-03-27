@@ -1,3 +1,5 @@
+"""Application module for auth principal token decoder utils workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -13,6 +15,7 @@ logger = logging.getLogger(__name__)
 def decode_credentials(
     credentials: HTTPAuthorizationCredentials, request_id: str | None
 ) -> dict:
+    """Execute decode credentials."""
     try:
         return auth0.decode_auth0_token(credentials.credentials)
     except auth0.Auth0Error as exc:

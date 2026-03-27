@@ -1,3 +1,5 @@
+"""Application module for integrations email provider smtp client workflows."""
+
 from __future__ import annotations
 
 from .integrations_email_email_provider_base_client import EmailMessage
@@ -5,6 +7,8 @@ from .integrations_email_email_provider_smtp_transport_client import send_smtp
 
 
 class SMTPEmailProvider:
+    """Represent smtpemail provider data and behavior."""
+
     def __init__(
         self,
         host: str,
@@ -25,6 +29,7 @@ class SMTPEmailProvider:
         self.sender = sender
 
     async def send(self, message: EmailMessage) -> str | None:
+        """Send the requested communication."""
         return await send_smtp(
             message,
             host=self.host,

@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services candidates candidate sessions schedule helpers service workflows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -29,6 +31,8 @@ DEFAULT_WINDOW_END = time(hour=17, minute=0)
 
 @dataclass(slots=True)
 class ScheduleCandidateSessionResult:
+    """Represent schedule candidate session result data and behavior."""
+
     candidate_session: object
     created: bool
 

@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario generation story service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -21,6 +23,7 @@ def build_storyline_markdown(
     pick: PickFn,
     template_display_name: TemplateNameFn,
 ) -> str:
+    """Build storyline markdown."""
     seed = seed_from_inputs(role, tech_stack, template_key)
     display_name = template_display_name(template_key)
     context = pick(storyline_contexts, seed, 1)
@@ -50,6 +53,7 @@ def build_task_description(
     pick: PickFn,
     template_display_name: TemplateNameFn,
 ) -> str:
+    """Build task description."""
     seed = seed_from_inputs(role, tech_stack, template_key)
     priority = pick(code_priorities, seed, 10 + day_index)
     debug_signal = pick(debug_signals, seed, 20 + day_index)

@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks handlers tasks codespace init handler workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -24,6 +26,7 @@ async def handle_codespace_init(
     db: AsyncSession,
     github_client: GithubClient,
 ) -> CodespaceInitResponse:
+    """Handle codespace init."""
     try:
         workspace, _, codespace_url, _ = await init_codespace(
             db,

@@ -1,3 +1,5 @@
+"""Application module for integrations github webhooks handlers workflow run parse handler workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -9,6 +11,7 @@ from app.integrations.github.webhooks.handlers.integrations_github_webhooks_hand
 
 
 def normalized_lower(value: Any) -> str | None:
+    """Execute normalized lower."""
     if not isinstance(value, str):
         return None
     normalized = value.strip().lower()
@@ -16,6 +19,7 @@ def normalized_lower(value: Any) -> str | None:
 
 
 def coerce_positive_int(value: Any) -> int | None:
+    """Execute coerce positive int."""
     try:
         parsed = int(value)
     except (TypeError, ValueError):
@@ -24,6 +28,7 @@ def coerce_positive_int(value: Any) -> int | None:
 
 
 def parse_github_datetime(value: Any) -> datetime | None:
+    """Parse github datetime."""
     if not isinstance(value, str):
         return None
     raw = value.strip()
@@ -39,6 +44,7 @@ def parse_github_datetime(value: Any) -> datetime | None:
 def parse_workflow_run_completed_event(
     payload: dict[str, Any],
 ) -> WorkflowRunCompletedEvent | None:
+    """Parse workflow run completed event."""
     workflow_run = payload.get("workflow_run")
     repository = payload.get("repository")
     if not isinstance(workflow_run, dict) or not isinstance(repository, dict):

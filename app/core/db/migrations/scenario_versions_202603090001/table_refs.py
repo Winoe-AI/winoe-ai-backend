@@ -6,6 +6,7 @@ import sqlalchemy as sa
 
 
 def table_refs() -> tuple[sa.Table, sa.Table, sa.Table]:
+    """Execute table refs."""
     simulations = sa.table(
         "simulations",
         sa.column("id", sa.Integer()),

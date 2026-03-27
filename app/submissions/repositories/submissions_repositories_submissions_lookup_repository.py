@@ -1,3 +1,5 @@
+"""Application module for submissions repositories submissions lookup repository workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -9,6 +11,7 @@ from app.shared.database.shared_database_models_model import Simulation, Submiss
 async def find_duplicate(
     db: AsyncSession, candidate_session_id: int, task_id: int
 ) -> bool:
+    """Return duplicate."""
     dup_stmt = select(Submission.id).where(
         Submission.candidate_session_id == candidate_session_id,
         Submission.task_id == task_id,
@@ -18,6 +21,7 @@ async def find_duplicate(
 
 
 async def simulation_template(db: AsyncSession, simulation_id: int) -> str | None:
+    """Execute simulation template."""
     stmt = select(Simulation.scenario_template, Simulation.focus).where(
         Simulation.id == simulation_id
     )
@@ -36,6 +40,7 @@ async def get_by_candidate_session_task(
     task_id: int,
     for_update: bool = False,
 ) -> Submission | None:
+    """Return by candidate session task."""
     stmt = select(Submission).where(
         Submission.candidate_session_id == candidate_session_id,
         Submission.task_id == task_id,

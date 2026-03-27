@@ -1,3 +1,5 @@
+"""Application module for integrations email provider resend client workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -19,6 +21,7 @@ class ResendEmailProvider:
         self.transport = transport
 
     async def send(self, message: EmailMessage) -> str | None:
+        """Send the requested communication."""
         payload = {
             "from": message.sender or self.sender,
             "to": [message.to],

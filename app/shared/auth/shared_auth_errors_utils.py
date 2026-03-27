@@ -1,3 +1,5 @@
+"""Application module for auth errors utils workflows."""
+
 from __future__ import annotations
 
 from fastapi import status

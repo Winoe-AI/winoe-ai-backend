@@ -1,3 +1,5 @@
+"""Application module for submissions routes submissions routes submissions routes detail media routes workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -22,6 +24,7 @@ from app.shared.utils.shared_utils_errors_utils import (
 
 
 async def resolve_day_audit(db: AsyncSession, *, sub, task):
+    """Resolve day audit."""
     candidate_session_id = getattr(sub, "candidate_session_id", None)
     day_index = getattr(task, "day_index", None)
     if not isinstance(candidate_session_id, int) or not isinstance(day_index, int):
@@ -44,6 +47,7 @@ async def resolve_media_payload(
     provider_factory=None,
     signed_url_ttl_resolver=None,
 ):
+    """Resolve media payload."""
     provider_factory = provider_factory or get_storage_media_provider
     signed_url_ttl_resolver = signed_url_ttl_resolver or resolve_signed_url_ttl
     recording = await _resolve_recording(db, sub=sub, task=task, cs=cs)

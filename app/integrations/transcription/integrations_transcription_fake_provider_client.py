@@ -1,3 +1,5 @@
+"""Application module for integrations transcription fake provider client workflows."""
+
 from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse
@@ -21,6 +23,7 @@ class FakeTranscriptionProvider(TranscriptionProvider):
         source_url: str,
         content_type: str,
     ) -> TranscriptionResult:
+        """Execute transcribe recording."""
         if not source_url:
             raise TranscriptionProviderError("source_url is required")
         parsed = urlparse(source_url)

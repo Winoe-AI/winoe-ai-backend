@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario generation runtime service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -66,6 +68,7 @@ def build_deterministic_template_scenario(
     pick: PickFn,
     template_display_name: TemplateNameFn,
 ) -> GeneratedScenarioPayload:
+    """Build deterministic template scenario."""
     storyline_md = build_storyline_markdown(
         role=role,
         tech_stack=tech_stack,
@@ -109,6 +112,7 @@ def generate_scenario_payload(
     build_fallback: FallbackBuilderFn,
     logger: Any,
 ) -> GeneratedScenarioPayload:
+    """Generate scenario payload."""
     source = choose_source()
     if source == SCENARIO_SOURCE_TEMPLATE_FALLBACK:
         return build_fallback(

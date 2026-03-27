@@ -1,9 +1,12 @@
+"""Application module for submissions services precommit bundle runtime submissions precommit bundle runtime validation service workflows."""
+
 from __future__ import annotations
 
 from app.shared.utils.shared_utils_errors_utils import ApiError
 
 
 def validate_base_template_sha(base_template_sha: str | None, context) -> None:
+    """Validate base template sha."""
     if not base_template_sha or not context.bundle.base_template_sha:
         return
     if base_template_sha == context.bundle.base_template_sha:

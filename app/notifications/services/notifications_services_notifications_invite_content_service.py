@@ -1,3 +1,5 @@
+"""Application module for notifications services notifications invite content service workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -7,6 +9,7 @@ from app.shared.utils.shared_utils_brand_utils import APP_NAME
 
 
 def sanitize_error(err: str | None) -> str | None:
+    """Sanitize error."""
     return err[:200] if err else None
 
 
@@ -17,6 +20,7 @@ def invite_email_content(
     simulation: Simulation,
     expires_at: datetime | None,
 ) -> tuple[str, str, str]:
+    """Execute invite email content."""
     if expires_at and expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=UTC)
     expires_text = (

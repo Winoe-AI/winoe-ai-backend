@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations lifecycle service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -40,6 +42,7 @@ async def activate_simulation(
     actor_user_id: int,
     now: datetime | None = None,
 ) -> Simulation:
+    """Activate simulation."""
     return await _transition_owned_simulation_impl(
         db,
         simulation_id=simulation_id,
@@ -61,6 +64,7 @@ async def terminate_simulation(
     reason: str | None = None,
     now: datetime | None = None,
 ) -> Simulation:
+    """Terminate simulation."""
     return (
         await terminate_simulation_with_cleanup(
             db,
@@ -80,6 +84,7 @@ async def terminate_simulation_with_cleanup(
     reason: str | None = None,
     now: datetime | None = None,
 ) -> TerminateSimulationResult:
+    """Terminate simulation with cleanup."""
     return await terminate_simulation_with_cleanup_impl(
         db,
         simulation_id=simulation_id,

@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases run tests service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession

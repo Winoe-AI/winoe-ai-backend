@@ -1,3 +1,5 @@
+"""Application module for jobs handlers evaluation run handler workflows."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -11,6 +13,7 @@ from app.shared.database import async_session_maker
 
 async def handle_evaluation_run(payload_json: dict[str, Any]) -> dict[str, Any]:
     # Imported here to avoid import cycle during worker handler registration.
+    """Handle evaluation run."""
     from app.shared.jobs.shared_jobs_worker_service import PermanentJobError
 
     fit_profile_pipeline.async_session_maker = async_session_maker

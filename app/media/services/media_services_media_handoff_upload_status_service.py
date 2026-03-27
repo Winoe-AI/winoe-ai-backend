@@ -1,3 +1,5 @@
+"""Application module for media services media handoff upload status service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +25,7 @@ async def get_handoff_status(
     candidate_session: CandidateSession,
     task_id: int,
 ) -> tuple[RecordingAsset | None, Transcript | None]:
+    """Return handoff status."""
     task = await submission_service.load_task_or_404(db, task_id)
     submission_service.ensure_task_belongs(task, candidate_session)
     ensure_handoff_task(task.type)

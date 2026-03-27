@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations scenario generation env service workflows."""
+
 from __future__ import annotations
 
 import os
@@ -20,10 +22,12 @@ def _has_any_env(keys: tuple[str, ...]) -> bool:
 
 
 def is_demo_mode_enabled() -> bool:
+    """Return whether demo mode enabled."""
     return any(_truthy_env(os.getenv(key)) for key in DEMO_MODE_ENV_KEYS)
 
 
 def llm_credentials_available() -> bool:
+    """Execute llm credentials available."""
     return _has_any_env(OPENAI_API_ENV_KEYS + ANTHROPIC_API_ENV_KEYS)
 
 
@@ -32,6 +36,7 @@ def choose_generation_source(
     demo_mode_enabled: bool | None = None,
     llm_available: bool | None = None,
 ) -> str:
+    """Choose generation source."""
     if demo_mode_enabled is None:
         demo_mode_enabled = is_demo_mode_enabled()
     if demo_mode_enabled:

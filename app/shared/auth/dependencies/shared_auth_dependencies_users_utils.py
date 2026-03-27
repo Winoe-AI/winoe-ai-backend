@@ -1,3 +1,5 @@
+"""Application module for auth dependencies users utils workflows."""
+
 from __future__ import annotations
 
 import sys
@@ -23,6 +25,7 @@ def _role_from_principal(principal: Principal) -> str:
 
 async def user_from_principal(principal: Principal, db: AsyncSession | None) -> User:
     # Prefer injected db; fall back to session maker for backward-compat.
+    """Execute user from principal."""
     if db is None:
         current_user_mod = current_user_module()
         maker = getattr(current_user_mod, "async_session_maker", async_session_maker)

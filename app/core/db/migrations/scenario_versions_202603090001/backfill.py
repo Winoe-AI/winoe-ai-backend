@@ -20,6 +20,7 @@ def _row_get(row: Any, key: str) -> Any:
 
 
 def run_backfill(conn: sa.Connection) -> None:
+    """Run backfill."""
     simulations, scenario_versions, candidate_sessions = table_refs()
     simulation_rows = conn.execute(
         sa.select(

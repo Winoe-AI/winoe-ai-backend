@@ -1,3 +1,5 @@
+"""Application module for media repositories recordings media recordings mutations repository workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -26,6 +28,7 @@ async def create_recording_asset(
     created_at: datetime | None = None,
     commit: bool = True,
 ) -> RecordingAsset:
+    """Create recording asset."""
     recording = RecordingAsset(
         candidate_session_id=candidate_session_id,
         task_id=task_id,
@@ -54,6 +57,7 @@ async def update_status(
     status: str,
     commit: bool = True,
 ) -> RecordingAsset:
+    """Update status."""
     if recording.status != status:
         recording.status = status
     if commit:
@@ -71,6 +75,7 @@ async def mark_deleted(
     now: datetime | None = None,
     commit: bool = True,
 ) -> RecordingAsset:
+    """Mark deleted."""
     resolved_now = now or datetime.now(UTC)
     if recording.deleted_at is None:
         recording.deleted_at = resolved_now
@@ -91,6 +96,7 @@ async def mark_purged(
     now: datetime | None = None,
     commit: bool = True,
 ) -> RecordingAsset:
+    """Mark purged."""
     resolved_now = now or datetime.now(UTC)
     if recording.deleted_at is None:
         recording.deleted_at = resolved_now

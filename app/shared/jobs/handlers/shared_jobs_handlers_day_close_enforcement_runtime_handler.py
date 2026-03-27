@@ -1,3 +1,5 @@
+"""Application module for jobs handlers day close enforcement runtime handler workflows."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -32,6 +34,7 @@ async def handle_day_close_enforcement_impl(
     workspace_repo,
     logger,
 ):
+    """Handle day close enforcement impl."""
     candidate_session_id = parse_positive_int(payload_json.get("candidateSessionId"))
     task_id = parse_positive_int(payload_json.get("taskId"))
     payload_day_index = parse_positive_int(payload_json.get("dayIndex"))

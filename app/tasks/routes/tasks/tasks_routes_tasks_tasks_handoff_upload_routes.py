@@ -1,3 +1,5 @@
+"""Application module for tasks routes tasks handoff upload routes workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -51,6 +53,17 @@ logger = logging.getLogger(__name__)
     "/{task_id}/handoff/upload/init",
     response_model=HandoffUploadInitResponse,
     status_code=status.HTTP_200_OK,
+    summary="Init Handoff Upload Route",
+    description=(
+        "Initialize candidate handoff recording upload and return signed upload"
+        " instructions."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Task or candidate session not found."
+        },
+    },
 )
 async def init_handoff_upload_route(
     task_id: Annotated[int, Path(..., ge=1)],
@@ -63,6 +76,7 @@ async def init_handoff_upload_route(
         StorageMediaProvider, Depends(get_media_storage_provider)
     ],
 ) -> HandoffUploadInitResponse:
+    """Handle the init handoff upload API route."""
     return await init_handoff_upload_route_impl(
         task_id=task_id,
         payload=payload,
@@ -78,6 +92,15 @@ async def init_handoff_upload_route(
     "/{task_id}/handoff/upload/complete",
     response_model=HandoffUploadCompleteResponse,
     status_code=status.HTTP_200_OK,
+    summary="Complete Handoff Upload Route",
+    description=(
+        "Finalize a previously initialized handoff upload and bind recording"
+        " metadata to the submission."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_404_NOT_FOUND: {"description": "Task or upload record not found."},
+    },
 )
 async def complete_handoff_upload_route(
     task_id: Annotated[int, Path(..., ge=1)],
@@ -90,6 +113,7 @@ async def complete_handoff_upload_route(
         StorageMediaProvider, Depends(get_media_storage_provider)
     ],
 ) -> HandoffUploadCompleteResponse:
+    """Handle the complete handoff upload API route."""
     return await complete_handoff_upload_route_impl(
         task_id=task_id,
         payload=payload,
@@ -105,6 +129,17 @@ async def complete_handoff_upload_route(
     "/{task_id}/handoff/status",
     response_model=HandoffStatusResponse,
     status_code=status.HTTP_200_OK,
+    summary="Handoff Status Route",
+    description=(
+        "Return the current recording/transcript status for handoff tasks in"
+        " the candidate session."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Task or handoff recording not found."
+        },
+    },
 )
 async def handoff_status_route(
     task_id: Annotated[int, Path(..., ge=1)],
@@ -116,6 +151,7 @@ async def handoff_status_route(
         StorageMediaProvider, Depends(get_media_storage_provider)
     ],
 ) -> HandoffStatusResponse:
+    """Handle the handoff status API route."""
     return await handoff_status_route_impl(
         task_id=task_id,
         candidate_session=candidate_session,

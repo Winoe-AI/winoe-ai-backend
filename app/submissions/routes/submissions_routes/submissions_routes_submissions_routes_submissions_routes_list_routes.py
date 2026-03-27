@@ -1,3 +1,5 @@
+"""Application module for submissions routes submissions routes submissions routes list routes workflows."""
+
 from contextlib import suppress
 from typing import Annotated
 

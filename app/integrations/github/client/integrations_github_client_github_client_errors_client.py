@@ -1,3 +1,5 @@
+"""Application module for integrations github client github client errors client workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -16,6 +18,7 @@ class GithubError(Exception):
 
 
 def raise_for_status(url: str, resp: httpx.Response) -> None:
+    """Execute raise for status."""
     if resp.status_code < 400:
         return
     logger.error(

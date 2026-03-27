@@ -1,3 +1,5 @@
+"""Application module for init workflows."""
+
 from fastapi import APIRouter
 
 from . import (

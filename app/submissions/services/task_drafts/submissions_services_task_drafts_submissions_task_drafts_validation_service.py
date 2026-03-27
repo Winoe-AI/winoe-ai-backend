@@ -1,3 +1,5 @@
+"""Application module for submissions services task drafts submissions task drafts validation service workflows."""
+
 from __future__ import annotations
 
 import json
@@ -11,12 +13,14 @@ MAX_DRAFT_CONTENT_BYTES = 200 * 1024
 
 
 def utf8_size(value: str | None) -> int:
+    """Execute utf8 size."""
     if value is None:
         return 0
     return len(value.encode("utf-8"))
 
 
 def json_size(value: dict[str, Any] | None) -> int:
+    """Execute json size."""
     if value is None:
         return 0
     encoded = json.dumps(
@@ -33,6 +37,7 @@ def validate_draft_payload_size(
     content_text: str | None,
     content_json: dict[str, Any] | None,
 ) -> tuple[int, int]:
+    """Validate draft payload size."""
     text_bytes = utf8_size(content_text)
     json_bytes = json_size(content_json)
 

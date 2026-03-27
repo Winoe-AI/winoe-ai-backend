@@ -1,3 +1,5 @@
+"""Application module for candidates candidate sessions services scheduling candidates candidate sessions scheduling day windows derivation service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
@@ -21,6 +23,7 @@ def derive_day_windows_impl(
     coerce_utc_datetime: Callable[[datetime], datetime],
     total_days: int = 5,
 ) -> list[dict[str, Any]]:
+    """Derive day windows impl."""
     if total_days <= 0:
         raise ValueError("total_days must be greater than zero")
     if day_window_end_local <= day_window_start_local:

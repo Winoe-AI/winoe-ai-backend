@@ -1,3 +1,5 @@
+"""Application module for simulations services simulations creation service workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -90,6 +92,7 @@ def _log_ai_config_changes(
 async def create_simulation_with_tasks(
     db: AsyncSession, payload: Any, user: Any
 ) -> tuple[Simulation, list[Task], Job]:
+    """Create simulation with tasks."""
     sim, notice_version, eval_by_day = build_simulation_for_create(payload, user)
     db.add(sim)
     await db.flush()

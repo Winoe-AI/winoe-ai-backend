@@ -1,3 +1,5 @@
+"""Application module for evaluations services evaluations runs complete service workflows."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -50,6 +52,7 @@ async def complete_run(
     commit: bool = True,
     logger: Any = None,
 ) -> EvaluationRun:
+    """Complete run."""
     run = await evaluation_repo.get_run_by_id(db, run_id, for_update=True)
     if run is None:
         raise EvaluationRunStateError(f"evaluation run not found: {run_id}")

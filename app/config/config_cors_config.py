@@ -1,3 +1,5 @@
+"""Application module for config cors config workflows."""
+
 from __future__ import annotations
 
 from pydantic import Field, field_validator

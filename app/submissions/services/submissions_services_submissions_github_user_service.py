@@ -1,3 +1,5 @@
+"""Application module for submissions services submissions github user service workflows."""
+
 from __future__ import annotations
 
 import re

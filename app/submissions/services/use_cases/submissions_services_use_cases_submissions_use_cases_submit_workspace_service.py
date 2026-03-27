@@ -1,3 +1,5 @@
+"""Application module for submissions services use cases submissions use cases submit workspace service workflows."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,6 +32,7 @@ async def fetch_workspace_and_branch(
 ) -> tuple[Workspace, str]:
     # Favor a direct task-scoped lookup first. This avoids extra resolution
     # queries on the submit hot path while preserving grouped fallback behavior.
+    """Return workspace and branch."""
     workspace = await submission_service.workspace_repo.get_by_session_and_task(
         db,
         candidate_session_id=candidate_session_id,

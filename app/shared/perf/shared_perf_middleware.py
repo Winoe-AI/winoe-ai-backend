@@ -1,3 +1,5 @@
+"""Application module for perf middleware workflows."""
+
 from __future__ import annotations
 
 import logging
@@ -24,6 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 def create_request_perf_middleware(get_perf_ctx: Callable[[], object]):
+    """Create request perf middleware."""
+
     class RequestPerfMiddleware:
         def __init__(self, app: ASGIApp):
             self.app = app

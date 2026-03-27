@@ -1,3 +1,5 @@
+"""Application module for config settings fields config workflows."""
+
 from __future__ import annotations
 
 from pydantic import AliasChoices, Field
@@ -12,6 +14,8 @@ from .config_storage_media_config import StorageMediaSettings
 
 
 class SettingsFields(BaseSettings):
+    """Represent settings fields data and behavior."""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

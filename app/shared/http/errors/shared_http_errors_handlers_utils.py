@@ -1,3 +1,5 @@
+"""Application module for http errors handlers utils workflows."""
+
 from __future__ import annotations
 
 from fastapi.exceptions import RequestValidationError
@@ -10,6 +12,7 @@ from app.shared.utils.shared_utils_errors_utils import ApiError
 
 
 def register_error_handlers(app) -> None:
+    """Execute register error handlers."""
     app.add_exception_handler(ApiError, api_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
 

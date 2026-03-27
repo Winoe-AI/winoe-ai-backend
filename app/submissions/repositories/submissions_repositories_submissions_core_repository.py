@@ -1,3 +1,5 @@
+"""Application module for submissions repositories submissions core repository workflows."""
+
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +26,7 @@ async def upsert_handoff_submission(
     recording_id: int,
     submitted_at: datetime,
 ) -> int:
+    """Upsert handoff submission."""
     return await _upsert_handoff_submission(
         db,
         candidate_session_id=candidate_session_id,

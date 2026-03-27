@@ -1,3 +1,5 @@
+"""Application module for utils proxy headers utils workflows."""
+
 from __future__ import annotations
 
 import ipaddress
@@ -30,10 +32,13 @@ def _ip_in_trusted(host: str, networks: list[ipaddress._BaseNetwork]) -> bool:
 
 
 def trusted_proxy_cidrs() -> list[str]:
+    """Execute trusted proxy cidrs."""
     return list(settings.TRUSTED_PROXY_CIDRS or [])
 
 
 class TrustedProxyHeadersMiddleware:
+    """Represent trusted proxy headers middleware data and behavior."""
+
     def __init__(self, app, trusted_proxy_cidrs: list[str] | None = None) -> None:
         cidrs = trusted_proxy_cidrs if trusted_proxy_cidrs is not None else []
         self.app = app

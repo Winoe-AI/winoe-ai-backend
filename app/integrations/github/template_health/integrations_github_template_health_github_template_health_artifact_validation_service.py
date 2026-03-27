@@ -1,3 +1,5 @@
+"""Application module for integrations github template health github template health artifact validation service workflows."""
+
 from __future__ import annotations
 
 from app.integrations.github import GithubClient, GithubError
@@ -13,6 +15,7 @@ from app.integrations.github.template_health.integrations_github_template_health
 async def validate_artifact_payload(
     github_client: GithubClient, *, repo_full_name: str, artifact_id: int
 ) -> str | None:
+    """Validate artifact payload."""
     try:
         zip_content = await github_client.download_artifact_zip(
             repo_full_name, artifact_id

@@ -1,3 +1,5 @@
+"""Application module for submissions repositories github native workspaces submissions github native workspaces workspace group model workflows."""
+
 from __future__ import annotations
 
 import uuid
