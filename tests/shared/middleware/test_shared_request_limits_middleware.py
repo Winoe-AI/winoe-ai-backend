@@ -60,3 +60,32 @@ async def test_request_size_limit_passes_through_non_http(monkeypatch):
     middleware = RequestSizeLimitMiddleware(app, max_body_bytes=1)
     await middleware({"type": "lifespan"}, lambda: None, lambda _m: None)
     assert called["ran"] is True
+
+
+@pytest.mark.asyncio
+async def test_request_size_limit_ignores_non_request_messages():
+    sent: list[dict] = []
+    received_messages: list[dict] = []
+
+    async def app(scope, receive, send):
+        received_messages.append(await receive())
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+    middleware = RequestSizeLimitMiddleware(app, max_body_bytes=1)
+    messages = iter([{"type": "http.disconnect"}])
+
+    async def receive():
+        return next(messages)
+
+    async def send(message):
+        sent.append(message)
+
+    await middleware(
+        {"type": "http", "method": "POST", "headers": []},
+        receive,
+        send,
+    )
+
+    assert received_messages == [{"type": "http.disconnect"}]
+    assert sent[0]["status"] == 200

@@ -70,3 +70,20 @@ def test_attach_filter_and_dict_args(caplog):
     rec = caplog.records[0]
     assert rec.args["foo"] == "bar"
     assert rec.args["authorization"] == "[redacted]"
+
+
+def test_redaction_filter_handles_non_mapping_non_tuple_args():
+    record = logging.LogRecord(
+        name="redaction.non_tuple",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="unchanged message",
+        args=(),
+        exc_info=None,
+    )
+    record.args = 123
+    record.authorization = "Bearer abc.def.ghi"
+
+    assert logging_mod.RedactionFilter().filter(record) is True
+    assert record.authorization == "[redacted]"

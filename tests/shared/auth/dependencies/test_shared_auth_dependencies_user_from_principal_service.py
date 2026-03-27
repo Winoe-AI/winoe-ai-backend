@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.shared.auth import dependencies
+from app.shared.auth.principal import Principal
 from tests.shared.auth.dependencies.shared_auth_dependencies_utils import ctx_maker
 
 
@@ -64,3 +65,19 @@ async def test_user_from_principal_handles_integrity_error(monkeypatch):
     user = await dependencies._user_from_principal(principal, db)
     assert user == "existing-retry@test.com"
     assert db.rollbacks == 1
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_assigns_candidate_role(async_session):
+    principal = Principal(
+        sub="auth0|candidate-role",
+        email="candidate-role@example.com",
+        name="Candidate Role",
+        roles=["candidate"],
+        permissions=[],
+        claims={},
+    )
+
+    user = await dependencies._user_from_principal(principal, async_session)
+
+    assert user.role == "candidate"

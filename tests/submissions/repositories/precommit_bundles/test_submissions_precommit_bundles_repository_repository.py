@@ -78,3 +78,64 @@ async def test_get_ready_by_scenario_and_template_filters_non_ready(async_sessio
         template_key=sim.template_key,
     )
     assert ready is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("commit", [True, False])
+async def test_set_status_covers_commit_and_flush_branches(async_session, commit: bool):
+    sim, scenario_version_id = await seed_bundle_context(
+        async_session, email="bundle-set-status@test.com"
+    )
+    bundle = await precommit_repo.create_bundle(
+        async_session,
+        scenario_version_id=scenario_version_id,
+        template_key=sim.template_key,
+        status=PRECOMMIT_BUNDLE_STATUS_READY,
+        patch_text=patch_body("README.md", "status branch"),
+    )
+
+    updated = await precommit_repo.set_status(
+        async_session,
+        bundle=bundle,
+        status=PRECOMMIT_BUNDLE_STATUS_DISABLED,
+        commit=commit,
+    )
+
+    assert updated.id == bundle.id
+    assert updated.status == PRECOMMIT_BUNDLE_STATUS_DISABLED
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("applied_commit_sha", "expected", "commit"),
+    [
+        ("  deadbeef  ", "deadbeef", True),
+        ("   ", None, False),
+    ],
+)
+async def test_set_applied_commit_sha_covers_commit_and_flush_branches(
+    async_session,
+    applied_commit_sha: str,
+    expected: str | None,
+    commit: bool,
+):
+    sim, scenario_version_id = await seed_bundle_context(
+        async_session, email="bundle-set-sha@test.com"
+    )
+    bundle = await precommit_repo.create_bundle(
+        async_session,
+        scenario_version_id=scenario_version_id,
+        template_key=sim.template_key,
+        status=PRECOMMIT_BUNDLE_STATUS_READY,
+        patch_text=patch_body("README.md", "sha branch"),
+    )
+
+    updated = await precommit_repo.set_applied_commit_sha(
+        async_session,
+        bundle=bundle,
+        applied_commit_sha=applied_commit_sha,
+        commit=commit,
+    )
+
+    assert updated.id == bundle.id
+    assert updated.applied_commit_sha == expected

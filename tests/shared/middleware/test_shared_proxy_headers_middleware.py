@@ -39,6 +39,15 @@ async def test_untrusted_proxy_ignores_x_forwarded_for():
     assert resp.json()["host"] == "127.0.0.1"
 
 
+@pytest.mark.asyncio
+async def test_trusted_proxy_ignores_invalid_x_forwarded_for():
+    app = _proxy_test_app(["127.0.0.1/32"])
+    transport = ASGITransport(app=app, client=("127.0.0.1", 1234))
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        resp = await client.get("/ip", headers={"X-Forwarded-For": "not-an-ip"})
+    assert resp.json()["host"] == "127.0.0.1"
+
+
 def test_proxy_header_helper_validation():
     assert proxy_headers._is_valid_ip("invalid") is False
     assert proxy_headers._is_valid_cidr("bad") is False
@@ -62,3 +71,12 @@ async def test_proxy_headers_no_client_and_non_http(monkeypatch):
     await middleware({"type": "websocket"}, lambda: None, lambda msg: msg)
     # Missing client should also bypass without errors
     await middleware({"type": "http", "headers": []}, lambda: None, lambda msg: msg)
+
+
+@pytest.mark.asyncio
+async def test_trusted_proxy_without_forwarded_for_keeps_original_client():
+    app = _proxy_test_app(["127.0.0.1/32"])
+    transport = ASGITransport(app=app, client=("127.0.0.1", 1234))
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        resp = await client.get("/ip")
+    assert resp.json()["host"] == "127.0.0.1"

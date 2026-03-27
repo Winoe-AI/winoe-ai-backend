@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.shared.jobs import shared_jobs_worker_service as worker_service
 from app.shared.jobs import worker
 from app.shared.jobs.repositories import repository as jobs_repo
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
@@ -58,3 +59,10 @@ async def test_run_once_succeeds_and_marks_result(async_session):
     assert refreshed.attempt == 1
     assert refreshed.result_json == {"ok": True}
     assert refreshed.last_error is None
+
+
+def test_build_worker_id_uses_hostname_and_pid(monkeypatch):
+    monkeypatch.setattr(worker_service.socket, "gethostname", lambda: "unit-host")
+    monkeypatch.setattr(worker_service.os, "getpid", lambda: 4321)
+
+    assert worker_service._build_worker_id() == "unit-host:4321"

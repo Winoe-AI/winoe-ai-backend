@@ -90,3 +90,69 @@ async def test_build_current_task_view_fetches_day_audit_when_incomplete(monkeyp
     )
     assert captured["day_audit_called"] == (5, 2)
     assert day_audit.cutoff_commit_sha == "sha"
+
+
+@pytest.mark.asyncio
+async def test_build_current_task_view_marks_complete_without_overwriting_completed_at(
+    monkeypatch,
+):
+    now = datetime(2026, 3, 27, 12, 0, tzinfo=UTC)
+    existing_completed_at = datetime(2026, 3, 26, 12, 0, tzinfo=UTC)
+    request = SimpleNamespace(
+        headers={"x-candidate-session-id": "6"},
+        client=SimpleNamespace(host="127.0.0.1"),
+    )
+    candidate_session = SimpleNamespace(
+        id=6,
+        status="in_progress",
+        completed_at=existing_completed_at,
+    )
+
+    class _FakeDB:
+        def __init__(self):
+            self.commit_calls = 0
+            self.refresh_calls = 0
+
+        async def commit(self):
+            self.commit_calls += 1
+
+        async def refresh(self, _obj):
+            self.refresh_calls += 1
+
+    db = _FakeDB()
+
+    async def _fetch_owned_session(_db, _session_id, _principal, now):
+        return candidate_session
+
+    async def _progress_snapshot(_db, _candidate_session, **_kwargs):
+        return ([], set(), None, 1, 1, True)
+
+    monkeypatch.setattr(current_task_logic, "utcnow", lambda: now)
+    monkeypatch.setattr(
+        current_task_logic.cs_service, "fetch_owned_session", _fetch_owned_session
+    )
+    monkeypatch.setattr(
+        current_task_logic.cs_service,
+        "ensure_schedule_started_for_content",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        current_task_logic.cs_service, "progress_snapshot", _progress_snapshot
+    )
+    monkeypatch.setattr(
+        current_task_logic.rate_limit, "rate_limit_enabled", lambda: False
+    )
+    monkeypatch.setattr(
+        current_task_logic,
+        "build_current_task_response",
+        lambda cs, *_a, **_k: cs,
+    )
+
+    result = await current_task_logic.build_current_task_view(
+        6, request, SimpleNamespace(sub="auth0|candidate"), db
+    )
+
+    assert result.status == "completed"
+    assert result.completed_at == existing_completed_at
+    assert db.commit_calls == 1
+    assert db.refresh_calls == 1

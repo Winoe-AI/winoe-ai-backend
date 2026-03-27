@@ -55,3 +55,48 @@ async def test_get_or_create_workspace_group_handles_duplicate_insert(monkeypatc
         ("collab", "org/coding", "octocat"),
         ("collab", "org/coding", "octocat"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_get_or_create_workspace_group_raises_when_duplicate_recovery_lookup_missing(
+    monkeypatch,
+):
+    db = _RollbackDB()
+
+    async def _get_workspace_group(*_args, **_kwargs):
+        return None
+
+    async def _generate_template_repo(**_kwargs):
+        return ("org/template", "org/coding", "main", 42)
+
+    async def _fetch_base_template_sha(_client, _repo, _branch):
+        return "base-sha"
+
+    async def _create_workspace_group(*_args, **_kwargs):
+        raise IntegrityError("", {}, None)
+
+    async def _add_collaborator_if_needed(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(wc.workspace_repo, "get_workspace_group", _get_workspace_group)
+    monkeypatch.setattr(wc, "generate_template_repo", _generate_template_repo)
+    monkeypatch.setattr(wc, "fetch_base_template_sha", _fetch_base_template_sha)
+    monkeypatch.setattr(
+        wc.workspace_repo, "create_workspace_group", _create_workspace_group
+    )
+    monkeypatch.setattr(wc, "add_collaborator_if_needed", _add_collaborator_if_needed)
+
+    with pytest.raises(IntegrityError):
+        await wc._get_or_create_workspace_group(
+            db,
+            candidate_session=SimpleNamespace(id=1),
+            task=SimpleNamespace(id=2),
+            workspace_key="coding",
+            github_client=object(),
+            github_username="octocat",
+            repo_prefix="pref-",
+            template_default_owner="org",
+            now=datetime.now(UTC),
+        )
+
+    assert db.rollback_calls == 1

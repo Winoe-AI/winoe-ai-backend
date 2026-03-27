@@ -3,6 +3,9 @@ from __future__ import annotations
 import pytest
 
 import app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils as admin_demo
+from app.shared.http.dependencies import (
+    shared_http_dependencies_admin_demo_rules_utils as admin_rules,
+)
 from tests.shared.factories import create_recruiter
 from tests.shared.http.dependencies.shared_http_dependencies_admin_demo_utils import (
     patch_demo_settings,
@@ -79,3 +82,9 @@ async def test_require_demo_mode_admin_allows_recruiter_id_allowlist(
     assert actor.actor_type == "recruiter_admin"
     assert actor.actor_id == str(recruiter.id)
     assert actor.recruiter_id == recruiter.id
+
+
+def test_admin_rules_normalized_tokens_skips_non_strings_and_blanks():
+    assert admin_rules._normalized_tokens([" Admin ", "", "   ", 123, None]) == [
+        "admin"
+    ]

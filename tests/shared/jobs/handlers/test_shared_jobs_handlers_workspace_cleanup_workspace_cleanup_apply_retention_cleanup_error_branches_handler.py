@@ -107,3 +107,47 @@ async def test_workspace_cleanup_apply_retention_cleanup_error_branches(async_se
             delete_enabled=False,
             job_id="job-e",
         )
+
+
+@pytest.mark.asyncio
+async def test_workspace_cleanup_apply_retention_cleanup_delete_404_marks_deleted(
+    async_session,
+):
+    created_at = datetime.now(UTC) - timedelta(days=60)
+    (
+        _company_id,
+        _candidate_session_id,
+        _workspace_id,
+        workspace_group_id,
+    ) = await _prepare_workspace(
+        async_session,
+        created_at=created_at,
+        use_group=True,
+    )
+    record = (
+        await async_session.execute(
+            select(WorkspaceGroup).where(WorkspaceGroup.id == workspace_group_id)
+        )
+    ).scalar_one()
+
+    class StubGithubClientDeleteMissing:
+        async def delete_repo(self, *_args, **_kwargs):
+            raise GithubError("missing", status_code=404)
+
+        async def archive_repo(self, *_args, **_kwargs):
+            return {}
+
+    now = datetime.now(UTC)
+    result = await cleanup_handler._apply_retention_cleanup(
+        StubGithubClientDeleteMissing(),
+        record=record,
+        now=now,
+        cleanup_mode="delete",
+        delete_enabled=True,
+        job_id="job-f",
+    )
+
+    assert result == "deleted_repo_missing"
+    assert record.cleanup_status == WORKSPACE_CLEANUP_STATUS_DELETED
+    assert record.cleaned_at == now
+    assert record.cleanup_error is None

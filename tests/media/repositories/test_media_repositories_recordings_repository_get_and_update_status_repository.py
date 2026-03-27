@@ -46,6 +46,7 @@ async def test_recordings_repository_get_and_update_status(async_session):
     assert unchanged.status == RECORDING_ASSET_STATUS_UPLOADED
     assert recordings_repo.is_downloadable(unchanged) is True
     assert recordings_repo.is_downloadable(None) is False
+    assert recordings_repo.is_deleted_or_purged(None) is False
     recording.status = RECORDING_ASSET_STATUS_FAILED
     assert recordings_repo.is_downloadable(recording) is False
     recording.status = RECORDING_ASSET_STATUS_DELETED

@@ -147,6 +147,21 @@ def test_reconcile_recording_status_replaces_existing_check(monkeypatch):
     assert call_names == ["drop_constraint", "create_check_constraint"]
 
 
+def test_reconcile_recording_status_creates_check_when_missing(monkeypatch):
+    op = _RecordingOp()
+    bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+    monkeypatch.setattr(
+        reconcile_recording_status,
+        "check_names",
+        lambda _bind, _table: set(),
+    )
+
+    reconcile_recording_status.reconcile_recording_status_check(op, bind)
+
+    call_names = [name for name, _, _ in op.calls]
+    assert call_names == ["create_check_constraint"]
+
+
 class _ScalarResult:
     def __init__(self, scalar: object) -> None:
         self._scalar = scalar
@@ -238,6 +253,14 @@ def test_reconcile_ensure_scenario_versions_backfill_guard_clauses(monkeypatch):
     reconcile_scenario_backfill.ensure_scenario_versions_backfill(bind)
     assert not bind.updates
 
+    monkeypatch.setattr(
+        reconcile_scenario_backfill,
+        "has_column",
+        lambda _bind, table, _col: table != "candidate_sessions",
+    )
+    reconcile_scenario_backfill.ensure_scenario_versions_backfill(bind)
+    assert not bind.updates
+
 
 def test_reconcile_ensure_scenario_versions_backfill_updates_active_ids(monkeypatch):
     bind = _ScenarioBackfillBind()
@@ -307,6 +330,55 @@ def test_reconcile_create_v1_inserts_expected_locked_row():
     assert stored["status"] == "locked"
     assert stored["template_key"] == reconcile_constants.DEFAULT_TEMPLATE_KEY
     assert stored["locked_at"] is not None
+
+
+def test_reconcile_create_v1_inserts_ready_row_for_non_terminal_status():
+    engine = sa.create_engine("sqlite+pysqlite:///:memory:")
+    metadata = sa.MetaData()
+    scenario_versions = sa.Table(
+        "scenario_versions",
+        metadata,
+        sa.Column("id", sa.Integer(), primary_key=True, autoincrement=True),
+        sa.Column("simulation_id", sa.Integer(), nullable=False),
+        sa.Column("version_index", sa.Integer(), nullable=False),
+        sa.Column("status", sa.String(), nullable=False),
+        sa.Column("storyline_md", sa.Text(), nullable=False),
+        sa.Column("task_prompts_json", sa.JSON(), nullable=False),
+        sa.Column("rubric_json", sa.JSON(), nullable=False),
+        sa.Column("focus_notes", sa.Text(), nullable=False),
+        sa.Column("template_key", sa.String(), nullable=False),
+        sa.Column("tech_stack", sa.String(), nullable=False),
+        sa.Column("seniority", sa.String(), nullable=False),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("locked_at", sa.DateTime(timezone=True), nullable=True),
+    )
+    metadata.create_all(engine)
+    row = {
+        "id": 8,
+        "status": "draft",
+        "title": "Draft Title",
+        "role": "Role",
+        "tech_stack": "python",
+        "seniority": "junior",
+        "focus": "Focus",
+        "scenario_template": "template",
+        "template_key": "custom-template",
+        "created_at": datetime(2026, 1, 6, tzinfo=UTC),
+        "activated_at": None,
+        "terminated_at": None,
+    }
+
+    with engine.begin() as conn:
+        created_id = reconcile_scenario_backfill._create_v1(
+            conn, scenario_versions, row
+        )
+        stored = conn.execute(sa.select(scenario_versions)).mappings().one()
+
+    assert created_id == 1
+    assert stored["simulation_id"] == 8
+    assert stored["status"] == "ready"
+    assert stored["template_key"] == "custom-template"
+    assert stored["locked_at"] is None
 
 
 def test_reconcile_run_upgrade_delegates_specs_and_unique_constraint(monkeypatch):

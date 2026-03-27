@@ -1,3 +1,5 @@
+import pytest
+
 from app.shared.jobs import worker
 from app.shared.jobs.handlers import (
     DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
@@ -35,3 +37,8 @@ def test_register_builtin_handlers_is_explicit():
         assert worker.has_handler(TRANSCRIBE_RECORDING_JOB_TYPE) is True
     finally:
         worker.clear_handlers()
+
+
+def test_register_handler_rejects_blank_job_type():
+    with pytest.raises(ValueError, match="job_type is required"):
+        worker.register_handler("   ", lambda _payload: None)

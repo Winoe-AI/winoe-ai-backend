@@ -9,6 +9,7 @@ def test_csrf_helpers_cover_edge_cases(monkeypatch):
         "https://frontend.tenon.ai"
     ]
     assert middleware_http._normalize_path_prefix("api/backend/") == "/api/backend"
+    assert middleware_http._normalize_path_prefix("/") == "/"
     assert middleware_http._path_matches_prefixes("/anything", ["/"]) is True
     assert middleware_http._is_cookie_authenticated_request({}) is False
     assert (
@@ -31,6 +32,12 @@ def test_csrf_helpers_cover_edge_cases(monkeypatch):
 
     monkeypatch.setattr(settings, "API_PREFIX", "")
     assert middleware_http._default_csrf_path_prefixes() == ["/"]
+    monkeypatch.setattr(
+        settings,
+        "CSRF_PROTECTED_PATH_PREFIXES",
+        [" /api/ ", "/api", " ", ""],
+    )
+    assert middleware_http._csrf_protected_prefixes() == ["/api"]
 
     monkeypatch.setattr(settings, "ENV", "test")
     monkeypatch.setattr(settings, "CSRF_ALLOWED_ORIGINS", [])

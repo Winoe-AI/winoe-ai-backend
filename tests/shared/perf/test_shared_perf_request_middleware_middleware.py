@@ -15,6 +15,12 @@ def test_request_id_from_scope_handles_invalid_bytes(monkeypatch):
     assert re.fullmatch(r"[a-f0-9-]{36}", request_id)
 
 
+def test_request_id_from_scope_ignores_non_request_id_headers():
+    scope = {"headers": [(b"x-other-header", b"value")]}
+    request_id = perf._request_id_from_scope(scope)
+    assert re.fullmatch(r"[a-f0-9-]{36}", request_id)
+
+
 @pytest.mark.asyncio
 async def test_perf_middleware_injects_request_id_and_logs(caplog, monkeypatch):
     monkeypatch.setattr(perf.settings, "DEBUG_PERF", True)

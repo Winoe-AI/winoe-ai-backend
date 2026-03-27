@@ -24,6 +24,12 @@ def _session_maker(async_session: AsyncSession) -> async_sessionmaker[AsyncSessi
     )
 
 
+def test_parse_simulation_id_helper_variants():
+    assert cleanup_handler._parse_simulation_id({"simulationId": True}) is None
+    assert cleanup_handler._parse_simulation_id({"simulationId": "0"}) is None
+    assert cleanup_handler._parse_simulation_id({"simulationId": "42"}) == 42
+
+
 @pytest.mark.asyncio
 async def test_handle_simulation_cleanup_skips_invalid_payload():
     result = await cleanup_handler.handle_simulation_cleanup({"simulationId": "abc"})
