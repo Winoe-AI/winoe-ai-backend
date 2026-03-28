@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 from tests.integrations.storage_media.test_integrations_storage_media_service_utils import *
 
 
@@ -9,5 +11,7 @@ def test_s3_provider_virtual_host_style():
         "candidate-sessions/2/tasks/6/recordings/demo.webm",
         120,
     )
-    assert download_url.startswith("https://media-bucket.storage.example.com:9000/")
-    assert "/base/candidate-sessions/2/tasks/6/recordings/demo.webm" in download_url
+    parsed = urlsplit(download_url)
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "media-bucket.storage.example.com:9000"
+    assert parsed.path == "/base/candidate-sessions/2/tasks/6/recordings/demo.webm"

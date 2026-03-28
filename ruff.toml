@@ -5,6 +5,7 @@ line-length = 88
 extend-exclude = [
   ".venv",
   "alembic/versions",
+  "code-quality",
 ]
 
 [lint]

@@ -18,6 +18,7 @@ from app.shared.http.dependencies.shared_http_dependencies_github_native_utils i
 )
 
 router = APIRouter()
+STATIC_TEMPLATE_HEALTH_CONCURRENCY = 6
 
 
 @router.get(
@@ -40,4 +41,5 @@ async def get_template_health(
         github_client,
         workflow_file=settings.github.GITHUB_ACTIONS_WORKFLOW_FILE,
         mode="static",
+        concurrency=STATIC_TEMPLATE_HEALTH_CONCURRENCY,
     )

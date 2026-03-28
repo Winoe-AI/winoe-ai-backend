@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
+
 def _star_export_modules() -> list[str]:
     repo_root = Path(__file__).resolve().parents[3]
     app_root = repo_root / "app"
