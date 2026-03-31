@@ -2,8 +2,8 @@ import asyncio
 
 from sqlalchemy import select
 
-from app.recruiters.repositories.companies.recruiters_repositories_companies_recruiters_companies_core_model import (
-    Company,
+from app.shared.auth.dependencies.shared_auth_dependencies_local_recruiter_company_utils import (
+    ensure_local_recruiter_company,
 )
 from app.recruiters.repositories.users.recruiters_repositories_users_recruiters_users_core_model import (
     User,
@@ -18,12 +18,7 @@ async def main():
         await conn.run_sync(Base.metadata.create_all)
 
     async with async_session_maker() as s:
-        # Ensure company exists
-        c = await s.scalar(select(Company).where(Company.name == "LocalCo"))
-        if not c:
-            c = Company(name="LocalCo")
-            s.add(c)
-            await s.flush()
+        c = await ensure_local_recruiter_company(s)
 
         recruiters = [
             ("Local Recruiter 1", "recruiter1@local.test"),
@@ -31,6 +26,7 @@ async def main():
         ]
 
         created = []
+        repaired = []
         for name, email in recruiters:
             u = await s.scalar(select(User).where(User.email == email))
             if not u:
@@ -44,10 +40,27 @@ async def main():
                 s.add(u)
                 created.append(email)
 
+        existing_recruiters = (
+            await s.execute(
+                select(User).where(
+                    User.role == "recruiter",
+                    User.company_id.is_(None),
+                )
+            )
+        ).scalars()
+        for recruiter in existing_recruiters:
+            recruiter.company_id = c.id
+            repaired.append(recruiter.email)
+
         await s.commit()
 
+        messages = []
         if created:
-            print(f"Seeded: {', '.join(created)}")
+            messages.append(f"seeded: {', '.join(created)}")
+        if repaired:
+            messages.append(f"repaired company_id: {', '.join(repaired)}")
+        if messages:
+            print("Recruiters ready (" + "; ".join(messages) + ").")
         else:
             print("Recruiters already exist (no changes).")
 

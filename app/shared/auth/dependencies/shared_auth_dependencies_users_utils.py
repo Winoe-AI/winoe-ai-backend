@@ -12,6 +12,10 @@ from app.shared.database import async_session_maker
 from app.shared.database.shared_database_models_model import User
 
 from .shared_auth_dependencies_db_utils import lookup_user as lookup_user_default
+from .shared_auth_dependencies_env_utils import env_name
+from .shared_auth_dependencies_local_recruiter_company_utils import (
+    ensure_local_recruiter_company,
+)
 from .shared_auth_dependencies_modules_utils import current_user_module
 
 
@@ -21,6 +25,21 @@ def _role_from_principal(principal: Principal) -> str:
     if "candidate:access" in permissions or "candidate" in roles:
         return "candidate"
     return "recruiter"
+
+
+async def _resolve_local_company_id(
+    db: AsyncSession, *, email: str, role: str, company_id: int | None
+) -> int | None:
+    normalized_email = (email or "").strip().lower()
+    if (
+        role != "recruiter"
+        or company_id is not None
+        or env_name() != "local"
+        or not normalized_email.endswith("@local.test")
+    ):
+        return company_id
+    company = await ensure_local_recruiter_company(db)
+    return company.id
 
 
 async def user_from_principal(principal: Principal, db: AsyncSession | None) -> User:
@@ -36,10 +55,17 @@ async def user_from_principal(principal: Principal, db: AsyncSession | None) -> 
     lookup_user = getattr(dep_module, "_lookup_user", lookup_user_default)
     user = await lookup_user(db, principal.email)
     if user is None:
+        role = _role_from_principal(principal)
         user = User(
             name=principal.name or principal.email.split("@")[0],
             email=principal.email,
-            role=_role_from_principal(principal),
+            role=role,
+            company_id=await _resolve_local_company_id(
+                db,
+                email=principal.email,
+                role=role,
+                company_id=None,
+            ),
             password_hash="",
         )
         db.add(user)
@@ -50,6 +76,17 @@ async def user_from_principal(principal: Principal, db: AsyncSession | None) -> 
             await db.rollback()
             user = await lookup_user(db, principal.email)
         else:
+            await db.refresh(user)
+    else:
+        resolved_company_id = await _resolve_local_company_id(
+            db,
+            email=getattr(user, "email", ""),
+            role=getattr(user, "role", ""),
+            company_id=getattr(user, "company_id", None),
+        )
+        if resolved_company_id != getattr(user, "company_id", None):
+            user.company_id = resolved_company_id
+            await db.commit()
             await db.refresh(user)
 
     return user

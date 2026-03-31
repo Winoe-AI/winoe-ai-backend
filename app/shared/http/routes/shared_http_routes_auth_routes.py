@@ -1,17 +1,88 @@
 """Application module for http routes auth routes workflows."""
 
+from __future__ import annotations
+
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.recruiters.schemas.recruiters_schemas_recruiters_users_schema import UserRead
+from app.recruiters.schemas.recruiters_schemas_recruiters_users_schema import (
+    RecruiterOnboardingWrite,
+    UserRead,
+)
 from app.shared.auth import rate_limit
-from app.shared.auth.shared_auth_current_user_utils import get_authenticated_user
-from app.shared.database.shared_database_models_model import User
+from app.shared.auth.shared_auth_current_user_utils import (
+    get_authenticated_user,
+    get_current_user,
+)
+from app.shared.database import get_session
+from app.shared.database.shared_database_models_model import Company, User
 
 router = APIRouter()
 
 AUTH_ME_RATE_LIMIT = rate_limit.RateLimitRule(limit=60, window_seconds=60.0)
+MAX_USER_NAME_CHARS = 200
+MAX_COMPANY_NAME_CHARS = 255
+
+
+def _normalize_required_text(
+    value: str | None, *, field_name: str, max_chars: int
+) -> str:
+    normalized = " ".join((value or "").split())
+    if not normalized:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} is required",
+        )
+    if len(normalized) > max_chars:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"{field_name} must be at most {max_chars} characters",
+        )
+    return normalized
+
+
+async def _get_company_name(db: AsyncSession, company_id: int | None) -> str | None:
+    if company_id is None:
+        return None
+    return await db.scalar(select(Company.name).where(Company.id == company_id))
+
+
+def _build_user_read(user: User, company_name: str | None) -> UserRead:
+    onboarding_complete = (
+        getattr(user, "role", None) != "recruiter"
+        or getattr(user, "company_id", None) is not None
+    )
+    return UserRead(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        role=user.role,
+        companyId=getattr(user, "company_id", None),
+        companyName=company_name,
+        onboardingComplete=onboarding_complete,
+    )
+
+
+async def _create_or_get_company(db: AsyncSession, company_name: str) -> Company:
+    existing = await db.scalar(select(Company).where(Company.name == company_name))
+    if existing is not None:
+        return existing
+
+    company = Company(name=company_name)
+    try:
+        async with db.begin_nested():
+            db.add(company)
+            await db.flush()
+    except IntegrityError:
+        existing = await db.scalar(select(Company).where(Company.name == company_name))
+        if existing is None:
+            raise
+        return existing
+    return company
 
 
 @router.get(
@@ -26,13 +97,59 @@ AUTH_ME_RATE_LIMIT = rate_limit.RateLimitRule(limit=60, window_seconds=60.0)
 )
 async def read_me(
     request: Request,
+    db: Annotated[AsyncSession, Depends(get_session)],
     current_user: Annotated[User, Depends(get_authenticated_user)],
-) -> User:
+) -> UserRead:
     """Return the currently authenticated user."""
     if rate_limit.rate_limit_enabled():
         key = rate_limit.rate_limit_key("auth_me", rate_limit.client_id(request))
         rate_limit.limiter.allow(key, AUTH_ME_RATE_LIMIT)
-    return current_user
+    company_name = await _get_company_name(db, getattr(current_user, "company_id", None))
+    return _build_user_read(current_user, company_name)
+
+
+@router.post(
+    "/recruiter-onboarding",
+    response_model=UserRead,
+    summary="Complete Recruiter Onboarding",
+    description="Create or attach the recruiter's company and finalize app onboarding.",
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {"description": "Authentication required."},
+        status.HTTP_403_FORBIDDEN: {"description": "Recruiter access required."},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {
+            "description": "Invalid onboarding payload."
+        },
+    },
+)
+async def complete_recruiter_onboarding(
+    payload: RecruiterOnboardingWrite,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> UserRead:
+    """Finalize recruiter onboarding with name and company assignment."""
+    if getattr(current_user, "role", None) != "recruiter":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recruiter access required",
+        )
+
+    recruiter_name = _normalize_required_text(
+        payload.name,
+        field_name="name",
+        max_chars=MAX_USER_NAME_CHARS,
+    )
+    company_name = _normalize_required_text(
+        payload.companyName,
+        field_name="companyName",
+        max_chars=MAX_COMPANY_NAME_CHARS,
+    )
+
+    company = await _create_or_get_company(db, company_name)
+    current_user.name = recruiter_name
+    current_user.company_id = company.id
+    await db.commit()
+    await db.refresh(current_user)
+    return _build_user_read(current_user, company.name)
 
 
 @router.post(
