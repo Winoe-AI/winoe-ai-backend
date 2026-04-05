@@ -10,7 +10,10 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_cor
     CurrentTaskWindow,
     ProgressSummary,
 )
-from app.tasks.schemas.tasks_schemas_tasks_public_schema import TaskPublic
+from app.tasks.schemas.tasks_schemas_tasks_public_schema import (
+    TaskPublic,
+    TaskRecordedSubmissionPublic,
+)
 
 
 def _resolve_cutoff_fields(day_audit) -> tuple[str | None, datetime | None]:
@@ -32,6 +35,7 @@ def build_current_task_response(
     is_complete,
     *,
     day_audit=None,
+    recorded_submission=None,
     now_utc,
 ):
     """Build current task response."""
@@ -50,6 +54,14 @@ def build_current_task_response(
                 now=task_window.now,
             )
     cutoff_commit_sha, cutoff_at = _resolve_cutoff_fields(day_audit)
+    recorded_submission_payload = None
+    if recorded_submission is not None:
+        recorded_submission_payload = TaskRecordedSubmissionPublic(
+            submissionId=recorded_submission.id,
+            submittedAt=recorded_submission.submitted_at,
+            contentText=getattr(recorded_submission, "content_text", None),
+            contentJson=getattr(recorded_submission, "content_json", None),
+        )
     return CurrentTaskResponse(
         candidateSessionId=cs.id,
         status=cs.status,
@@ -62,6 +74,7 @@ def build_current_task_response(
             title=current_task.title,
             type=current_task.type,
             description=current_task.description,
+            recordedSubmission=recorded_submission_payload,
             cutoffCommitSha=cutoff_commit_sha,
             cutoffAt=cutoff_at,
         ),

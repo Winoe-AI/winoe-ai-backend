@@ -69,3 +69,5 @@ async def test_complete_handoff_upload_success_and_idempotent(async_session):
     assert submission is not None
     assert submission.recording_id == recording.id
     assert len(jobs) == 1
+    assert jobs[0].max_attempts == 7
+    assert jobs[0].payload_json["companyId"] == jobs[0].company_id

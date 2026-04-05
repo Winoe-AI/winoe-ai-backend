@@ -6,10 +6,10 @@ from app.integrations.github.client import GithubError
 from app.shared.auth import rate_limit
 from app.shared.http import shared_http_error_utils as error_utils
 from app.shared.http.routes import simulations
+from app.simulations import services as sim_service
 from app.simulations.services import (
     simulations_services_simulations_invite_workflow_service as invite_workflow,
 )
-from app.simulations import services as sim_service
 
 
 def _fake_request():

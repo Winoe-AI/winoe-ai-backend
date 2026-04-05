@@ -83,6 +83,113 @@
       "title": "CodespaceSpec",
       "type": "object"
     },
+    "ScenarioRubric": {
+      "additionalProperties": false,
+      "description": "Structured rubric contract for scenario generation.",
+      "properties": {
+        "dayWeights": {
+          "$ref": "#/$defs/ScenarioRubricDayWeights"
+        },
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/ScenarioRubricDimension"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "dayWeights",
+        "dimensions"
+      ],
+      "title": "ScenarioRubric",
+      "type": "object"
+    },
+    "ScenarioRubricDayWeights": {
+      "additionalProperties": false,
+      "description": "Fixed 5-day weighting contract for generated scenario rubrics.",
+      "properties": {
+        "1": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "1",
+          "type": "integer"
+        },
+        "2": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "2",
+          "type": "integer"
+        },
+        "3": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "3",
+          "type": "integer"
+        },
+        "4": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "4",
+          "type": "integer"
+        },
+        "5": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "5",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "title": "ScenarioRubricDayWeights",
+      "type": "object"
+    },
+    "ScenarioRubricDimension": {
+      "additionalProperties": false,
+      "description": "Named rubric dimension with explanation and relative weight.",
+      "properties": {
+        "description": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "weight": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Weight",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "weight",
+        "description"
+      ],
+      "title": "ScenarioRubricDimension",
+      "type": "object"
+    },
     "ScenarioTaskPrompt": {
       "additionalProperties": false,
       "description": "Per-day scenario prompt payload that maps onto seeded task rows.",
@@ -122,9 +229,7 @@
       "$ref": "#/$defs/CodespaceSpec"
     },
     "rubric_json": {
-      "additionalProperties": true,
-      "title": "Rubric Json",
-      "type": "object"
+      "$ref": "#/$defs/ScenarioRubric"
     },
     "storyline_md": {
       "maxLength": 40000,

@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import time
 from typing import Any
 
+from app.ai import normalize_prompt_override_payload
 from app.simulations.schemas.simulations_schemas_simulations_core_schema import (
     normalize_eval_enabled_by_day,
 )
-from app.ai import normalize_prompt_override_payload
 
 
 def extract_company_context(payload: Any) -> dict[str, Any] | None:

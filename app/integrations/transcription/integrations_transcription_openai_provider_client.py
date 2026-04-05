@@ -5,6 +5,7 @@ from __future__ import annotations
 import mimetypes
 import os
 import tempfile
+from functools import lru_cache
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 from urllib.request import Request, urlopen
@@ -17,6 +18,97 @@ from app.integrations.transcription.integrations_transcription_base_client impor
     TranscriptionProviderError,
     TranscriptionResult,
 )
+
+_RETRYABLE_OPENAI_ERROR_MARKERS = (
+    "ratelimiterror",
+    "too many requests",
+    "rate limit",
+    "429",
+    "apitimeouterror",
+    "apiconnectionerror",
+    "internalservererror",
+    "serviceunavailableerror",
+    "overloadederror",
+)
+_LOCAL_FASTER_WHISPER_MODEL_SIZE = "tiny.en"
+_LOCAL_FASTER_WHISPER_MODEL_NAME = f"faster-whisper-{_LOCAL_FASTER_WHISPER_MODEL_SIZE}"
+
+
+def _is_retryable_openai_error(exc: Exception) -> bool:
+    parts = [type(exc).__name__, str(exc)]
+    normalized = " ".join(part for part in parts if part).strip().lower()
+    if not normalized:
+        return False
+    return any(marker in normalized for marker in _RETRYABLE_OPENAI_ERROR_MARKERS)
+
+
+def _candidate_models(primary_model: str) -> list[str]:
+    models: list[str] = []
+    for model_name in (primary_model, "whisper-1"):
+        normalized = (model_name or "").strip()
+        if normalized and normalized not in models:
+            models.append(normalized)
+    return models
+
+
+@lru_cache(maxsize=1)
+def _get_local_faster_whisper_model():
+    try:
+        from faster_whisper import WhisperModel
+    except ImportError as exc:  # pragma: no cover - depends on environment
+        raise TranscriptionProviderError(
+            "local_transcription_sdk_not_installed"
+        ) from exc
+    return WhisperModel(
+        _LOCAL_FASTER_WHISPER_MODEL_SIZE,
+        device="cpu",
+        compute_type="int8",
+    )
+
+
+def _normalize_local_whisper_segments(segments: Any) -> list[dict[str, object]]:
+    normalized_segments: list[dict[str, object]] = []
+    for item in segments:
+        text = str(getattr(item, "text", "") or "").strip()
+        if not text:
+            continue
+        normalized_segments.append(
+            {
+                "startMs": max(
+                    0, int(float(getattr(item, "start", 0.0) or 0.0) * 1000)
+                ),
+                "endMs": max(0, int(float(getattr(item, "end", 0.0) or 0.0) * 1000)),
+                "text": text,
+            }
+        )
+    return normalized_segments
+
+
+def _transcribe_locally_with_faster_whisper(file_path: str) -> TranscriptionResult:
+    try:
+        model = _get_local_faster_whisper_model()
+        segments, _info = model.transcribe(
+            file_path,
+            beam_size=1,
+            vad_filter=True,
+        )
+        normalized_segments = _normalize_local_whisper_segments(list(segments))
+    except TranscriptionProviderError:
+        raise
+    except Exception as exc:  # pragma: no cover - depends on environment/runtime
+        raise TranscriptionProviderError(
+            f"local_transcription_failed:{type(exc).__name__}"
+        ) from exc
+    transcript_text = " ".join(
+        segment["text"] for segment in normalized_segments if segment.get("text")
+    ).strip()
+    if not transcript_text:
+        raise TranscriptionProviderError("local_transcription_failed:empty_transcript")
+    return TranscriptionResult(
+        text=transcript_text,
+        segments=normalized_segments,
+        model_name=_LOCAL_FASTER_WHISPER_MODEL_NAME,
+    )
 
 
 def _guess_extension(content_type: str | None) -> str:
@@ -77,10 +169,9 @@ def _read_signed_media(
         ) from exc
     if not payload:
         raise TranscriptionProviderError("download_failed:empty_body")
-    normalized_type = (
-        (response_type or content_type or "").split(";", 1)[0].strip().lower()
-        or "application/octet-stream"
-    )
+    normalized_type = (response_type or content_type or "").split(";", 1)[
+        0
+    ].strip().lower() or "application/octet-stream"
     return (
         payload,
         _infer_filename(
@@ -112,7 +203,7 @@ def _segment_text(segment: dict[str, Any]) -> str | None:
 def _coerce_millis(value: Any, *, key_name: str) -> int:
     if isinstance(value, bool):
         return 0
-    if isinstance(value, (int, float)):
+    if isinstance(value, int | float):
         numeric = float(value)
         if key_name in {"start", "end"}:
             numeric *= 1000.0
@@ -141,10 +232,16 @@ def _normalize_segment(segment: Any) -> dict[str, object] | None:
     start_key = (
         "startMs"
         if "startMs" in normalized
-        else "start_ms" if "start_ms" in normalized else "start"
+        else "start_ms"
+        if "start_ms" in normalized
+        else "start"
     )
     end_key = (
-        "endMs" if "endMs" in normalized else "end_ms" if "end_ms" in normalized else "end"
+        "endMs"
+        if "endMs" in normalized
+        else "end_ms"
+        if "end_ms" in normalized
+        else "end"
     )
     return {
         "startMs": _coerce_millis(normalized.get(start_key), key_name=start_key),
@@ -153,7 +250,9 @@ def _normalize_segment(segment: Any) -> dict[str, object] | None:
     }
 
 
-def _normalize_segments(raw_segments: Any, *, transcript_text: str) -> list[dict[str, object]]:
+def _normalize_segments(
+    raw_segments: Any, *, transcript_text: str
+) -> list[dict[str, object]]:
     if isinstance(raw_segments, list):
         normalized_segments = [
             segment
@@ -217,11 +316,32 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
             handle.flush()
             try:
                 with open(handle.name, "rb") as audio_file:
-                    response = client.audio.transcriptions.create(
-                        file=audio_file,
-                        model=config.model,
-                        response_format="verbose_json",
-                    )
+                    response = None
+                    response_model = None
+                    openai_error = None
+                    candidate_models = _candidate_models(config.model)
+                    for index, model_name in enumerate(candidate_models):
+                        audio_file.seek(0)
+                        try:
+                            response = client.audio.transcriptions.create(
+                                file=audio_file,
+                                model=model_name,
+                                response_format="json",
+                            )
+                            response_model = model_name
+                            break
+                        except Exception as exc:
+                            openai_error = exc
+                            if not _is_retryable_openai_error(exc):
+                                raise
+                            if index >= len(candidate_models) - 1:
+                                break
+                    if response is None:
+                        if openai_error is None:
+                            raise RuntimeError("openai_transcription_failed:unknown")
+                        if _is_retryable_openai_error(openai_error):
+                            return _transcribe_locally_with_faster_whisper(handle.name)
+                        raise openai_error
             except Exception as exc:  # pragma: no cover - network/provider variability
                 raise TranscriptionProviderError(
                     f"openai_transcription_failed:{type(exc).__name__}"
@@ -233,7 +353,7 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
         return TranscriptionResult(
             text=transcript_text,
             segments=_normalize_segments(raw_segments, transcript_text=transcript_text),
-            model_name=config.model,
+            model_name=response_model or config.model,
         )
 
 

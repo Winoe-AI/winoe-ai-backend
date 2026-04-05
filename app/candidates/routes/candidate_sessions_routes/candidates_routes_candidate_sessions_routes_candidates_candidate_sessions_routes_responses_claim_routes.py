@@ -13,6 +13,8 @@ from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_core_schema import (
     CandidateSessionResolveResponse,
 )
+
+
 def render_claim_response(
     cs, *, resolve_simulation_summary
 ) -> CandidateSessionResolveResponse:

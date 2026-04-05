@@ -20,7 +20,7 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_cor
     CandidateInviteListItem,
     ProgressSummary,
 )
-from app.shared.database.shared_database_models_model import Task
+from app.shared.database.shared_database_models_model import Task, User
 
 
 async def build_invite_item(
@@ -58,12 +58,24 @@ async def build_invite_item(
     )
     sim = candidate_session.simulation
     company_name = getattr(sim.company, "name", None) if sim else None
+    recruiter_name = None
+    recruiter_email = None
+    recruiter_id = getattr(sim, "created_by", None) if sim else None
+    if recruiter_id:
+        recruiter = await db.get(User, recruiter_id)
+        if recruiter is not None:
+            recruiter_name = getattr(recruiter, "name", None) or getattr(
+                recruiter, "email", None
+            )
+            recruiter_email = getattr(recruiter, "email", None)
     return CandidateInviteListItem(
         candidateSessionId=candidate_session.id,
         simulationId=sim.id if sim else candidate_session.simulation_id,
         simulationTitle=sim.title if sim else "",
         role=sim.role if sim else "",
         companyName=company_name,
+        recruiterName=recruiter_name,
+        recruiterEmail=recruiter_email,
         status=candidate_session.status,
         progress=ProgressSummary(completed=completed, total=total),
         lastActivityAt=last_activity,

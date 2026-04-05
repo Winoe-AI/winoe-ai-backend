@@ -20,6 +20,30 @@ from app.shared.jobs.worker_runtime.shared_jobs_worker_runtime_types_model impor
     compute_backoff_seconds,
 )
 
+_RATE_LIMIT_ERROR_MARKERS = (
+    "ratelimiterror",
+    "too many requests",
+    "rate limit",
+    "429",
+)
+_TRANSIENT_PROVIDER_ERROR_MARKERS = (
+    "apitimeouterror",
+    "apiconnectionerror",
+    "internalservererror",
+    "serviceunavailableerror",
+    "overloadederror",
+)
+_PROVIDER_BACKOFF_BASE_SECONDS = 15
+_PROVIDER_BACKOFF_MAX_SECONDS = 180
+
+
+def _is_provider_backoff_error(error_str: str) -> bool:
+    normalized = error_str.strip().lower()
+    if not normalized:
+        return False
+    markers = _RATE_LIMIT_ERROR_MARKERS + _TRANSIENT_PROVIDER_ERROR_MARKERS
+    return any(marker in normalized for marker in markers)
+
 
 async def retry_or_dead_letter(
     session_maker: async_sessionmaker[AsyncSession],
@@ -36,10 +60,21 @@ async def retry_or_dead_letter(
 ) -> None:
     """Execute retry or dead letter."""
     if job.attempt < job.max_attempts:
+        effective_base_backoff_seconds = base_backoff_seconds
+        effective_max_backoff_seconds = max_backoff_seconds
+        if _is_provider_backoff_error(error_str):
+            effective_base_backoff_seconds = max(
+                base_backoff_seconds,
+                _PROVIDER_BACKOFF_BASE_SECONDS,
+            )
+            effective_max_backoff_seconds = max(
+                max_backoff_seconds,
+                _PROVIDER_BACKOFF_MAX_SECONDS,
+            )
         delay_seconds = compute_backoff_seconds(
             job.attempt,
-            base_seconds=base_backoff_seconds,
-            max_seconds=max_backoff_seconds,
+            base_seconds=effective_base_backoff_seconds,
+            max_seconds=effective_max_backoff_seconds,
         )
         next_run_at = claim_time + timedelta(seconds=delay_seconds)
         await mark_failed_and_reschedule(

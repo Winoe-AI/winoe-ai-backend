@@ -7,13 +7,14 @@ from datetime import UTC, datetime
 from fastapi import HTTPException, status
 
 from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 
 def require_not_expired(
     candidate_session: CandidateSession, *, now: datetime | None = None
 ) -> None:
     """Require not expired."""
-    now = now or datetime.now(UTC)
+    now = now or shared_utcnow()
     expires_at = candidate_session.expires_at
     if expires_at is not None and expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=UTC)

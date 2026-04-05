@@ -32,6 +32,10 @@ class OpenAICodespaceSpecializerProvider:
                 response_model=CodespacePatchProposal,
                 timeout_seconds=settings.CODESPACE_SPECIALIZER_TIMEOUT_SECONDS,
                 max_retries=settings.CODESPACE_SPECIALIZER_MAX_RETRIES,
+                max_output_tokens=settings.CODESPACE_SPECIALIZER_MAX_OUTPUT_TOKENS,
+                reasoning_effort=settings.CODESPACE_SPECIALIZER_REASONING_EFFORT,
+                text_verbosity=settings.CODESPACE_SPECIALIZER_TEXT_VERBOSITY,
+                temperature=0,
             )
         except AIProviderExecutionError as exc:
             raise CodespaceSpecializerProviderError(str(exc)) from exc

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from statistics import mean
 
 from app.ai import (
     allow_demo_or_test_mode,
@@ -108,7 +107,7 @@ class LiveFitProfileEvaluator:
                 )
                 continue
             reviewer_key = _reviewer_key_for_day(day_input.day_index)
-            reviewer_snapshot = require_agent_policy_snapshot(
+            require_agent_policy_snapshot(
                 snapshot,
                 reviewer_key,
                 scenario_version_id=bundle.scenario_version_id,
@@ -163,7 +162,7 @@ class LiveFitProfileEvaluator:
                 }
             )
 
-        aggregator_snapshot = require_agent_policy_snapshot(
+        require_agent_policy_snapshot(
             snapshot,
             "fitProfile",
             scenario_version_id=bundle.scenario_version_id,
@@ -309,7 +308,9 @@ def _build_day_review_prompt(
     )
 
 
-def _deterministic_day_review(day_input) -> tuple[DayEvaluationResult, dict[str, object]]:
+def _deterministic_day_review(
+    day_input,
+) -> tuple[DayEvaluationResult, dict[str, object]]:
     evidence = _build_day_evidence(day_input)
     score = _score_for_day(day_input, evidence)
     rubric_breakdown = {
@@ -432,4 +433,8 @@ def get_fit_profile_evaluator() -> FitProfileEvaluator:
     return _default_evaluator
 
 
-__all__ = ["DeterministicFitProfileEvaluator", "LiveFitProfileEvaluator", "get_fit_profile_evaluator"]
+__all__ = [
+    "DeterministicFitProfileEvaluator",
+    "LiveFitProfileEvaluator",
+    "get_fit_profile_evaluator",
+]

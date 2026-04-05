@@ -24,6 +24,9 @@ from . import (
     candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_responses_routes as responses,
 )
 from . import (
+    candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_review_routes as review,
+)
+from . import (
     candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_schedule_routes as schedule,
 )
 from . import (
@@ -32,6 +35,7 @@ from . import (
 
 router = APIRouter()
 router.include_router(resolve.router)
+router.include_router(review.router)
 router.include_router(schedule.router)
 router.include_router(current_task.router)
 router.include_router(invites.router)
@@ -43,6 +47,7 @@ __all__ = [
     "invites",
     "privacy",
     "rate_limits",
+    "review",
     "resolve",
     "responses",
     "router",

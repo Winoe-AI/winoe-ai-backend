@@ -36,6 +36,28 @@ from app.evaluations.services.evaluations_services_evaluations_fit_profile_pipel
     _completed_response,
     _get_or_start_run,
 )
+from app.integrations.fit_profile_review import FitProfileReviewProviderError
+
+_RETRYABLE_PROVIDER_ERROR_MARKERS = (
+    "ratelimiterror",
+    "too many requests",
+    "rate limit",
+    "429",
+    "apitimeouterror",
+    "apiconnectionerror",
+    "internalservererror",
+    "serviceunavailableerror",
+    "overloadederror",
+)
+
+
+def _is_retryable_fit_profile_provider_error(error: Exception) -> bool:
+    if not isinstance(error, FitProfileReviewProviderError):
+        return False
+    normalized = str(error).strip().lower()
+    if not normalized:
+        return False
+    return any(marker in normalized for marker in _RETRYABLE_PROVIDER_ERROR_MARKERS)
 
 
 async def process_evaluation_run_job_impl(
@@ -93,7 +115,9 @@ async def process_evaluation_run_job_impl(
             ai_policy_snapshot_json,
             scenario_version_id=context.candidate_session.scenario_version_id,
         )
-        enabled_days, disabled_days = _normalize_day_toggles(snapshot_eval_enabled_by_day)
+        enabled_days, disabled_days = _normalize_day_toggles(
+            snapshot_eval_enabled_by_day
+        )
         tasks = await deps["_tasks_by_day"](db, simulation_id=context.simulation.id)
         submissions = await deps["_submissions_by_day"](
             db,
@@ -167,7 +191,8 @@ async def process_evaluation_run_job_impl(
         bundle = deps["evaluator_service"].EvaluationInputBundle(
             candidate_session_id=context.candidate_session.id,
             scenario_version_id=context.candidate_session.scenario_version_id,
-            model_name=str(aggregator_runtime["model"]) or DEFAULT_EVALUATION_MODEL_NAME,
+            model_name=str(aggregator_runtime["model"])
+            or DEFAULT_EVALUATION_MODEL_NAME,
             model_version=(
                 str(aggregator_runtime["model"]) or DEFAULT_EVALUATION_MODEL_VERSION
             ),
@@ -210,6 +235,15 @@ async def process_evaluation_run_job_impl(
                 run_metadata=run_metadata,
             )
         except Exception as exc:
+            if _is_retryable_fit_profile_provider_error(exc):
+                deps["logger"].warning(
+                    "evaluation_generation_retryable_failure candidateSessionId=%s jobId=%s durationMs=%s reason=%s",
+                    context.candidate_session.id,
+                    job_id,
+                    int((perf_counter() - started) * 1000),
+                    type(exc).__name__,
+                )
+                raise
             await _mark_failed_run(
                 db=db,
                 run=run,

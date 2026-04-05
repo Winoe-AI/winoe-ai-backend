@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 
 from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_sessions_services_scheduling_candidates_candidate_sessions_scheduling_day_windows_service import (
     coerce_utc_datetime,
 )
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 
 def require_active_window_impl(
@@ -60,7 +61,7 @@ def is_schedule_started_for_content_impl(
     compute_day1_window: Callable[..., tuple[datetime | None, datetime | None]],
 ) -> bool:
     """Return whether schedule started for content impl."""
-    resolved_now = coerce_utc_datetime(now or datetime.now(UTC))
+    resolved_now = coerce_utc_datetime(now or shared_utcnow())
     window_start_at, _ = compute_day1_window(candidate_session)
     return window_start_at is not None and resolved_now >= window_start_at
 
@@ -77,7 +78,7 @@ def ensure_schedule_started_for_content_impl(
     logger: logging.Logger,
 ) -> None:
     """Ensure schedule started for content impl."""
-    resolved_now = coerce_utc_datetime(now or datetime.now(UTC))
+    resolved_now = coerce_utc_datetime(now or shared_utcnow())
     window_start_at, window_end_at = compute_day1_window(candidate_session)
     if is_schedule_started_for_content(candidate_session, now=resolved_now):
         return

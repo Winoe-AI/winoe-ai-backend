@@ -66,7 +66,7 @@ def build_simulation_for_create(
         day_window_end_local=day_window_end_local,
         day_window_overrides_enabled=day_window_overrides_enabled,
         day_window_overrides_json=day_window_overrides_json,
-        scenario_template="default-5day-node-postgres",
+        scenario_template=template_key,
         company_id=user.company_id,
         created_by=user.id,
         template_key=template_key,

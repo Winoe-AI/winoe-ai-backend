@@ -48,21 +48,106 @@ async def test_handle_transcribe_recording_impl_returns_unavailable_when_repo_ma
     async def _mark_failure(*_args, **_kwargs):
         raise AssertionError("failure path should not run for unavailable recording")
 
+    async def _mark_retrying(*_args, **_kwargs):
+        raise AssertionError("retryable path should not run for unavailable recording")
+
     result = await runtime_handler.handle_transcribe_recording_impl(
         {"recordingId": 42},
-        parse_positive_int=lambda value: int(value),
+        parse_positive_int=lambda value: int(value) if value is not None else None,
         normalize_segments=lambda segments: segments,
         sanitize_error=lambda exc: str(exc),
         mark_processing=_mark_processing,
         mark_ready=_mark_ready,
         mark_failure=_mark_failure,
+        mark_retrying=_mark_retrying,
         async_session_maker=lambda: _SessionContext(object()),
         recordings_repo=_RecordingsRepo(),
         get_storage_media_provider=lambda: object(),
         resolve_signed_url_ttl=lambda default: default,
         get_transcription_provider=lambda: object(),
+        load_transcription_job=lambda **_kwargs: None,
+        transcription_job_has_retry_headroom=lambda _job: False,
+        is_retryable_transcription_error=runtime_handler.is_retryable_transcription_error,
         transcription_provider_error=RuntimeError,
         logger=_NoopLogger(),
     )
 
     assert result == {"status": "recording_unavailable", "recordingId": 42}
+
+
+def test_is_retryable_transcription_error_detects_provider_throttling():
+    error = RuntimeError("openai_transcription_failed:RateLimitError")
+
+    assert runtime_handler.is_retryable_transcription_error(error) is True
+
+
+@pytest.mark.asyncio
+async def test_handle_transcribe_recording_impl_keeps_retryable_failures_nonterminal():
+    recording = SimpleNamespace(storage_key="recordings/key", content_type="video/mp4")
+    retry_marked: list[str] = []
+
+    class _RecordingsRepo:
+        async def get_by_id(self, _db, _recording_id):
+            return recording
+
+        def is_deleted_or_purged(self, _recording):
+            return False
+
+    class _StorageProvider:
+        @staticmethod
+        def create_signed_download_url(_storage_key, expires_seconds):
+            assert expires_seconds == 300
+            return "https://fake.example/download?key=recordings/key"
+
+    class _BrokenProvider:
+        @staticmethod
+        def transcribe_recording(*, source_url: str, content_type: str):
+            del source_url, content_type
+            raise RuntimeError("openai_transcription_failed:RateLimitError")
+
+    async def _mark_processing(_recording_id):
+        return "uploaded", "processing"
+
+    async def _mark_ready(*_args, **_kwargs):
+        raise AssertionError("ready path should not run for retryable provider failure")
+
+    async def _mark_failure(*_args, **_kwargs):
+        raise AssertionError(
+            "terminal failure should not run while retry headroom remains"
+        )
+
+    async def _mark_retrying(_recording_id, *, reason: str):
+        retry_marked.append(reason)
+
+    async def _load_transcription_job(*, company_id: int, recording_id: int):
+        assert company_id == 7
+        assert recording_id == 42
+        return SimpleNamespace(attempt=1, max_attempts=7)
+
+    with pytest.raises(
+        RuntimeError,
+        match="transcription_failed: openai_transcription_failed:RateLimitError",
+    ):
+        await runtime_handler.handle_transcribe_recording_impl(
+            {"recordingId": 42, "companyId": 7},
+            parse_positive_int=lambda value: int(value),
+            normalize_segments=lambda segments: segments,
+            sanitize_error=lambda exc: str(exc),
+            mark_processing=_mark_processing,
+            mark_ready=_mark_ready,
+            mark_failure=_mark_failure,
+            mark_retrying=_mark_retrying,
+            async_session_maker=lambda: _SessionContext(object()),
+            recordings_repo=_RecordingsRepo(),
+            get_storage_media_provider=lambda: _StorageProvider(),
+            resolve_signed_url_ttl=lambda default: default,
+            get_transcription_provider=lambda: _BrokenProvider(),
+            load_transcription_job=_load_transcription_job,
+            transcription_job_has_retry_headroom=lambda job: job.attempt
+            < job.max_attempts,
+            is_retryable_transcription_error=runtime_handler.is_retryable_transcription_error,
+            transcription_provider_error=RuntimeError,
+            logger=_NoopLogger(),
+        )
+
+    assert retry_marked == ["openai_transcription_failed:RateLimitError"]

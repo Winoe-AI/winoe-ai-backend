@@ -6,6 +6,11 @@ import json
 from typing import Any
 
 
+def _normalize_env_list_token(value: str) -> str:
+    normalized = value.strip()
+    return normalized.strip().strip('"').strip("'").strip()
+
+
 def parse_env_list(value: Any):
     """Allow empty string, JSON array, or comma-separated env values."""
     if value in (None, "", [], (), "[]", "null", "None"):
@@ -21,5 +26,11 @@ def parse_env_list(value: Any):
                     return parsed
             except json.JSONDecodeError:
                 pass
-        return [p.strip() for p in text.split(",") if p.strip()]
+            if text.endswith("]"):
+                text = text[1:-1]
+        return [
+            normalized
+            for piece in text.split(",")
+            if (normalized := _normalize_env_list_token(piece))
+        ]
     return value

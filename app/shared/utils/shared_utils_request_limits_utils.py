@@ -29,9 +29,10 @@ class RequestSizeLimitMiddleware:
         }:
             await self.app(scope, receive, send)
             return
+        max_body_bytes = self._max_body_bytes_for_scope(scope)
         headers = dict(scope.get("headers") or [])
         content_length = headers.get(b"content-length", b"").decode("latin1").strip()
-        if content_length.isdigit() and int(content_length) > self.max_body_bytes:
+        if content_length.isdigit() and int(content_length) > max_body_bytes:
             await self._reject(scope, receive, send)
             return
         received = 0
@@ -41,7 +42,7 @@ class RequestSizeLimitMiddleware:
             message = await receive()
             if message.get("type") == "http.request":
                 received += len(message.get("body", b"") or b"")
-                if received > self.max_body_bytes:
+                if received > max_body_bytes:
                     raise RequestTooLarge()
             return message
 
@@ -49,6 +50,16 @@ class RequestSizeLimitMiddleware:
             await self.app(scope, limited_receive, send)
         except RequestTooLarge:
             await self._reject(scope, receive, send)
+
+    def _max_body_bytes_for_scope(self, scope) -> int:
+        path = (scope.get("path") or "").rstrip("/")
+        fake_upload_path = f"{settings.API_PREFIX}/recordings/storage/fake/upload"
+        if path == fake_upload_path:
+            return max(
+                int(self.max_body_bytes),
+                int(settings.storage_media.MEDIA_MAX_UPLOAD_BYTES),
+            )
+        return int(self.max_body_bytes)
 
     async def _reject(self, scope, receive, send):
         response = JSONResponse(

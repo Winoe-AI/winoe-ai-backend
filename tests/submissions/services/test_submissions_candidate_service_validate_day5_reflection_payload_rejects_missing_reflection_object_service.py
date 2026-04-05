@@ -5,13 +5,11 @@ import pytest
 from tests.submissions.services.test_submissions_candidate_service_utils import *
 
 
-def test_validate_day5_reflection_payload_rejects_missing_reflection_object():
+def test_validate_day5_reflection_payload_accepts_markdown_only_reflection():
     day5_task = SimpleNamespace(type="documentation", day_index=5)
-    payload = SimpleNamespace(contentText="## Reflection summary")
+    payload = SimpleNamespace(contentText="## Reflection summary\n\nLearned a lot.")
 
-    with pytest.raises(HTTPException) as excinfo:
-        svc.validate_submission_payload(day5_task, payload)
-
-    assert excinfo.value.status_code == 422
-    fields = getattr(excinfo.value, "details", {}).get("fields", {})
-    assert fields["reflection"] == ["missing"]
+    assert svc.validate_submission_payload(day5_task, payload) == {
+        "kind": "day5_reflection",
+        "markdown": "## Reflection summary\n\nLearned a lot.",
+    }

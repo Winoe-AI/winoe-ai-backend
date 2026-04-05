@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
     EVALUATION_RUN_STATUS_COMPLETED,
@@ -28,6 +29,7 @@ async def load_candidate_session_for_update(
         await db.execute(
             select(CandidateSession)
             .where(CandidateSession.id == candidate_session_id)
+            .options(selectinload(CandidateSession.simulation))
             .with_for_update()
         )
     ).scalar_one_or_none()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
@@ -21,6 +20,7 @@ from app.shared.auth.shared_auth_candidate_access_utils import (
     require_candidate_principal,
 )
 from app.shared.database import get_session
+from app.shared.time.shared_time_now_service import utcnow
 
 router = APIRouter()
 
@@ -53,7 +53,7 @@ async def record_candidate_privacy_consent(
         db,
         candidate_session_id,
         principal,
-        now=datetime.now(UTC),
+        now=utcnow(),
     )
     await record_candidate_session_consent(
         db,

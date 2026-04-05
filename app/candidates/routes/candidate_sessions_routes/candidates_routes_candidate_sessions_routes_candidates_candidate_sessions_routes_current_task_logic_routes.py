@@ -15,6 +15,9 @@ from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate
 )
 from app.shared.auth import rate_limit
 from app.shared.utils.shared_utils_errors_utils import ApiError
+from app.submissions.services import (
+    submissions_services_submissions_candidate_service as submission_service,
+)
 
 
 def _require_candidate_session_header_match(candidate_session_id: int, request) -> None:
@@ -71,6 +74,7 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
         total,
         is_complete,
     ) = await cs_service.progress_snapshot(db, cs, now=now)
+    recorded_submission = None
     if is_complete and cs.status != "completed":
         cs.status = "completed"
         if cs.completed_at is None:
@@ -84,6 +88,14 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
             candidate_session_id=cs.id,
             day_index=current_task.day_index,
         )
+        if hasattr(db, "execute"):
+            recorded_submission = (
+                await submission_service.submissions_repo.get_by_candidate_session_task(
+                    db,
+                    candidate_session_id=cs.id,
+                    task_id=current_task.id,
+                )
+            )
     return build_current_task_response(
         cs,
         current_task,
@@ -92,6 +104,7 @@ async def build_current_task_view(candidate_session_id, request, principal, db):
         total,
         is_complete,
         day_audit=day_audit,
+        recorded_submission=recorded_submission,
         now_utc=now,
     )
 

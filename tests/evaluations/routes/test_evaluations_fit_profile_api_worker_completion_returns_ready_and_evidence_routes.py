@@ -47,9 +47,9 @@ async def test_fit_profile_worker_completion_returns_ready_and_evidence(
     kinds = {item.get("kind") for item in evidence_items}
     assert "commit" in kinds
     assert "diff" in kinds
-    assert "test" in kinds
+    assert "tests" in kinds
     assert "transcript" in kinds
-    assert "reflection" in kinds
+    assert "submission" in kinds
 
     for item in evidence_items:
         if item.get("kind") == "transcript":

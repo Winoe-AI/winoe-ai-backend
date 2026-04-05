@@ -18,6 +18,10 @@ def _sanitize_evidence(pointer: Any) -> dict[str, Any] | None:
         value = pointer.get(key)
         if isinstance(value, str) and value.strip():
             sanitized[key] = value.strip()
+    if "excerpt" not in sanitized:
+        quote_value = pointer.get("quote")
+        if isinstance(quote_value, str) and quote_value.strip():
+            sanitized["excerpt"] = quote_value.strip()
 
     if sanitized["kind"] == "transcript":
         start_ms = pointer.get("startMs")
@@ -26,6 +30,10 @@ def _sanitize_evidence(pointer: Any) -> dict[str, Any] | None:
             sanitized["startMs"] = start_ms
         if isinstance(end_ms, int) and end_ms >= 0:
             sanitized["endMs"] = end_ms
+        if "startMs" not in sanitized and "endMs" in sanitized:
+            sanitized["startMs"] = sanitized["endMs"]
+        if "endMs" not in sanitized and "startMs" in sanitized:
+            sanitized["endMs"] = sanitized["startMs"]
     return sanitized
 
 

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_core_schema import (
     CandidateInviteRequest,
 )
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.shared.types.shared_types_types_model import CANDIDATE_SESSION_STATUS_COMPLETED
 
 from .simulations_services_simulations_invite_errors_service import InviteRejectedError
@@ -30,7 +31,7 @@ async def create_or_resend_invite(
     now: datetime | None = None,
 ) -> tuple:
     """Create or resend invite."""
-    now = now or datetime.now(UTC)
+    now = now or shared_utcnow()
     invite_email = str(payload.inviteEmail).strip().lower()
 
     from app.simulations import services as sim_service

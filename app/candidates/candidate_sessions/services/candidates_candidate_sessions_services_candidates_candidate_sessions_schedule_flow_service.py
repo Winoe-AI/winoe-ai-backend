@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fastapi import HTTPException, status
 
@@ -10,6 +10,7 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
     coerce_utc_datetime,
     validate_timezone,
 )
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.shared.utils.shared_utils_errors_utils import (
     INVITE_TOKEN_EXPIRED,
     SCHEDULE_INVALID_TIMEZONE,
@@ -38,7 +39,7 @@ async def schedule_candidate_session_impl(
     logger,
 ):
     """Schedule candidate session impl."""
-    resolved_now = coerce_utc_datetime(now or datetime.now(UTC))
+    resolved_now = coerce_utc_datetime(now or shared_utcnow())
     scheduled_start_at_utc = coerce_utc_datetime(scheduled_start_at).replace(
         microsecond=0
     )

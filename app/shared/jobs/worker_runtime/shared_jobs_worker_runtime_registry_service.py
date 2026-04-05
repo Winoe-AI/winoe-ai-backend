@@ -40,19 +40,23 @@ def get_handler(job_type: str) -> JobHandler | None:
 def register_builtin_handlers() -> None:
     """Execute register builtin handlers."""
     from app.shared.jobs.handlers import (
+        CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE,
         CODESPACE_SPECIALIZER_JOB_TYPE,
         DAY_CLOSE_ENFORCEMENT_JOB_TYPE,
         DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE,
         EVALUATION_RUN_JOB_TYPE,
+        FIT_PROFILE_READY_NOTIFICATION_JOB_TYPE,
         GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE,
         SCENARIO_GENERATION_JOB_TYPE,
         SIMULATION_CLEANUP_JOB_TYPE,
         TRANSCRIBE_RECORDING_JOB_TYPE,
         WORKSPACE_CLEANUP_JOB_TYPE,
+        handle_candidate_completed_notification,
         handle_codespace_specializer,
         handle_day_close_enforcement,
         handle_day_close_finalize_text,
         handle_evaluation_run,
+        handle_fit_profile_ready_notification,
         handle_github_workflow_artifact_parse,
         handle_scenario_generation,
         handle_simulation_cleanup,
@@ -61,11 +65,19 @@ def register_builtin_handlers() -> None:
     )
 
     register_handler(CODESPACE_SPECIALIZER_JOB_TYPE, handle_codespace_specializer)
+    register_handler(
+        CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE,
+        handle_candidate_completed_notification,
+    )
     register_handler(SIMULATION_CLEANUP_JOB_TYPE, handle_simulation_cleanup)
     register_handler(WORKSPACE_CLEANUP_JOB_TYPE, handle_workspace_cleanup)
     register_handler(DAY_CLOSE_FINALIZE_TEXT_JOB_TYPE, handle_day_close_finalize_text)
     register_handler(DAY_CLOSE_ENFORCEMENT_JOB_TYPE, handle_day_close_enforcement)
     register_handler(EVALUATION_RUN_JOB_TYPE, handle_evaluation_run)
+    register_handler(
+        FIT_PROFILE_READY_NOTIFICATION_JOB_TYPE,
+        handle_fit_profile_ready_notification,
+    )
     register_handler(
         GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE,
         handle_github_workflow_artifact_parse,

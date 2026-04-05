@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import inspect
-from datetime import UTC, datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +18,7 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_cor
 )
 from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import Task
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 
 async def invite_list_for_principal(
@@ -30,7 +30,7 @@ async def invite_list_for_principal(
         db, email, include_terminated=include_terminated
     )
     items: list[CandidateInviteListItem] = []
-    now = datetime.now(UTC)
+    now = shared_utcnow()
     session_ids = [cs.id for cs in sessions]
     last_submitted_map = await last_submission_map(db, session_ids)
     completed_ids_map: dict[int, set[int]] = {}

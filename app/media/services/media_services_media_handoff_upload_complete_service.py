@@ -109,6 +109,7 @@ async def complete_handoff_upload(
             recording_id=recording.id,
             candidate_session_id=candidate_session.id,
             task_id=task.id,
+            company_id=company_id,
         ),
         company_id=company_id,
         candidate_session_id=candidate_session.id,

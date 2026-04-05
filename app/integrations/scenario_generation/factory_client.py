@@ -22,9 +22,8 @@ def get_scenario_generation_provider(
 ) -> ScenarioGenerationProvider:
     """Return the configured scenario-generation provider."""
     normalized = (
-        (provider or "").strip().lower()
-        or resolve_scenario_generation_config().provider
-    )
+        provider or ""
+    ).strip().lower() or resolve_scenario_generation_config().provider
     if normalized == "anthropic":
         return AnthropicScenarioGenerationProvider()
     if normalized == "openai":

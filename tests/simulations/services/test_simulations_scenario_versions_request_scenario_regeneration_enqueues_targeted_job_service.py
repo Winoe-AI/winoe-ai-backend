@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.simulations.services import scenario_generation
 from tests.simulations.services.simulations_scenario_versions_service_utils import *
 
 
@@ -33,6 +34,10 @@ async def test_request_scenario_regeneration_enqueues_targeted_job(async_session
 
     persisted = await async_session.get(Job, scenario_job.id)
     assert persisted is not None
+    assert (
+        persisted.max_attempts
+        == scenario_generation.SCENARIO_GENERATION_JOB_MAX_ATTEMPTS
+    )
     assert (
         persisted.idempotency_key
         == f"scenario_version:{regenerated.id}:scenario_generation"

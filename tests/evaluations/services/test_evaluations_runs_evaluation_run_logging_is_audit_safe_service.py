@@ -18,6 +18,7 @@ async def test_evaluation_run_logging_is_audit_safe(async_session, caplog):
             "evidence_pointers_json": [
                 {
                     "kind": "transcript",
+                    "ref": sensitive_transcript_ref,
                     "startMs": 200,
                     "endMs": 2400,
                     "excerpt": sensitive_excerpt,

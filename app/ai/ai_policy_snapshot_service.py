@@ -17,16 +17,18 @@ from app.simulations.schemas.simulations_schemas_simulations_ai_values_schema im
 
 from .ai_prompt_models import AI_AGENT_KEYS
 from .ai_prompt_pack_service import PROMPT_PACK_VERSION, build_prompt_pack_entry
-from .ai_prompt_resolution_service import append_run_context_to_resolved_prompt
-from .ai_prompt_resolution_service import resolve_prompt_layers
+from .ai_prompt_resolution_service import (
+    append_run_context_to_resolved_prompt,
+    resolve_prompt_layers,
+)
 from .ai_runtime_config_service import (
     AIFeatureConfig,
     resolve_codespace_specializer_config,
     resolve_fit_profile_aggregator_config,
     resolve_fit_profile_day1_config,
-    resolve_fit_profile_day23_config,
     resolve_fit_profile_day4_config,
     resolve_fit_profile_day5_config,
+    resolve_fit_profile_day23_config,
     resolve_scenario_generation_config,
 )
 
@@ -141,7 +143,9 @@ def build_ai_policy_snapshot(
     return snapshot
 
 
-def compute_ai_policy_snapshot_digest(snapshot_json: Mapping[str, Any] | None) -> str | None:
+def compute_ai_policy_snapshot_digest(
+    snapshot_json: Mapping[str, Any] | None,
+) -> str | None:
     """Return the stable digest for a stored AI policy snapshot."""
     if not isinstance(snapshot_json, Mapping):
         return None
@@ -229,7 +233,10 @@ def require_agent_runtime(
         )
     required_text_fields = ("runtimeMode", "provider", "model")
     for field in required_text_fields:
-        if not isinstance(runtime.get(field), str) or not str(runtime.get(field)).strip():
+        if (
+            not isinstance(runtime.get(field), str)
+            or not str(runtime.get(field)).strip()
+        ):
             raise _snapshot_error(
                 code=f"scenario_version_ai_policy_snapshot_runtime_{field}_missing",
                 scenario_version_id=scenario_version_id,

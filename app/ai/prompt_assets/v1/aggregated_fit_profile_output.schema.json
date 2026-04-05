@@ -20,7 +20,7 @@
         "reason": {
           "anyOf": [
             {
-              "maxLength": 500,
+              "maxLength": 4000,
               "type": "string"
             },
             {

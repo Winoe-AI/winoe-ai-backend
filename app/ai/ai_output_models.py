@@ -12,9 +12,9 @@ class CodespaceSpec(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    task_kind: Literal["feature", "bugfix", "debug", "migration", "optimization"] = (
-        "feature"
-    )
+    task_kind: Literal[
+        "feature", "bugfix", "debug", "migration", "optimization"
+    ] = "feature"
     summary: str = Field(min_length=1, max_length=2_000)
     candidate_goal: str = Field(min_length=1, max_length=4_000)
     acceptance_criteria: list[str] = Field(min_length=1, max_length=12)
@@ -34,6 +34,38 @@ class ScenarioTaskPrompt(BaseModel):
     description: str = Field(min_length=1, max_length=10_000)
 
 
+class ScenarioRubricDayWeights(BaseModel):
+    """Fixed 5-day weighting contract for generated scenario rubrics."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    day1: int = Field(alias="1", ge=0, le=100)
+    day2: int = Field(alias="2", ge=0, le=100)
+    day3: int = Field(alias="3", ge=0, le=100)
+    day4: int = Field(alias="4", ge=0, le=100)
+    day5: int = Field(alias="5", ge=0, le=100)
+
+
+class ScenarioRubricDimension(BaseModel):
+    """Named rubric dimension with explanation and relative weight."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    weight: int = Field(ge=0, le=100)
+    description: str = Field(min_length=1, max_length=2_000)
+
+
+class ScenarioRubric(BaseModel):
+    """Structured rubric contract for scenario generation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    summary: str = Field(min_length=1, max_length=4_000)
+    dayWeights: ScenarioRubricDayWeights
+    dimensions: list[ScenarioRubricDimension] = Field(min_length=1, max_length=12)
+
+
 class ScenarioGenerationOutput(BaseModel):
     """Strict output contract for the prestart creator agent."""
 
@@ -41,7 +73,7 @@ class ScenarioGenerationOutput(BaseModel):
 
     storyline_md: str = Field(min_length=1, max_length=40_000)
     task_prompts_json: list[ScenarioTaskPrompt] = Field(min_length=5, max_length=5)
-    rubric_json: dict[str, Any]
+    rubric_json: ScenarioRubric
     codespace_spec_json: CodespaceSpec
 
 
@@ -90,7 +122,7 @@ class AggregatorDayScore(BaseModel):
     score: float | None = Field(default=None, ge=0.0, le=1.0)
     rubricBreakdown: dict[str, Any] | None = None
     evidence: list[EvidencePointer] = Field(default_factory=list)
-    reason: str | None = Field(default=None, max_length=500)
+    reason: str | None = Field(default=None, max_length=4_000)
 
 
 class AggregatedFitProfileOutput(BaseModel):
@@ -115,5 +147,8 @@ __all__ = [
     "DayReviewerOutput",
     "EvidencePointer",
     "ScenarioGenerationOutput",
+    "ScenarioRubric",
+    "ScenarioRubricDayWeights",
+    "ScenarioRubricDimension",
     "ScenarioTaskPrompt",
 ]

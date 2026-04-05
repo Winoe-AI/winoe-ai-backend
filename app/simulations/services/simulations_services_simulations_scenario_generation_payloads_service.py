@@ -45,7 +45,7 @@ def build_rubric_json(*, role: str, tech_stack: str) -> dict[str, Any]:
     role_label = normalize_text(role) or "Engineer"
     stack_label = normalize_text(tech_stack) or "target stack"
     return {
-        "summary": f"Evaluate {role_label} performance across planning, implementation, debugging, handoff, and reflection in {stack_label}.",
+        "summary": f"Evaluate {role_label} performance across planning, implementation, debugging, demo presentation, and reflection in {stack_label}.",
         "dayWeights": {"1": 20, "2": 30, "3": 25, "4": 15, "5": 10},
         "dimensions": [
             {
@@ -64,9 +64,9 @@ def build_rubric_json(*, role: str, tech_stack: str) -> dict[str, Any]:
                 "description": "Finds root cause methodically and verifies the fix.",
             },
             {
-                "name": "Communication and handoff",
+                "name": "Communication and presentation",
                 "weight": 20,
-                "description": "Documents decisions, risks, and clear next steps.",
+                "description": "Explains decisions, risks, outcomes, and next steps clearly.",
             },
         ],
     }

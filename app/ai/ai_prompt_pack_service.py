@@ -121,7 +121,9 @@ def _load_prompt_pack_bundle() -> PromptPackBundle:
             raise ValueError(f"Prompt pack agent entry is incomplete: {key}")
         output_model = _OUTPUT_MODELS.get(output_model_name)
         if output_model is None:
-            raise ValueError(f"Unsupported prompt pack output model: {output_model_name}")
+            raise ValueError(
+                f"Unsupported prompt pack output model: {output_model_name}"
+            )
 
         policy_path = assets_root / policy_file_name
         schema_path = assets_root / schema_file_name

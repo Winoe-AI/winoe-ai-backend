@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 # helper import baseline for restructure-compat
+import asyncio
 from datetime import UTC, datetime
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.evaluations.repositories import (
     EVALUATION_RUN_STATUS_COMPLETED,
@@ -39,6 +40,26 @@ from tests.evaluations.routes.evaluations_fit_profile_seed_base_utils import (
 from tests.shared.factories import create_recruiter
 
 
+class _SharedSessionContext:
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    async def __aenter__(self) -> AsyncSession:
+        return self._session
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool:
+        del exc_type, exc, tb
+        return False
+
+
+class _SharedSessionMaker:
+    def __init__(self, session: AsyncSession):
+        self._session = session
+
+    def __call__(self) -> _SharedSessionContext:
+        return _SharedSessionContext(self._session)
+
+
 async def _seed_completed_candidate_session(
     async_session: AsyncSession,
     *,
@@ -71,18 +92,24 @@ async def _seed_completed_candidate_session(
 
 
 async def _run_worker_once(async_session: AsyncSession, *, worker_id: str) -> bool:
-    session_maker = async_sessionmaker(
-        bind=async_session.bind,
-        expire_on_commit=False,
-        autoflush=False,
-    )
+    session_maker = _SharedSessionMaker(async_session)
     worker.clear_handlers()
     try:
         worker.register_builtin_handlers()
-        return await worker.run_once(
-            session_maker=session_maker,
-            worker_id=worker_id,
-            now=datetime.now(UTC),
+        handled_any = False
+        for iteration in range(16):
+            handled = await worker.run_once(
+                session_maker=session_maker,
+                worker_id=f"{worker_id}-{iteration}",
+                now=datetime.now(UTC),
+            )
+            # Let async DB connection cleanup tasks settle before the next worker pass.
+            await asyncio.sleep(0)
+            if not handled:
+                return handled_any
+            handled_any = True
+        raise AssertionError(
+            "worker test helper exceeded 16 iterations while draining queued jobs"
         )
     finally:
         worker.clear_handlers()

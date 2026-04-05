@@ -48,6 +48,23 @@ from app.tasks.services.tasks_services_tasks_template_catalog_service import (
 
 logger = logging.getLogger(__name__)
 
+# Scenario generation is the first live AI gate in a brand-new simulation. Give
+# the worker enough retry budget to absorb brief provider throttling without
+# dead-lettering the simulation before it ever becomes invite-ready.
+SCENARIO_GENERATION_JOB_MAX_ATTEMPTS = 7
+
+_RETRYABLE_SCENARIO_GENERATION_ERROR_MARKERS = (
+    "openai_request_failed:ratelimiterror",
+    "openai_request_failed:apitimeouterror",
+    "openai_request_failed:apiconnectionerror",
+    "openai_request_failed:internalservererror",
+    "openai_request_failed:serviceunavailableerror",
+    "openai_request_failed:overloadederror",
+    "rate limit",
+    "too many requests",
+    "429",
+)
+
 
 def _pick(options: tuple[str, ...], seed: int, salt: int) -> str:
     if not options:
@@ -63,6 +80,15 @@ def _template_display_name(template_key: str) -> str:
         if isinstance(display_name, str) and display_name.strip():
             return display_name.strip()
     return template_key
+
+
+def _is_retryable_scenario_generation_error(exc: Exception) -> bool:
+    message = str(exc).strip().lower()
+    if not message:
+        return False
+    return any(
+        marker in message for marker in _RETRYABLE_SCENARIO_GENERATION_ERROR_MARKERS
+    )
 
 
 def build_deterministic_template_scenario(
@@ -96,12 +122,22 @@ def _generate_with_llm(
     ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
     require_ai_policy_snapshot(ai_policy_snapshot_json)
+    normalized_company_overrides = company_prompt_overrides_json or None
+    normalized_simulation_overrides = simulation_prompt_overrides_json or None
     run_context_md = (
         f"Role: {role}\n"
         f"Tech stack: {tech_stack}\n"
         f"Template key: {template_key}\n"
         f"Scenario template: {(scenario_template or '').strip() or 'default-5day'}"
     )
+    if normalized_company_overrides is not None:
+        run_context_md += "\nCompany prompt overrides: " + json.dumps(
+            normalized_company_overrides, sort_keys=True
+        )
+    if normalized_simulation_overrides is not None:
+        run_context_md += "\nSimulation prompt overrides: " + json.dumps(
+            normalized_simulation_overrides, sort_keys=True
+        )
     system_prompt, rubric_prompt = build_required_snapshot_prompt(
         snapshot_json=ai_policy_snapshot_json,
         agent_key="prestart",
@@ -115,6 +151,8 @@ def _generate_with_llm(
             "scenarioTemplate": (scenario_template or "").strip() or None,
             "focus": (focus or "").strip() or None,
             "companyContext": company_context or None,
+            "companyPromptOverrides": normalized_company_overrides,
+            "simulationPromptOverrides": normalized_simulation_overrides,
             "rubricGuidance": rubric_prompt,
         },
         indent=2,
@@ -139,10 +177,9 @@ def _generate_with_llm(
     return GeneratedScenarioPayload(
         storyline_md=response.result.storyline_md,
         task_prompts_json=[
-            prompt.model_dump()
-            for prompt in response.result.task_prompts_json
+            prompt.model_dump() for prompt in response.result.task_prompts_json
         ],
-        rubric_json=dict(response.result.rubric_json),
+        rubric_json=response.result.rubric_json.model_dump(by_alias=True),
         codespace_spec_json=response.result.codespace_spec_json.model_dump(),
         ai_policy_snapshot_json=ai_policy_snapshot_json,
         metadata=ScenarioGenerationMetadata(
@@ -169,24 +206,43 @@ def generate_scenario_payload(
     ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
     """Generate scenario payload."""
-    return _generate_payload_impl(
-        role=role,
-        tech_stack=tech_stack,
-        template_key=template_key,
-        choose_source=choose_generation_source,
-        generate_with_llm=_generate_with_llm,
-        build_fallback=build_deterministic_template_scenario,
-        logger=logger,
-        scenario_template=scenario_template,
-        focus=focus,
-        company_context=company_context,
-        company_prompt_overrides_json=company_prompt_overrides_json,
-        simulation_prompt_overrides_json=simulation_prompt_overrides_json,
-        ai_policy_snapshot_json=ai_policy_snapshot_json,
-    )
+    try:
+        return _generate_payload_impl(
+            role=role,
+            tech_stack=tech_stack,
+            template_key=template_key,
+            choose_source=choose_generation_source,
+            generate_with_llm=_generate_with_llm,
+            build_fallback=build_deterministic_template_scenario,
+            logger=logger,
+            scenario_template=scenario_template,
+            focus=focus,
+            company_context=company_context,
+            company_prompt_overrides_json=company_prompt_overrides_json,
+            simulation_prompt_overrides_json=simulation_prompt_overrides_json,
+            ai_policy_snapshot_json=ai_policy_snapshot_json,
+        )
+    except Exception as exc:
+        if not _is_retryable_scenario_generation_error(exc):
+            raise
+        logger.warning(
+            "scenario_generation_degraded_to_template_fallback",
+            extra={
+                "templateKey": template_key,
+                "errorType": type(exc).__name__,
+                "errorMessage": str(exc),
+            },
+        )
+        return build_deterministic_template_scenario(
+            role=role,
+            tech_stack=tech_stack,
+            template_key=template_key,
+            ai_policy_snapshot_json=ai_policy_snapshot_json,
+        )
 
 
 __all__ = [
+    "SCENARIO_GENERATION_JOB_MAX_ATTEMPTS",
     "SCENARIO_GENERATION_JOB_TYPE",
     "SCENARIO_PROMPT_VERSION",
     "SCENARIO_RUBRIC_VERSION",

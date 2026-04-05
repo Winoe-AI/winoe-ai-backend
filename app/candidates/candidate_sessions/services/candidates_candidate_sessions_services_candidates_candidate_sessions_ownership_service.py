@@ -27,9 +27,14 @@ def _forbidden(detail: str, error_code: str) -> None:
     )
 
 
-def ensure_email_verified(principal: Principal) -> None:
+def ensure_email_verified(
+    principal: Principal, *, require_verified_claim_present: bool = False
+) -> None:
     """Ensure email verified."""
-    if principal.claims.get("email_verified") is not True:
+    email_verified = principal.claims.get("email_verified")
+    if email_verified is False or (
+        require_verified_claim_present and email_verified is not True
+    ):
         _forbidden(
             "Authenticated email is not verified.",
             CANDIDATE_EMAIL_NOT_VERIFIED,
@@ -37,10 +42,17 @@ def ensure_email_verified(principal: Principal) -> None:
 
 
 def ensure_candidate_ownership(
-    candidate_session: CandidateSession, principal: Principal, *, now
+    candidate_session: CandidateSession,
+    principal: Principal,
+    *,
+    now,
+    require_verified_claim_present: bool = False,
 ) -> bool:
     """Ensure candidate ownership."""
-    ensure_email_verified(principal)
+    ensure_email_verified(
+        principal,
+        require_verified_claim_present=require_verified_claim_present,
+    )
     email = normalize_email(principal.email)
     if not email:
         _forbidden(

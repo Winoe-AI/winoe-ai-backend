@@ -104,7 +104,9 @@ async def read_me(
     if rate_limit.rate_limit_enabled():
         key = rate_limit.rate_limit_key("auth_me", rate_limit.client_id(request))
         rate_limit.limiter.allow(key, AUTH_ME_RATE_LIMIT)
-    company_name = await _get_company_name(db, getattr(current_user, "company_id", None))
+    company_name = await _get_company_name(
+        db, getattr(current_user, "company_id", None)
+    )
     return _build_user_read(current_user, company_name)
 
 

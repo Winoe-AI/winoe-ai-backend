@@ -26,13 +26,16 @@ from app.shared.http.dependencies.shared_http_dependencies_notifications_utils i
 from app.simulations.services.simulations_services_simulations_codespace_specializer_service import (
     ensure_precommit_bundle_prepared_for_approved_scenario,
 )
-from tests.shared.factories import create_recruiter, create_simulation as _create_simulation
+from tests.shared.factories import create_recruiter
+from tests.shared.factories import create_simulation as _create_simulation
 
 
 async def create_simulation(*args, **kwargs):
     session = args[0]
     sim, tasks = await _create_simulation(*args, **kwargs)
-    scenario_version = await session.get(ScenarioVersion, sim.active_scenario_version_id)
+    scenario_version = await session.get(
+        ScenarioVersion, sim.active_scenario_version_id
+    )
     if scenario_version is not None:
         scenario_version.ai_policy_snapshot_json = build_ai_policy_snapshot(
             simulation=sim

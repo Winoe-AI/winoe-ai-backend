@@ -66,8 +66,8 @@ def build_task_description(
     if day_index == 3:
         return f"Investigate and fix a failing behavior path. Treat {debug_signal} as the anchor signal, isolate root cause, and add regression coverage."
     if day_index == 4:
-        return "Refactor for maintainability and handoff quality. Leave clear comments, reduce cognitive load, and document operational implications of your changes."
-    return "Write a structured engineering reflection covering decisions, tradeoffs, risk handling, and what you would improve with one additional iteration."
+        return "Prepare a concise demo presentation that walks through the implemented solution, key decisions, tradeoffs, outcomes, and remaining risks for reviewers."
+    return "Write a markdown reflection essay covering your experience, challenges, decisions, tradeoffs, communication, and what you would do next."
 
 
 __all__ = ["build_storyline_markdown", "build_task_description"]

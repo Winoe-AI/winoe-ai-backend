@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from app.notifications.services import service as notification_service
+
 
 async def _evaluate_and_finalize_run(
     *,
@@ -44,6 +46,12 @@ async def _evaluate_and_finalize_run(
         db,
         candidate_session_id=context.candidate_session.id,
         generated_at=marker_generated_at,
+        commit=False,
+    )
+    await notification_service.enqueue_fit_profile_ready_notification(
+        db,
+        candidate_session_id=context.candidate_session.id,
+        simulation_id=context.candidate_session.simulation_id,
         commit=False,
     )
     await db.commit()

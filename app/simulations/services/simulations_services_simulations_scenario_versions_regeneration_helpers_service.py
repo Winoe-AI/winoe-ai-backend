@@ -16,6 +16,7 @@ from app.simulations.repositories.scenario_versions.simulations_repositories_sce
     SCENARIO_VERSION_STATUS_GENERATING,
 )
 from app.simulations.services.simulations_services_simulations_scenario_generation_service import (
+    SCENARIO_GENERATION_JOB_MAX_ATTEMPTS,
     SCENARIO_GENERATION_JOB_TYPE,
 )
 from app.simulations.services.simulations_services_simulations_scenario_payload_builder_service import (
@@ -64,5 +65,6 @@ async def enqueue_regeneration_job(
         payload_json=payload_json,
         company_id=simulation.company_id,
         correlation_id=f"simulation:{simulation.id}:scenario_version:{regenerated.id}",
+        max_attempts=SCENARIO_GENERATION_JOB_MAX_ATTEMPTS,
         commit=False,
     )

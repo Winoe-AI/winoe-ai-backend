@@ -27,6 +27,7 @@ from app.candidates.candidate_sessions.utils.candidates_candidate_sessions_utils
     summarize_progress,
 )
 from app.shared.database.shared_database_models_model import CandidateSession, Task
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 
 async def load_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
@@ -83,7 +84,7 @@ async def progress_snapshot(
             candidate_session_id=candidate_session.id,
         )
     current = compute_current_task(task_list, completed_ids)
-    resolved_now = (now or datetime.now(UTC)).astimezone(UTC)
+    resolved_now = (now or shared_utcnow()).astimezone(UTC)
     current = _handoff_revisit_task(
         task_list,
         completed_ids,

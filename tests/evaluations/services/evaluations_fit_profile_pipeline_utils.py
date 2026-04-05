@@ -10,6 +10,9 @@ from app.evaluations.repositories import (
     EVALUATION_RUN_STATUS_COMPLETED,
     EVALUATION_RUN_STATUS_FAILED,
 )
+from app.evaluations.services import (
+    evaluations_services_evaluations_fit_profile_pipeline_execute_service as execute_service,
+)
 from app.evaluations.services import fit_profile_pipeline
 
 
@@ -64,7 +67,9 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
     )
     ai_policy_snapshot_json = build_ai_policy_snapshot(simulation=simulation)
     context = SimpleNamespace(
-        candidate_session=SimpleNamespace(id=50, scenario_version_id=60),
+        candidate_session=SimpleNamespace(
+            id=50, scenario_version_id=60, simulation_id=70
+        ),
         simulation=simulation,
         scenario_version=SimpleNamespace(
             rubric_version="rubric-vx",
@@ -128,6 +133,11 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
     )
     monkeypatch.setattr(
         fit_profile_pipeline.fit_profile_repository, "upsert_marker", AsyncMock()
+    )
+    monkeypatch.setattr(
+        execute_service.notification_service,
+        "enqueue_fit_profile_ready_notification",
+        AsyncMock(),
     )
     monkeypatch.setattr(
         fit_profile_pipeline.evaluator_service,

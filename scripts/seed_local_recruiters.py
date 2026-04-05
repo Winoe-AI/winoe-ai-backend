@@ -2,11 +2,11 @@ import asyncio
 
 from sqlalchemy import select
 
-from app.shared.auth.dependencies.shared_auth_dependencies_local_recruiter_company_utils import (
-    ensure_local_recruiter_company,
-)
 from app.recruiters.repositories.users.recruiters_repositories_users_recruiters_users_core_model import (
     User,
+)
+from app.shared.auth.dependencies.shared_auth_dependencies_local_recruiter_company_utils import (
+    ensure_local_recruiter_company,
 )
 from app.shared.database import async_session_maker, engine
 from app.shared.database.shared_database_models_model import Base

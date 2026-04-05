@@ -8,9 +8,16 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.shared.database.shared_database_models_model import ScenarioVersion, Simulation, Task
+from app.shared.database.shared_database_models_model import (
+    ScenarioVersion,
+    Simulation,
+    Task,
+)
 from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
     SIMULATION_STATUS_ACTIVE_INVITING,
+)
+from app.simulations.services.simulations_services_simulations_codespace_specializer_service import (
+    ensure_precommit_bundle_prepared_for_approved_scenario,
 )
 from app.simulations.services.simulations_services_simulations_lifecycle_access_service import (
     require_owner_for_lifecycle,
@@ -31,9 +38,6 @@ from app.simulations.services.simulations_services_simulations_lifecycle_termina
 )
 from app.simulations.services.simulations_services_simulations_lifecycle_transition_rules_service import (
     apply_status_transition,
-)
-from app.simulations.services.simulations_services_simulations_codespace_specializer_service import (
-    ensure_precommit_bundle_prepared_for_approved_scenario,
 )
 from app.simulations.services.simulations_services_simulations_scenario_versions_create_service import (
     get_active_scenario_version,

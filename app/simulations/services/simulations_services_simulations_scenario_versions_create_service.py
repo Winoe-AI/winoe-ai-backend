@@ -36,7 +36,9 @@ async def create_initial_scenario_version(
 ) -> ScenarioVersion:
     """Create initial scenario version."""
     company_prompt_overrides_json = await db.scalar(
-        select(Company.ai_prompt_overrides_json).where(Company.id == simulation.company_id)
+        select(Company.ai_prompt_overrides_json).where(
+            Company.id == simulation.company_id
+        )
     )
     scenario_version = ScenarioVersion(
         simulation_id=simulation.id,

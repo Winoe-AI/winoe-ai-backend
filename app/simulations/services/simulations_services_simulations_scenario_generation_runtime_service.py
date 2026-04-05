@@ -107,7 +107,7 @@ def build_deterministic_template_scenario(
             "acceptance_criteria": [
                 "Ship the requested task end-to-end.",
                 "Keep the implementation testable and well-scoped.",
-                "Document tradeoffs across design, coding, and handoff stages.",
+                "Document tradeoffs across design, coding, demo, and reflection stages.",
             ],
             "target_files": [],
             "repo_adjustments": [],
@@ -119,8 +119,12 @@ def build_deterministic_template_scenario(
             source=SCENARIO_SOURCE_TEMPLATE_FALLBACK,
             model_name=FALLBACK_MODEL_NAME,
             model_version=FALLBACK_MODEL_VERSION,
-            prompt_version=str(prestart_snapshot.get("promptVersion") or SCENARIO_PROMPT_VERSION),
-            rubric_version=str(prestart_snapshot.get("rubricVersion") or SCENARIO_RUBRIC_VERSION),
+            prompt_version=str(
+                prestart_snapshot.get("promptVersion") or SCENARIO_PROMPT_VERSION
+            ),
+            rubric_version=str(
+                prestart_snapshot.get("rubricVersion") or SCENARIO_RUBRIC_VERSION
+            ),
             template_key=template_key,
         ),
     )

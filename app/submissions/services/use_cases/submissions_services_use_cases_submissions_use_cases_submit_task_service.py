@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.github.client import GithubClient
+from app.notifications.services import service as notification_service
 from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
+from app.submissions.repositories.task_drafts import repository as task_drafts_repo
 from app.submissions.services import (
     submissions_services_submissions_candidate_service as submission_service,
 )
@@ -41,7 +42,7 @@ async def submit_task(
         task_list = None
     else:
         task, content_json, task_list = validation_result
-    now = datetime.now(UTC)
+    now = shared_utcnow()
     actions_result = diff_summary_json = workspace = None
     if submission_service.is_code_task(task):
         actions_result, diff_summary_json, workspace = await run_code_submission(
@@ -65,7 +66,31 @@ async def submit_task(
         workspace=workspace,
         diff_summary_json=diff_summary_json,
     )
+    draft_finalized = False
+    draft = await task_drafts_repo.get_by_session_and_task(
+        db,
+        candidate_session_id=candidate_session.id,
+        task_id=task.id,
+    )
+    if draft is not None and draft.finalized_submission_id is None:
+        await task_drafts_repo.mark_finalized(
+            db,
+            draft=draft,
+            finalized_submission_id=submission.id,
+            finalized_at=now,
+            commit=False,
+        )
+        draft_finalized = True
     completed, total, is_complete = await submission_service.progress_after_submission(
         db, candidate_session, now=now, tasks=task_list
     )
+    if is_complete:
+        await notification_service.enqueue_candidate_completed_notification(
+            db,
+            candidate_session_id=candidate_session.id,
+            simulation_id=candidate_session.simulation_id,
+            commit=True,
+        )
+    if draft_finalized:
+        await db.commit()
     return task, submission, completed, total, is_complete

@@ -13,6 +13,28 @@ from app.media.repositories.transcripts.media_repositories_transcripts_media_tra
     TRANSCRIPT_STATUS_READY,
 )
 
+_RETRYABLE_TRANSCRIPTION_ERROR_MARKERS = (
+    "openai_transcription_failed:ratelimiterror",
+    "openai_transcription_failed:apitimeouterror",
+    "openai_transcription_failed:apiconnectionerror",
+    "openai_transcription_failed:internalservererror",
+    "openai_transcription_failed:serviceunavailableerror",
+    "openai_transcription_failed:overloadederror",
+    "rate limit",
+    "too many requests",
+    "429",
+)
+
+
+def is_retryable_transcription_error(exc: Exception) -> bool:
+    """Return whether a transcription error should remain non-terminal."""
+    normalized = str(exc).strip().lower()
+    if not normalized:
+        return False
+    return any(
+        marker in normalized for marker in _RETRYABLE_TRANSCRIPTION_ERROR_MARKERS
+    )
+
 
 async def handle_transcribe_recording_impl(
     payload_json: dict,
@@ -23,16 +45,21 @@ async def handle_transcribe_recording_impl(
     mark_processing,
     mark_ready,
     mark_failure,
+    mark_retrying,
     async_session_maker,
     recordings_repo,
     get_storage_media_provider,
     resolve_signed_url_ttl,
     get_transcription_provider,
+    load_transcription_job,
+    transcription_job_has_retry_headroom,
+    is_retryable_transcription_error,
     transcription_provider_error,
     logger,
 ):
     """Handle transcribe recording impl."""
     recording_id = parse_positive_int(payload_json.get("recordingId"))
+    company_id = parse_positive_int(payload_json.get("companyId"))
     if recording_id is None:
         return {
             "status": "skipped_invalid_payload",
@@ -84,8 +111,30 @@ async def handle_transcribe_recording_impl(
         )
     except Exception as exc:
         error_reason = sanitize_error(exc)
-        await mark_failure(recording_id, reason=error_reason)
+        retrying_job = None
+        if company_id is not None:
+            try:
+                retrying_job = await load_transcription_job(
+                    company_id=company_id,
+                    recording_id=recording_id,
+                )
+            except Exception:
+                retrying_job = None
         duration_ms = int((time.perf_counter() - started) * 1000)
+        if is_retryable_transcription_error(
+            exc
+        ) and transcription_job_has_retry_headroom(retrying_job):
+            await mark_retrying(recording_id, reason=error_reason)
+            logger.warning(
+                "transcription_job_retryable_failure recordingId=%s attempt=%s maxAttempts=%s durationMs=%s reason=%s",
+                recording_id,
+                getattr(retrying_job, "attempt", None),
+                getattr(retrying_job, "max_attempts", None),
+                duration_ms,
+                error_reason,
+            )
+            raise RuntimeError(f"transcription_failed: {error_reason}") from exc
+        await mark_failure(recording_id, reason=error_reason)
         logger.warning(
             "transcription_job_failed recordingId=%s durationMs=%s reason=%s",
             recording_id,
@@ -102,4 +151,4 @@ async def handle_transcribe_recording_impl(
     return {"status": "ready", "recordingId": recording_id, "durationMs": duration_ms}
 
 
-__all__ = ["handle_transcribe_recording_impl"]
+__all__ = ["handle_transcribe_recording_impl", "is_retryable_transcription_error"]

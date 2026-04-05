@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,30 +12,50 @@ from app.ai import (
     allow_demo_or_test_mode,
     require_agent_runtime,
 )
-from app.shared.database.shared_database_models_model import ScenarioVersion, Simulation, Task
+from app.shared.database.shared_database_models_model import (
+    ScenarioVersion,
+    Simulation,
+    Task,
+)
 from app.shared.jobs.repositories import repository as jobs_repo
+from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_repository import (
+    load_idempotent_job,
+)
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.simulations.repositories.scenario_versions.simulations_repositories_scenario_versions_simulations_scenario_versions_model import (
-    SCENARIO_VERSION_STATUS_READY,
     SCENARIO_VERSION_STATUS_LOCKED,
+    SCENARIO_VERSION_STATUS_READY,
 )
 from app.simulations.services.simulations_services_simulations_codespace_specializer_runtime_service import (
     build_demo_bundle_artifact,
+    build_retryable_provider_fallback_bundle_artifact,
     generate_codespace_bundle_artifact,
+    is_retryable_codespace_specializer_error,
 )
-from app.tasks.services.tasks_services_tasks_template_catalog_service import (
-    resolve_template_repo_full_name,
+from app.submissions.repositories.precommit_bundles import (
+    repository_lookup as bundle_lookup_repo,
 )
-from app.submissions.repositories.precommit_bundles import repository_lookup as bundle_lookup_repo
-from app.submissions.repositories.precommit_bundles import repository_write as bundle_write_repo
+from app.submissions.repositories.precommit_bundles import (
+    repository_write as bundle_write_repo,
+)
 from app.submissions.repositories.precommit_bundles.submissions_repositories_precommit_bundles_submissions_precommit_bundles_core_model import (
     PRECOMMIT_BUNDLE_STATUS_DISABLED,
     PRECOMMIT_BUNDLE_STATUS_FAILED,
     PRECOMMIT_BUNDLE_STATUS_GENERATING,
     PRECOMMIT_BUNDLE_STATUS_READY,
 )
+from app.tasks.services.tasks_services_tasks_template_catalog_service import (
+    resolve_template_repo_full_name,
+)
 
 CODESPACE_SPECIALIZER_JOB_TYPE = "codespace_specializer"
+# OpenAI can transiently rate-limit scenario specialization requests. Give the
+# worker enough retry budget to absorb brief throttling without dead-lettering a
+# fresh simulation immediately.
+CODESPACE_SPECIALIZER_JOB_MAX_ATTEMPTS = 7
+CODESPACE_SPECIALIZER_PROVIDER_FALLBACK_ATTEMPT = 3
+
+logger = logging.getLogger(__name__)
 
 
 def build_codespace_specializer_payload(
@@ -56,6 +78,43 @@ def codespace_specializer_idempotency_key(scenario_version_id: int) -> str:
 def has_coding_tasks(tasks: list[Task] | list[object]) -> bool:
     """Return whether the simulation needs a codespace baseline bundle."""
     return any(_is_coding_task(task) for task in tasks)
+
+
+async def _load_codespace_specializer_job(
+    db: AsyncSession,
+    *,
+    company_id: int,
+    scenario_version_id: int,
+):
+    return await load_idempotent_job(
+        db,
+        company_id=company_id,
+        job_type=CODESPACE_SPECIALIZER_JOB_TYPE,
+        idempotency_key=codespace_specializer_idempotency_key(scenario_version_id),
+    )
+
+
+def _codespace_job_has_retry_headroom(job: object | None) -> bool:
+    if job is None:
+        return False
+    status = (getattr(job, "status", "") or "").strip().lower()
+    attempt = int(getattr(job, "attempt", 0) or 0)
+    max_attempts = int(getattr(job, "max_attempts", 0) or 0)
+    return status in {"queued", "running"} and attempt < max_attempts
+
+
+def _codespace_job_attempt(job: object | None) -> int:
+    return int(getattr(job, "attempt", 0) or 0) if job is not None else 0
+
+
+def _should_use_retryable_provider_fallback(
+    *,
+    error: Exception,
+    job: object | None,
+) -> bool:
+    return is_retryable_codespace_specializer_error(error) and (
+        _codespace_job_attempt(job) >= CODESPACE_SPECIALIZER_PROVIDER_FALLBACK_ATTEMPT
+    )
 
 
 async def ensure_precommit_bundle_ready_for_invites(
@@ -84,6 +143,30 @@ async def ensure_precommit_bundle_ready_for_invites(
     )
     bundle_status = getattr(existing, "status", None)
     if bundle_status == PRECOMMIT_BUNDLE_STATUS_FAILED:
+        retrying_job = await _load_codespace_specializer_job(
+            db,
+            company_id=simulation.company_id,
+            scenario_version_id=scenario_version.id,
+        )
+        if _codespace_job_has_retry_headroom(retrying_job):
+            await db.commit()
+            raise ApiError(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Codespace baseline generation is still retrying for the locked"
+                    " scenario."
+                ),
+                error_code="PRECOMMIT_BUNDLE_NOT_READY",
+                retryable=True,
+                details={
+                    "scenarioVersionId": scenario_version.id,
+                    "bundleStatus": PRECOMMIT_BUNDLE_STATUS_GENERATING,
+                    "jobStatus": getattr(retrying_job, "status", None),
+                    "attempt": getattr(retrying_job, "attempt", None),
+                    "maxAttempts": getattr(retrying_job, "max_attempts", None),
+                    "lastError": getattr(existing, "last_error", None),
+                },
+            )
         await db.commit()
         raise ApiError(
             status_code=status.HTTP_409_CONFLICT,
@@ -222,7 +305,7 @@ async def enqueue_codespace_specializer_job(
         ),
         company_id=company_id,
         correlation_id=f"scenario:{scenario_version_id}",
-        max_attempts=1,
+        max_attempts=CODESPACE_SPECIALIZER_JOB_MAX_ATTEMPTS,
         commit=commit,
     )
 
@@ -236,9 +319,7 @@ async def run_codespace_specializer_job(
     """Run one codespace specialization job and persist bundle state."""
     simulation = (
         await db.execute(
-            select(Simulation)
-            .where(Simulation.id == simulation_id)
-            .with_for_update()
+            select(Simulation).where(Simulation.id == simulation_id).with_for_update()
         )
     ).scalar_one_or_none()
     if simulation is None:
@@ -349,10 +430,55 @@ async def run_codespace_specializer_job(
             "bundleStatus": bundle.status,
         }
     except Exception as exc:
+        retrying_job = await _load_codespace_specializer_job(
+            db,
+            company_id=simulation.company_id,
+            scenario_version_id=scenario_version.id,
+        )
+        if _should_use_retryable_provider_fallback(
+            error=exc,
+            job=retrying_job,
+        ):
+            artifact = build_retryable_provider_fallback_bundle_artifact(
+                scenario_version=scenario_version,
+                template_repo_full_name=template_repo_full_name,
+                fallback_reason=str(exc),
+            )
+            bundle = await _persist_ready_bundle(
+                db,
+                scenario_version=scenario_version,
+                template_key=template_key,
+                artifact=artifact,
+                existing_bundle=bundle,
+                commit=False,
+            )
+            await db.commit()
+            await db.refresh(bundle)
+            logger.warning(
+                "codespace_specializer_degraded_to_context_bundle",
+                extra={
+                    "simulationId": simulation.id,
+                    "scenarioVersionId": scenario_version.id,
+                    "attempt": _codespace_job_attempt(retrying_job),
+                    "errorMessage": str(exc),
+                },
+            )
+            return {
+                "status": "completed_with_retryable_provider_fallback",
+                "simulationId": simulation.id,
+                "scenarioVersionId": scenario_version.id,
+                "bundleId": bundle.id,
+                "bundleStatus": bundle.status,
+            }
+        next_bundle_status = (
+            PRECOMMIT_BUNDLE_STATUS_GENERATING
+            if _codespace_job_has_retry_headroom(retrying_job)
+            else PRECOMMIT_BUNDLE_STATUS_FAILED
+        )
         await bundle_write_repo.update_bundle(
             db,
             bundle=bundle,
-            status=PRECOMMIT_BUNDLE_STATUS_FAILED,
+            status=next_bundle_status,
             patch_text=None,
             storage_ref=None,
             commit_message=None,
@@ -459,4 +585,6 @@ __all__ = [
     "has_coding_tasks",
     "resolve_codespace_template_repo",
     "run_codespace_specializer_job",
+    "CODESPACE_SPECIALIZER_JOB_MAX_ATTEMPTS",
+    "CODESPACE_SPECIALIZER_PROVIDER_FALLBACK_ATTEMPT",
 ]

@@ -9,7 +9,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.shared.database.shared_database_models_model import ScenarioVersion, Simulation, Task
+from app.shared.database.shared_database_models_model import (
+    ScenarioVersion,
+    Simulation,
+    Task,
+)
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.simulations.repositories.scenario_versions import (
     simulations_repositories_scenario_versions_simulations_scenario_versions_repository as scenario_repo,
@@ -20,11 +24,11 @@ from app.simulations.repositories.scenario_versions.simulations_repositories_sce
 from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
     SIMULATION_STATUS_ACTIVE_INVITING,
 )
-from app.simulations.services.simulations_services_simulations_lifecycle_service import (
-    apply_status_transition,
-)
 from app.simulations.services.simulations_services_simulations_codespace_specializer_service import (
     ensure_precommit_bundle_prepared_for_approved_scenario,
+)
+from app.simulations.services.simulations_services_simulations_lifecycle_service import (
+    apply_status_transition,
 )
 from app.simulations.services.simulations_services_simulations_scenario_versions_access_service import (
     require_owned_simulation_for_update,

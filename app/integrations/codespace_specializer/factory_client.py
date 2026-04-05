@@ -22,9 +22,8 @@ def get_codespace_specializer_provider(
 ) -> CodespaceSpecializerProvider:
     """Return the configured codespace-specializer provider."""
     normalized = (
-        (provider or "").strip().lower()
-        or resolve_codespace_specializer_config().provider
-    )
+        provider or ""
+    ).strip().lower() or resolve_codespace_specializer_config().provider
     if normalized == "openai":
         return OpenAICodespaceSpecializerProvider()
     if normalized == "anthropic":

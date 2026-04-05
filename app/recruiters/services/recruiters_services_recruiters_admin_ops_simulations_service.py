@@ -41,7 +41,9 @@ async def _ensure_scenario_version_snapshot(
     if getattr(scenario_version, "ai_policy_snapshot_json", None):
         return
     company_prompt_overrides_json = await db.scalar(
-        select(Company.ai_prompt_overrides_json).where(Company.id == simulation.company_id)
+        select(Company.ai_prompt_overrides_json).where(
+            Company.id == simulation.company_id
+        )
     )
     scenario_version.ai_policy_snapshot_json = build_ai_policy_snapshot(
         simulation=simulation,

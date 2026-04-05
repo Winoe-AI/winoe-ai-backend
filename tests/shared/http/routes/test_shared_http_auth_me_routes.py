@@ -5,10 +5,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.config import settings
 from app.main import app
-from app.shared.database.shared_database_models_model import Company, User
 from app.shared.auth import auth0
 from app.shared.auth import shared_auth_current_user_utils as current_user
 from app.shared.database import get_session
+from app.shared.database.shared_database_models_model import Company, User
 from app.shared.http.routes import shared_http_routes_auth_routes as auth_routes
 
 

@@ -7,10 +7,10 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.shared.types.shared_types_types_model import SimulationStatus
 from app.simulations.schemas.simulations_schemas_simulations_ai_models_schema import (
     SimulationAIAgentRuntimeSummary,
 )
-from app.shared.types.shared_types_types_model import SimulationStatus
 
 
 class ScenarioVersionSummary(BaseModel):

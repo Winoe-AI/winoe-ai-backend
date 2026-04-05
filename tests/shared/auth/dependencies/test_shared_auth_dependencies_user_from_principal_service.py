@@ -4,10 +4,10 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.shared.auth import dependencies
-from app.shared.auth.principal import Principal
 from app.shared.auth.dependencies import (
     shared_auth_dependencies_users_utils as users_utils,
 )
+from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import User
 from tests.shared.auth.dependencies.shared_auth_dependencies_utils import ctx_maker
 
@@ -88,7 +88,9 @@ async def test_user_from_principal_assigns_candidate_role(async_session):
 
 
 @pytest.mark.asyncio
-async def test_user_from_principal_creates_local_recruiter_with_company(async_session, monkeypatch):
+async def test_user_from_principal_creates_local_recruiter_with_company(
+    async_session, monkeypatch
+):
     principal = Principal(
         sub="auth0|local-recruiter",
         email="local-recruiter@local.test",

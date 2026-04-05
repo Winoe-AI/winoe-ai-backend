@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 TRANSCRIBE_RECORDING_JOB_TYPE = "transcribe_recording"
-TRANSCRIBE_RECORDING_MAX_ATTEMPTS = 5
+# Day 4 transcript generation is part of the fresh live completion proof. Give
+# the worker enough retry headroom to absorb brief provider throttling before
+# surfacing a terminal failure back to the candidate.
+TRANSCRIBE_RECORDING_MAX_ATTEMPTS = 7
 
 
 def transcribe_recording_idempotency_key(recording_id: int) -> str:
@@ -16,12 +19,14 @@ def build_transcribe_recording_payload(
     recording_id: int,
     candidate_session_id: int,
     task_id: int,
+    company_id: int,
 ) -> dict[str, int]:
     """Build transcribe recording payload."""
     return {
         "recordingId": int(recording_id),
         "candidateSessionId": int(candidate_session_id),
         "taskId": int(task_id),
+        "companyId": int(company_id),
     }
 
 

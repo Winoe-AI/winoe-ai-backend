@@ -16,9 +16,6 @@ from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_recruiter_or_none
 from app.shared.database import get_session
 from app.shared.database.shared_database_models_model import ScenarioVersion
-from app.submissions.repositories.precommit_bundles import (
-    repository_lookup as bundle_lookup_repo,
-)
 from app.simulations import services as sim_service
 from app.simulations.routes.simulations_routes.simulations_routes_simulations_routes_simulations_routes_detail_render_routes import (
     render_simulation_detail,
@@ -28,6 +25,9 @@ from app.simulations.schemas.simulations_schemas_simulations_core_schema import 
 )
 from app.simulations.services.simulations_services_simulations_codespace_specializer_service import (
     has_coding_tasks,
+)
+from app.submissions.repositories.precommit_bundles import (
+    repository_lookup as bundle_lookup_repo,
 )
 
 router = APIRouter()
@@ -93,9 +93,7 @@ async def get_simulation_detail(
         company_prompt_overrides_json=getattr(
             company, "ai_prompt_overrides_json", None
         ),
-        simulation_prompt_overrides_json=getattr(
-            sim, "ai_prompt_overrides_json", None
-        ),
+        simulation_prompt_overrides_json=getattr(sim, "ai_prompt_overrides_json", None),
     )
     active_bundle_status = await _resolve_bundle_status(
         db,

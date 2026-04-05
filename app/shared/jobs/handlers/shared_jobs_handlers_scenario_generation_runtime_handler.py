@@ -8,8 +8,7 @@ from time import perf_counter
 from sqlalchemy import select
 
 from app.ai import build_ai_policy_snapshot
-from app.shared.database.shared_database_models_model import Company
-from app.shared.database.shared_database_models_model import Simulation, Task
+from app.shared.database.shared_database_models_model import Company, Simulation, Task
 from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
     SIMULATION_STATUS_ACTIVE_INVITING,
     SIMULATION_STATUS_GENERATING,

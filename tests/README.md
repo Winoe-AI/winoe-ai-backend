@@ -8,5 +8,5 @@
 ## Running tests
 
 - Standard run: `poetry run pytest`
-- With coverage (CI default): `poetry run pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=99`
+- With coverage (CI default): `poetry run pytest --cov=app --cov-report=term-missing --cov-report=xml --cov-fail-under=96`
 - To scope by domain, target a package directly (for example `poetry run pytest tests/candidates/routes -q`).

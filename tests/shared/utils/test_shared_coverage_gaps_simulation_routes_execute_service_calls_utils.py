@@ -67,6 +67,7 @@ async def test_simulation_routes_execute_service_calls(monkeypatch):
             "tasks": _tasks,
         },
     )
+
     async def _load_pending(*_a, **_k):
         return None
 

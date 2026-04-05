@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
+
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 
 def derive_current_day_window(
@@ -17,7 +19,7 @@ def derive_current_day_window(
     if not day_windows:
         return None
 
-    now = coerce_utc_datetime(now_utc or datetime.now(UTC))
+    now = coerce_utc_datetime(now_utc or shared_utcnow())
     ordered = sorted(day_windows, key=lambda item: int(item["dayIndex"]))
     for window in ordered:
         start_at = coerce_utc_datetime(window["windowStartAt"])

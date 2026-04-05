@@ -104,7 +104,9 @@ def render_simulation_detail(
     """Render simulation detail."""
     raw_status = getattr(sim, "status", None)
     status_value = sim_service.normalize_simulation_status_or_raise(raw_status)
-    active_snapshot_json = getattr(active_scenario_version, "ai_policy_snapshot_json", None)
+    active_snapshot_json = getattr(
+        active_scenario_version, "ai_policy_snapshot_json", None
+    )
     active_snapshot_digest = compute_ai_policy_snapshot_digest(active_snapshot_json)
     current_snapshot_digest = compute_ai_policy_snapshot_digest(
         current_ai_policy_snapshot_json
@@ -167,9 +169,7 @@ def render_simulation_detail(
                 aiPromptPackVersion=(
                     active_snapshot_json.get("promptPackVersion")
                     if isinstance(active_snapshot_json, Mapping)
-                    and isinstance(
-                        active_snapshot_json.get("promptPackVersion"), str
-                    )
+                    and isinstance(active_snapshot_json.get("promptPackVersion"), str)
                     else None
                 ),
                 precommitBundleStatus=active_bundle_status,

@@ -23,6 +23,8 @@ class ConsoleEmailProvider:
                 "to": message.to,
                 "subject": message.subject,
                 "sender": message.sender or self.sender,
+                "text": message.text,
+                "html": message.html,
             },
         )
         return "console"
