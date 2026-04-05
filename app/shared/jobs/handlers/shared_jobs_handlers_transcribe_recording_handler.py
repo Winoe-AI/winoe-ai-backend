@@ -16,6 +16,7 @@ from app.integrations.transcription import (
 from app.media.repositories.recordings import repository as recordings_repo
 from app.media.services.media_services_media_transcription_jobs_service import (
     TRANSCRIBE_RECORDING_JOB_TYPE,
+    transcribe_recording_idempotency_key,
 )
 from app.shared.database import async_session_maker
 from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_helpers_handler import (
@@ -24,6 +25,7 @@ from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_helpers_
 )
 from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_runtime_handler import (
     handle_transcribe_recording_impl,
+    is_retryable_transcription_error,
 )
 from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_state_handler import (
     _mark_failure as _mark_failure_impl,
@@ -33,6 +35,12 @@ from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_state_ha
 )
 from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_state_handler import (
     _mark_ready as _mark_ready_impl,
+)
+from app.shared.jobs.handlers.shared_jobs_handlers_transcribe_recording_state_handler import (
+    _mark_retrying as _mark_retrying_impl,
+)
+from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_repository import (
+    load_idempotent_job as _load_idempotent_job,
 )
 from app.shared.utils.shared_utils_parsing_utils import (
     parse_positive_int as _parse_positive_int_value,
@@ -69,6 +77,30 @@ async def _mark_ready(
     )
 
 
+async def _mark_retrying(recording_id: int, *, reason: str):
+    return await _mark_retrying_impl(
+        recording_id, reason=reason, async_session_maker=async_session_maker
+    )
+
+
+async def _load_transcription_job(*, company_id: int, recording_id: int):
+    async with async_session_maker() as db:
+        return await _load_idempotent_job(
+            db,
+            company_id=company_id,
+            job_type=TRANSCRIBE_RECORDING_JOB_TYPE,
+            idempotency_key=transcribe_recording_idempotency_key(recording_id),
+        )
+
+
+def _transcription_job_has_retry_headroom(job: Any) -> bool:
+    if job is None:
+        return False
+    attempt = int(getattr(job, "attempt", 0) or 0)
+    max_attempts = int(getattr(job, "max_attempts", 0) or 0)
+    return attempt < max_attempts
+
+
 async def handle_transcribe_recording(payload_json: dict[str, Any]) -> dict[str, Any]:
     """Handle transcribe recording."""
     return await handle_transcribe_recording_impl(
@@ -79,11 +111,15 @@ async def handle_transcribe_recording(payload_json: dict[str, Any]) -> dict[str,
         mark_processing=_mark_processing,
         mark_ready=_mark_ready,
         mark_failure=_mark_failure,
+        mark_retrying=_mark_retrying,
         async_session_maker=async_session_maker,
         recordings_repo=recordings_repo,
         get_storage_media_provider=get_storage_media_provider,
         resolve_signed_url_ttl=resolve_signed_url_ttl,
         get_transcription_provider=get_transcription_provider,
+        load_transcription_job=_load_transcription_job,
+        transcription_job_has_retry_headroom=_transcription_job_has_retry_headroom,
+        is_retryable_transcription_error=is_retryable_transcription_error,
         transcription_provider_error=TranscriptionProviderError,
         logger=logger,
     )

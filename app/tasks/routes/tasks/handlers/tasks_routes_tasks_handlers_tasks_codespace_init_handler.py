@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.integrations.github import GithubClient, GithubError
 from app.shared.database.shared_database_models_model import CandidateSession
 from app.shared.http.shared_http_error_utils import map_github_error
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.submissions.schemas.submissions_schemas_submissions_core_schema import (
     CodespaceInitRequest,
     CodespaceInitResponse,
@@ -37,15 +36,15 @@ async def handle_codespace_init(
             repo_prefix=settings.github.GITHUB_REPO_PREFIX,
             template_owner=settings.github.GITHUB_TEMPLATE_OWNER
             or settings.github.GITHUB_ORG,
-            now=datetime.now(UTC),
+            now=shared_utcnow(),
         )
     except GithubError as exc:
         raise map_github_error(exc) from exc
 
     return CodespaceInitResponse(
         repoFullName=workspace.repo_full_name,
-        repoUrl=f"https://github.com/{workspace.repo_full_name}",
         codespaceUrl=codespace_url,
+        codespaceState=getattr(workspace, "codespace_state", None),
         defaultBranch=workspace.default_branch,
         baseTemplateSha=getattr(workspace, "base_template_sha", None),
         precommitSha=getattr(workspace, "precommit_sha", None),

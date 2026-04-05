@@ -14,4 +14,8 @@ def test_sanitize_evidence_handles_missing_ref_and_negative_transcript_end():
     sanitized_transcript = fit_profile_composer._sanitize_evidence(
         {"kind": "transcript", "startMs": 0, "endMs": -1}
     )
-    assert sanitized_transcript == {"kind": "transcript", "startMs": 0}
+    assert sanitized_transcript == {
+        "kind": "transcript",
+        "startMs": 0,
+        "endMs": 0,
+    }

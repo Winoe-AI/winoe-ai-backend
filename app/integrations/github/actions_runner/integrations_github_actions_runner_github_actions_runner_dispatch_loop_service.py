@@ -21,6 +21,7 @@ from app.integrations.github.actions_runner.integrations_github_actions_runner_g
 from app.integrations.github.actions_runner.integrations_github_actions_runner_github_actions_runner_runs_utils import (
     is_dispatched_run,
     run_cache_key,
+    run_id_set,
 )
 from app.integrations.github.client import GithubError
 
@@ -30,6 +31,14 @@ async def dispatch_and_wait(
 ) -> Any:
     """Dispatch and wait."""
     dispatch_started_at = datetime.now(UTC)
+    existing_run_ids: set[int] = set()
+    try:
+        existing_runs = await ctx.client.list_workflow_runs(
+            repo_full_name, ctx.workflow_file, branch=ref, per_page=5
+        )
+        existing_run_ids = run_id_set(existing_runs)
+    except GithubError:
+        existing_run_ids = set()
     workflow_file = await ctx._dispatch_with_fallbacks(
         repo_full_name, ref=ref, inputs=inputs
     )
@@ -40,8 +49,19 @@ async def dispatch_and_wait(
             repo_full_name, workflow_file, branch=ref, per_page=5
         )
         candidate_run = next(
-            (run for run in runs if is_dispatched_run(run, dispatch_started_at)), None
+            (
+                run
+                for run in runs
+                if int(getattr(run, "id", 0) or 0) not in existing_run_ids
+                and (run.event or "workflow_dispatch") == "workflow_dispatch"
+            ),
+            None,
         )
+        if candidate_run is None:
+            candidate_run = next(
+                (run for run in runs if is_dispatched_run(run, dispatch_started_at)),
+                None,
+            )
         if candidate_run:
             status = (candidate_run.status or "").lower()
             conclusion = (

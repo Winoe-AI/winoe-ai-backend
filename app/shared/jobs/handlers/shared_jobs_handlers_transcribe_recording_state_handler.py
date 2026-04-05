@@ -72,6 +72,31 @@ async def _mark_failure(recording_id: int, *, reason: str, async_session_maker):
         await db.commit()
 
 
+async def _mark_retrying(recording_id: int, *, reason: str, async_session_maker):
+    async with async_session_maker() as db:
+        recording = await recordings_repo.get_by_id_for_update(db, recording_id)
+        if recording is None or recordings_repo.is_deleted_or_purged(recording):
+            return
+        transcript, _ = await transcripts_repo.get_or_create_transcript(
+            db,
+            recording_id=recording.id,
+            status=TRANSCRIPT_STATUS_PENDING,
+            commit=False,
+        )
+        recording.status = RECORDING_ASSET_STATUS_PROCESSING
+        await transcripts_repo.update_transcript(
+            db,
+            transcript=transcript,
+            status=TRANSCRIPT_STATUS_PROCESSING,
+            text=None,
+            segments_json=None,
+            model_name=None,
+            last_error=reason,
+            commit=False,
+        )
+        await db.commit()
+
+
 async def _mark_ready(
     recording_id: int,
     *,
@@ -104,4 +129,4 @@ async def _mark_ready(
         await db.commit()
 
 
-__all__ = ["_mark_failure", "_mark_processing", "_mark_ready"]
+__all__ = ["_mark_failure", "_mark_processing", "_mark_ready", "_mark_retrying"]

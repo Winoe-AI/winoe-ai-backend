@@ -14,3 +14,13 @@ class UserRead(APIModel):
     name: str
     email: str
     role: str
+    companyId: int | None = None
+    companyName: str | None = None
+    onboardingComplete: bool = True
+
+
+class RecruiterOnboardingWrite(APIModel):
+    """Payload for completing recruiter onboarding."""
+
+    name: str
+    companyName: str

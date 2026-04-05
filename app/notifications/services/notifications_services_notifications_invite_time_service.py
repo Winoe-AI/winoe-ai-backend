@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
+
 INVITE_EMAIL_RATE_LIMIT_SECONDS = 30
 
 
 def utc_now(now: datetime | None) -> datetime:
     """Execute utc now."""
-    resolved = now or datetime.now(UTC)
+    resolved = now or shared_utcnow()
     if resolved.tzinfo is None:
         return resolved.replace(tzinfo=UTC)
     return resolved

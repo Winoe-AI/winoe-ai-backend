@@ -15,6 +15,10 @@ from app.notifications.services.notifications_services_notifications_invite_time
 from app.notifications.services.notifications_services_notifications_invite_time_service import (
     utc_now as _utc_now,
 )
+from app.notifications.services.notifications_services_notifications_recruiter_updates_service import (
+    enqueue_candidate_completed_notification,
+    enqueue_fit_profile_ready_notification,
+)
 from app.notifications.services.notifications_services_notifications_schedule_send_service import (
     send_schedule_confirmation_emails,
 )
@@ -22,6 +26,8 @@ from app.notifications.services.notifications_services_notifications_schedule_se
 __all__ = [
     "send_invite_email",
     "send_schedule_confirmation_emails",
+    "enqueue_candidate_completed_notification",
+    "enqueue_fit_profile_ready_notification",
     "INVITE_EMAIL_RATE_LIMIT_SECONDS",
     "_rate_limited",
     "_utc_now",

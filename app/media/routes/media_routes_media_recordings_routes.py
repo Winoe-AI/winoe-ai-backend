@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions import services as cs_service
 from app.media.repositories.recordings import repository as recordings_repo
+from app.media.routes.media_routes_media_fake_storage_routes import (
+    router as fake_storage_router,
+)
 from app.media.schemas.media_schemas_media_recordings_schema import (
     RecordingDeleteResponse,
 )
@@ -26,6 +29,7 @@ from app.shared.auth.shared_auth_candidate_access_utils import (
 from app.shared.database import get_session
 
 router = APIRouter(prefix="/recordings", tags=["recordings"])
+router.include_router(fake_storage_router)
 
 
 @router.post(

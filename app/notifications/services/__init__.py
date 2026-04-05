@@ -8,6 +8,7 @@ import app.notifications.services.notifications_services_notifications_invite_di
 import app.notifications.services.notifications_services_notifications_invite_rate_limit_service as invite_rate_limit
 import app.notifications.services.notifications_services_notifications_invite_send_service as invite_send
 import app.notifications.services.notifications_services_notifications_invite_time_service as invite_time
+import app.notifications.services.notifications_services_notifications_recruiter_updates_service as recruiter_updates
 import app.notifications.services.notifications_services_notifications_schedule_content_service as schedule_content
 import app.notifications.services.notifications_services_notifications_schedule_send_service as schedule_send
 
@@ -19,6 +20,7 @@ __all__ = [
     "invite_rate_limit",
     "invite_send",
     "invite_time",
+    "recruiter_updates",
     "schedule_content",
     "schedule_send",
     "service",

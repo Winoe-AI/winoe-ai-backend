@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +14,7 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_cor
     CandidateInviteRequest,
 )
 from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 from .simulations_services_simulations_invite_tokens_service import (
     INVITE_TOKEN_TTL_DAYS,
@@ -29,7 +30,7 @@ async def create_invite(
     now: datetime | None = None,
 ) -> tuple[CandidateSession, bool]:
     """Create invite."""
-    now = now or datetime.now(UTC)
+    now = now or shared_utcnow()
     invite_email = str(payload.inviteEmail).strip().lower()
     expires_at = now + timedelta(days=INVITE_TOKEN_TTL_DAYS)
     for _ in range(3):

@@ -7,6 +7,9 @@ import time
 from datetime import UTC, datetime
 
 from app.integrations.github import GithubClient, GithubError
+from app.integrations.github.actions_runner.integrations_github_actions_runner_github_actions_runner_runs_utils import (
+    run_id_set,
+)
 from app.integrations.github.template_health.integrations_github_template_health_github_template_health_classify_service import (
     _classify_github_error,
 )
@@ -26,6 +29,14 @@ async def dispatch_and_poll(
     """Dispatch and poll."""
     errors: list[str] = []
     dispatch_started_at = datetime.now(UTC)
+    existing_run_ids: set[int] = set()
+    try:
+        existing_runs = await github_client.list_workflow_runs(
+            repo_full_name, workflow_file, branch=default_branch, per_page=5
+        )
+        existing_run_ids = run_id_set(existing_runs)
+    except GithubError:
+        existing_run_ids = set()
     try:
         await github_client.trigger_workflow_dispatch(
             repo_full_name, workflow_file, ref=default_branch
@@ -46,9 +57,23 @@ async def dispatch_and_poll(
             return errors, None, None
 
         run = next(
-            (item for item in runs if _is_dispatched_run(item, dispatch_started_at)),
+            (
+                item
+                for item in runs
+                if int(getattr(item, "id", 0) or 0) not in existing_run_ids
+                and (item.event or "workflow_dispatch") == "workflow_dispatch"
+            ),
             None,
         )
+        if run is None:
+            run = next(
+                (
+                    item
+                    for item in runs
+                    if _is_dispatched_run(item, dispatch_started_at)
+                ),
+                None,
+            )
         if run:
             status = (run.status or "").lower()
             conclusion = (run.conclusion or "").lower() if run.conclusion else None

@@ -50,6 +50,22 @@ logger = logging.getLogger(__name__)
 
 
 @router.post(
+    "/{task_id}/presentation/upload/init",
+    response_model=HandoffUploadInitResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Init Presentation Upload Route",
+    description=(
+        "Initialize candidate presentation recording upload and return signed"
+        " upload instructions."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Task or candidate session not found."
+        },
+    },
+)
+@router.post(
     "/{task_id}/handoff/upload/init",
     response_model=HandoffUploadInitResponse,
     status_code=status.HTTP_200_OK,
@@ -89,6 +105,20 @@ async def init_handoff_upload_route(
 
 
 @router.post(
+    "/{task_id}/presentation/upload/complete",
+    response_model=HandoffUploadCompleteResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Complete Presentation Upload Route",
+    description=(
+        "Finalize a previously initialized presentation upload and bind"
+        " recording metadata to the submission."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_404_NOT_FOUND: {"description": "Task or upload record not found."},
+    },
+)
+@router.post(
     "/{task_id}/handoff/upload/complete",
     response_model=HandoffUploadCompleteResponse,
     status_code=status.HTTP_200_OK,
@@ -125,6 +155,22 @@ async def complete_handoff_upload_route(
     )
 
 
+@router.get(
+    "/{task_id}/presentation/upload/status",
+    response_model=HandoffStatusResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Presentation Status Route",
+    description=(
+        "Return the current recording and transcript status for presentation"
+        " tasks in the candidate session."
+    ),
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Task or presentation recording not found."
+        },
+    },
+)
 @router.get(
     "/{task_id}/handoff/status",
     response_model=HandoffStatusResponse,

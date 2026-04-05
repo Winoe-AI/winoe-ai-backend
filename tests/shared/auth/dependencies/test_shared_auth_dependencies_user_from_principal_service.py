@@ -4,7 +4,11 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.shared.auth import dependencies
+from app.shared.auth.dependencies import (
+    shared_auth_dependencies_users_utils as users_utils,
+)
 from app.shared.auth.principal import Principal
+from app.shared.database.shared_database_models_model import User
 from tests.shared.auth.dependencies.shared_auth_dependencies_utils import ctx_maker
 
 
@@ -81,3 +85,54 @@ async def test_user_from_principal_assigns_candidate_role(async_session):
     user = await dependencies._user_from_principal(principal, async_session)
 
     assert user.role == "candidate"
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_creates_local_recruiter_with_company(
+    async_session, monkeypatch
+):
+    principal = Principal(
+        sub="auth0|local-recruiter",
+        email="local-recruiter@local.test",
+        name="Local Recruiter",
+        roles=["recruiter"],
+        permissions=["recruiter:access"],
+        claims={},
+    )
+    monkeypatch.setattr(users_utils, "env_name", lambda: "local")
+
+    user = await dependencies._user_from_principal(principal, async_session)
+
+    assert user.role == "recruiter"
+    assert user.company_id is not None
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_backfills_existing_local_recruiter_without_company(
+    async_session, monkeypatch
+):
+    recruiter = User(
+        name="Existing Recruiter",
+        email="existing-local@local.test",
+        role="recruiter",
+        company_id=None,
+        password_hash="",
+    )
+    async_session.add(recruiter)
+    await async_session.commit()
+
+    principal = Principal(
+        sub="auth0|existing-local",
+        email=recruiter.email,
+        name=recruiter.name,
+        roles=["recruiter"],
+        permissions=["recruiter:access"],
+        claims={},
+    )
+    monkeypatch.setattr(users_utils, "env_name", lambda: "local")
+
+    resolved = await dependencies._user_from_principal(principal, async_session)
+    await async_session.refresh(recruiter)
+
+    assert resolved.id == recruiter.id
+    assert recruiter.company_id is not None

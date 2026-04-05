@@ -54,6 +54,8 @@ class CandidateInviteListItem(APIModel):
     simulationTitle: str
     role: str
     companyName: str | None
+    recruiterName: str | None = None
+    recruiterEmail: str | None = None
     status: CandidateSessionStatus
     progress: ProgressSummary
     lastActivityAt: datetime | None

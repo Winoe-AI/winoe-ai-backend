@@ -39,5 +39,6 @@ async def test_submit_day5_reflection_persists_content_json_and_text(
     assert submission.content_text == payload["contentText"]
     assert submission.content_json == {
         "kind": "day5_reflection",
+        "markdown": payload["contentText"],
         "sections": payload["reflection"],
     }

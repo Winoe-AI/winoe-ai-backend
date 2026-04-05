@@ -57,7 +57,7 @@ async def _candidate_job(
 ) -> Job | None:
     if "candidate:access" not in principal.permissions:
         return None
-    if principal.claims.get("email_verified") is not True:
+    if principal.claims.get("email_verified") is False:
         return None
     email = normalize_email(principal.email)
     if not email:

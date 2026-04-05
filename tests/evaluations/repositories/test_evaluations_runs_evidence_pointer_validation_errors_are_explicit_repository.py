@@ -40,7 +40,7 @@ async def test_evidence_pointer_validation_errors_are_explicit(async_session):
 
     with pytest.raises(
         eval_repo.EvidencePointerValidationError,
-        match="evidence_pointers_json\\[0\\]\\.endMs",
+        match="evidence_pointers_json\\[0\\]\\.ref",
     ):
         await eval_repo.create_run_with_day_scores(
             async_session,
@@ -64,6 +64,7 @@ async def test_evidence_pointer_validation_errors_are_explicit(async_session):
                         {
                             "kind": "transcript",
                             "startMs": 10,
+                            "endMs": 10,
                         }
                     ],
                 }

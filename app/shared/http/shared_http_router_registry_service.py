@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from app.config import settings
+from app.shared.auth.shared_auth_admin_api_key_utils import is_admin_key_configured
 from app.shared.http.routes import (
     admin_routes,
     admin_templates,
@@ -17,6 +18,9 @@ from app.shared.http.routes import (
     tasks_codespaces,
 )
 from app.shared.http.routes import shared_http_routes_auth_routes as auth
+from app.shared.http.routes import (
+    shared_http_routes_companies_routes as companies,
+)
 from app.shared.http.routes import shared_http_routes_health_routes as health
 from app.shared.http.routes import shared_http_routes_jobs_routes as jobs
 
@@ -26,9 +30,16 @@ def register_routers(app: FastAPI) -> None:
     prefix = settings.API_PREFIX
     app.include_router(health.router, prefix="", tags=["health"])
     app.include_router(auth.router, prefix=f"{prefix}/auth", tags=["auth"])
+    app.include_router(companies.router, prefix=f"{prefix}", tags=["companies"])
     app.include_router(jobs.router, prefix=f"{prefix}", tags=["jobs"])
     app.include_router(admin_templates.router, prefix=f"{prefix}/admin", tags=["admin"])
     app.include_router(admin_routes.router, prefix=f"{prefix}/admin", tags=["admin"])
+    if is_admin_key_configured():
+        app.include_router(
+            admin_routes.dev_session_controls.router,
+            prefix=f"{prefix}/admin",
+            tags=["admin"],
+        )
     app.include_router(simulations.router, prefix=f"{prefix}", tags=["simulations"])
     app.include_router(
         candidate_sessions.router, prefix=f"{prefix}/candidate", tags=["candidate"]

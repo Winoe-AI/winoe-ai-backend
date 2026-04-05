@@ -23,6 +23,13 @@ def test_derive_day_windows_new_york_defaults() -> None:
     assert windows[0]["windowStartAt"] == datetime(2026, 3, 10, 13, 0, tzinfo=UTC)
     assert windows[0]["windowEndAt"] == datetime(2026, 3, 10, 21, 0, tzinfo=UTC)
     assert windows[-1]["dayIndex"] == 5
+    assert [window["windowEndAt"] for window in windows] == [
+        datetime(2026, 3, 10, 21, 0, tzinfo=UTC),
+        datetime(2026, 3, 11, 21, 0, tzinfo=UTC),
+        datetime(2026, 3, 12, 21, 0, tzinfo=UTC),
+        datetime(2026, 3, 13, 21, 0, tzinfo=UTC),
+        datetime(2026, 3, 14, 21, 0, tzinfo=UTC),
+    ]
 
 
 def test_derive_day_windows_handles_dst_transition() -> None:

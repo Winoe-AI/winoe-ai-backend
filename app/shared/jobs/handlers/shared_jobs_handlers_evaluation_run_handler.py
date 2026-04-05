@@ -16,8 +16,12 @@ async def handle_evaluation_run(payload_json: dict[str, Any]) -> dict[str, Any]:
     """Handle evaluation run."""
     from app.shared.jobs.shared_jobs_worker_service import PermanentJobError
 
+    previous_session_maker = fit_profile_pipeline.async_session_maker
     fit_profile_pipeline.async_session_maker = async_session_maker
-    result = await fit_profile_pipeline.process_evaluation_run_job(payload_json)
+    try:
+        result = await fit_profile_pipeline.process_evaluation_run_job(payload_json)
+    finally:
+        fit_profile_pipeline.async_session_maker = previous_session_maker
     if result.get("status") == "failed":
         raise PermanentJobError("evaluation_run_failed")
     return result

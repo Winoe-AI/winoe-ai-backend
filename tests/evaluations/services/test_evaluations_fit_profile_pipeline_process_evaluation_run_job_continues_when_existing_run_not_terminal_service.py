@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import pytest
 
+from app.ai import build_ai_policy_snapshot
+from app.evaluations.services import (
+    evaluations_services_evaluations_fit_profile_pipeline_execute_service as execute_service,
+)
 from tests.evaluations.services.evaluations_fit_profile_pipeline_utils import *
 
 
@@ -10,10 +14,22 @@ async def test_process_evaluation_run_job_continues_when_existing_run_not_termin
     monkeypatch,
 ):
     db = SimpleNamespace(commit=AsyncMock())
+    simulation = SimpleNamespace(
+        id=70,
+        company_id=80,
+        ai_notice_version="mvp1",
+        ai_notice_text="AI assistance may be used for evaluation support.",
+        ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+    )
     context = SimpleNamespace(
-        candidate_session=SimpleNamespace(id=50, scenario_version_id=60),
-        simulation=SimpleNamespace(id=70, company_id=80, ai_eval_enabled_by_day={}),
-        scenario_version=SimpleNamespace(rubric_version="rubric-vx"),
+        candidate_session=SimpleNamespace(
+            id=50, scenario_version_id=60, simulation_id=70
+        ),
+        simulation=simulation,
+        scenario_version=SimpleNamespace(
+            rubric_version="rubric-vx",
+            ai_policy_snapshot_json=build_ai_policy_snapshot(simulation=simulation),
+        ),
     )
     existing_run = SimpleNamespace(id=99, status="running")
     evaluator = SimpleNamespace(
@@ -84,6 +100,11 @@ async def test_process_evaluation_run_job_continues_when_existing_run_not_termin
     monkeypatch.setattr(
         fit_profile_pipeline.fit_profile_repository,
         "upsert_marker",
+        AsyncMock(),
+    )
+    monkeypatch.setattr(
+        execute_service.notification_service,
+        "enqueue_fit_profile_ready_notification",
         AsyncMock(),
     )
     monkeypatch.setattr(

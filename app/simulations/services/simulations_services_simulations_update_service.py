@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import merge_prompt_override_payloads
 from app.shared.database.shared_database_models_model import Simulation, Task
 from app.simulations.schemas.simulations_schemas_simulations_core_schema import (
     resolve_simulation_ai_fields,
@@ -66,6 +67,9 @@ async def update_simulation(
         if "eval_enabled_by_day" in ai_fields_set
         else None
     )
+    incoming_prompt_overrides = (
+        ai_payload.prompt_overrides if "prompt_overrides" in ai_fields_set else None
+    )
 
     (
         resolved_notice_version,
@@ -87,6 +91,10 @@ async def update_simulation(
     simulation.ai_notice_version = resolved_notice_version
     simulation.ai_notice_text = resolved_notice_text
     simulation.ai_eval_enabled_by_day = resolved_eval
+    simulation.ai_prompt_overrides_json = merge_prompt_override_payloads(
+        incoming=incoming_prompt_overrides,
+        fallback=getattr(simulation, "ai_prompt_overrides_json", None),
+    )
 
     if previous_notice_version != resolved_notice_version:
         logger.info(

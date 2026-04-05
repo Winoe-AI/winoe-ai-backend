@@ -36,11 +36,11 @@ async def test_evidence_pointer_validation_additional_errors(async_session):
             "excerpt must be a string",
         ),
         (
-            [{"kind": "transcript", "startMs": -1, "endMs": 10}],
+            [{"kind": "transcript", "ref": "transcript:1", "startMs": -1, "endMs": 10}],
             "must be non-negative",
         ),
         (
-            [{"kind": "transcript", "startMs": 20, "endMs": 10}],
+            [{"kind": "transcript", "ref": "transcript:2", "startMs": 20, "endMs": 10}],
             "greater than or equal to startMs",
         ),
         (

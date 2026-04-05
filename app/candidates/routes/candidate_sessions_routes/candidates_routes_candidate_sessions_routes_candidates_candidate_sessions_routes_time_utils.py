@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
-
-def utcnow():
-    """Execute utcnow."""
-    return datetime.now(UTC)
-
+from app.shared.time.shared_time_now_service import utcnow
 
 __all__ = ["utcnow"]

@@ -55,6 +55,7 @@ def _day_scores_payload() -> list[dict]:
             "evidence_pointers_json": [
                 {
                     "kind": "transcript",
+                    "ref": "transcript:day4",
                     "startMs": 1200,
                     "endMs": 3400,
                 }

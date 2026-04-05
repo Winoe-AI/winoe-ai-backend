@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import os
 
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool, StaticPool
 
 from app.config import settings
 from app.shared.database.shared_database_models_model import Base
@@ -21,11 +23,21 @@ def anyio_backend() -> str:
 @pytest_asyncio.fixture(scope="session")
 async def db_engine():
     test_url = os.getenv("TEST_DATABASE_URL") or "sqlite+aiosqlite:///:memory:"
-    engine = create_async_engine(test_url, echo=False, pool_pre_ping=True, future=True)
+    engine_kwargs = {
+        "echo": False,
+        "future": True,
+    }
+    if test_url.startswith("sqlite+aiosqlite:///:memory:"):
+        engine_kwargs["poolclass"] = StaticPool
+        engine_kwargs["connect_args"] = {"check_same_thread": False}
+    else:
+        engine_kwargs["poolclass"] = NullPool
+    engine = create_async_engine(test_url, **engine_kwargs)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield engine
     await engine.dispose()
+    await asyncio.sleep(0)
 
 
 @pytest_asyncio.fixture
@@ -42,6 +54,7 @@ async def db_session(db_engine):
     async with session_maker() as session:
         yield session
         await session.rollback()
+        await asyncio.sleep(0)
 
 
 @pytest_asyncio.fixture(name="async_session")

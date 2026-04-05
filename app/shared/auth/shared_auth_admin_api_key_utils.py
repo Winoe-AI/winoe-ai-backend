@@ -9,6 +9,11 @@ from fastapi import Header, HTTPException, status
 from app.config import settings
 
 
+def is_admin_key_configured() -> bool:
+    """Return whether an admin API key is configured for gated admin routes."""
+    return bool((settings.ADMIN_API_KEY or "").strip())
+
+
 def require_admin_key(
     x_admin_key: Annotated[str | None, Header(alias="X-Admin-Key")] = None,
 ) -> None:

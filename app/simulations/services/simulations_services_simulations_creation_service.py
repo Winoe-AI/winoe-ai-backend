@@ -23,6 +23,7 @@ from .simulations_services_simulations_creation_extractors_service import (
     extract_day_window_config,
 )
 from .simulations_services_simulations_scenario_generation_service import (
+    SCENARIO_GENERATION_JOB_MAX_ATTEMPTS,
     SCENARIO_GENERATION_JOB_TYPE,
 )
 from .simulations_services_simulations_scenario_payload_builder_service import (
@@ -43,7 +44,7 @@ def _extract_company_context(payload: Any) -> dict[str, Any] | None:
 
 def _extract_ai_fields(
     payload: Any,
-) -> tuple[str | None, str | None, dict[str, bool] | None]:
+) -> tuple[str | None, str | None, dict[str, bool] | None, dict | None]:
     return extract_ai_fields(payload)
 
 
@@ -107,6 +108,7 @@ async def create_simulation_with_tasks(
         payload_json=payload_json,
         company_id=sim.company_id,
         correlation_id=f"simulation:{sim.id}",
+        max_attempts=SCENARIO_GENERATION_JOB_MAX_ATTEMPTS,
         commit=False,
     )
     await db.commit()

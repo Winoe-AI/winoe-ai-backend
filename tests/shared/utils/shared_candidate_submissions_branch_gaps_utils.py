@@ -42,6 +42,7 @@ from app.submissions.services.use_cases import (
 class _DummyDB:
     def __init__(self):
         self.commits = 0
+        self.executes = 0
         self.refreshes = 0
         self.flushes = 0
 
@@ -54,9 +55,24 @@ class _DummyDB:
     async def flush(self):
         self.flushes += 1
 
+    async def execute(self, *_args, **_kwargs):
+        self.executes += 1
+        return _DummyResult()
+
     @asynccontextmanager
     async def begin_nested(self):
         yield
+
+
+class _DummyResult:
+    def all(self):
+        return []
+
+    def scalar_one_or_none(self):
+        return None
+
+    def scalars(self):
+        return self
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

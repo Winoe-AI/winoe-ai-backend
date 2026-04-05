@@ -6,9 +6,14 @@ import logging
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.shared.database.shared_database_models_model import ScenarioVersion, Simulation
+from app.shared.database.shared_database_models_model import (
+    ScenarioVersion,
+    Simulation,
+    Task,
+)
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.simulations.repositories.scenario_versions import (
     simulations_repositories_scenario_versions_simulations_scenario_versions_repository as scenario_repo,
@@ -19,6 +24,9 @@ from app.simulations.repositories.scenario_versions.simulations_repositories_sce
 from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
     SIMULATION_STATUS_ACTIVE_INVITING,
 )
+from app.simulations.services.simulations_services_simulations_codespace_specializer_service import (
+    ensure_precommit_bundle_prepared_for_approved_scenario,
+)
 from app.simulations.services.simulations_services_simulations_lifecycle_service import (
     apply_status_transition,
 )
@@ -27,6 +35,20 @@ from app.simulations.services.simulations_services_simulations_scenario_versions
 )
 
 logger = logging.getLogger(__name__)
+
+
+async def _load_simulation_tasks(db: AsyncSession, simulation_id: int) -> list[Task]:
+    return (
+        (
+            await db.execute(
+                select(Task)
+                .where(Task.simulation_id == simulation_id)
+                .order_by(Task.day_index.asc())
+            )
+        )
+        .scalars()
+        .all()
+    )
 
 
 async def approve_scenario_version(
@@ -73,6 +95,13 @@ async def approve_scenario_version(
         target_status=SIMULATION_STATUS_ACTIVE_INVITING,
         changed_at=approved_at,
     )
+    tasks = await _load_simulation_tasks(db, simulation.id)
+    await ensure_precommit_bundle_prepared_for_approved_scenario(
+        db,
+        simulation=simulation,
+        scenario_version=target,
+        tasks=tasks,
+    )
     await db.commit()
     await db.refresh(simulation)
     await db.refresh(target)
@@ -104,6 +133,13 @@ async def _approve_without_pending(
         simulation,
         target_status=SIMULATION_STATUS_ACTIVE_INVITING,
         changed_at=approved_at,
+    )
+    tasks = await _load_simulation_tasks(db, simulation.id)
+    await ensure_precommit_bundle_prepared_for_approved_scenario(
+        db,
+        simulation=simulation,
+        scenario_version=target,
+        tasks=tasks,
     )
     await db.commit()
     await db.refresh(simulation)

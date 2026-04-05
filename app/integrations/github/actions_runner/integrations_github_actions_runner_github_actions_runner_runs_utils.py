@@ -7,6 +7,11 @@ from datetime import datetime, timedelta
 from app.integrations.github.client import WorkflowRun
 
 
+def run_id_set(runs: list[WorkflowRun]) -> set[int]:
+    """Return normalized workflow run ids for comparison across polls."""
+    return {int(run.id) for run in runs if getattr(run, "id", None)}
+
+
 def is_dispatched_run(run: WorkflowRun, dispatch_started_at: datetime) -> bool:
     """Return whether dispatched run."""
     if run.event and run.event != "workflow_dispatch":

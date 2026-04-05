@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
 from fastapi import HTTPException, status
 from sqlalchemy import inspect
 from sqlalchemy.exc import NoInspectionAvailable
@@ -17,6 +15,7 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 )
 from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.simulations.repositories.simulations_repositories_simulations_simulation_model import (
     SIMULATION_STATUS_TERMINATED,
 )
@@ -56,7 +55,7 @@ def ensure_can_access(
         raise _NOT_FOUND
     if _loaded_simulation_status(cs) == SIMULATION_STATUS_TERMINATED:
         raise _NOT_FOUND
-    require_not_expired(cs, now=now or datetime.now(UTC))
+    require_not_expired(cs, now=now or shared_utcnow())
     return cs
 
 

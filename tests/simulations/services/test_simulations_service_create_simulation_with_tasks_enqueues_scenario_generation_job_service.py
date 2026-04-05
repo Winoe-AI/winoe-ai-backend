@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from app.simulations.services import scenario_generation
 from tests.simulations.services.simulations_core_service_utils import *
 
 
@@ -54,10 +55,11 @@ async def test_create_simulation_with_tasks_enqueues_scenario_generation_job(
 
     assert persisted_sim.id == sim.id
     assert scenario_job.id == job.id
+    assert job.max_attempts == scenario_generation.SCENARIO_GENERATION_JOB_MAX_ATTEMPTS
 
     assert job.payload_json["simulationId"] == sim.id
     assert job.payload_json["templateKey"] == "python-fastapi"
-    assert job.payload_json["scenarioTemplate"] == "default-5day-node-postgres"
+    assert job.payload_json["scenarioTemplate"] == "python-fastapi"
     assert job.payload_json["recruiterContext"] == {
         "seniority": "mid",
         "focus": "Build",

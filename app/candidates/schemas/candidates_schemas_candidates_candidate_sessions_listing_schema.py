@@ -7,6 +7,7 @@ from datetime import datetime
 from pydantic import EmailStr
 
 from app.shared.types.shared_types_base_model import APIModel
+from app.shared.types.shared_types_progress_model import ProgressSummary
 from app.shared.types.shared_types_types_model import CandidateSessionStatus
 
 
@@ -20,6 +21,12 @@ class CandidateSessionListItem(APIModel):
     startedAt: datetime | None
     completedAt: datetime | None
     hasFitProfile: bool
+    hasReport: bool = False
+    reportReady: bool | None = None
+    reportId: str | None = None
+    dayProgress: ProgressSummary | None = None
+    inviteToken: str | None = None
+    inviteUrl: str | None = None
     inviteEmailStatus: str | None = None
     inviteEmailSentAt: datetime | None = None
     inviteEmailError: str | None = None

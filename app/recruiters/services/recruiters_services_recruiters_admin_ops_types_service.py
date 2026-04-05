@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 UNSAFE_OPERATION_ERROR_CODE = "UNSAFE_OPERATION"
 CANDIDATE_SESSION_RESET_ACTION = "candidate_session_reset"
+CANDIDATE_SESSION_DAY_WINDOW_CONTROL_ACTION = "candidate_session_day_window_control"
 JOB_REQUEUE_ACTION = "job_requeue"
 SIMULATION_USE_FALLBACK_ACTION = "simulation_use_fallback"
 
@@ -17,6 +18,22 @@ class CandidateSessionResetResult:
     candidate_session_id: int
     reset_to: str
     status: str
+    audit_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateSessionDayWindowControlResult:
+    """Represent candidate-session day-window control result data and behavior."""
+
+    candidate_session_id: int
+    candidate_status: str
+    status: str
+    target_day_index: int
+    candidate_timezone: str
+    scheduled_start_at: object
+    schedule_locked_at: object
+    day_windows: list[dict]
+    current_day_window: dict | None
     audit_id: str | None
 
 
@@ -41,10 +58,12 @@ class SimulationFallbackResult:
 
 
 __all__ = [
+    "CANDIDATE_SESSION_DAY_WINDOW_CONTROL_ACTION",
     "UNSAFE_OPERATION_ERROR_CODE",
     "CANDIDATE_SESSION_RESET_ACTION",
     "JOB_REQUEUE_ACTION",
     "SIMULATION_USE_FALLBACK_ACTION",
+    "CandidateSessionDayWindowControlResult",
     "CandidateSessionResetResult",
     "JobRequeueResult",
     "SimulationFallbackResult",

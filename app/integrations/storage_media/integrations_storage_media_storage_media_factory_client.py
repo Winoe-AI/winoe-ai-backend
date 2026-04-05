@@ -23,7 +23,11 @@ def get_storage_media_provider() -> StorageMediaProvider:
     cfg = settings.storage_media
     provider_name = (cfg.MEDIA_STORAGE_PROVIDER or "fake").strip().lower()
     if provider_name == "fake":
-        return FakeStorageMediaProvider()
+        return FakeStorageMediaProvider(
+            base_url=cfg.MEDIA_FAKE_BASE_URL,
+            signing_secret=cfg.MEDIA_FAKE_SIGNING_SECRET,
+            root_dir=cfg.MEDIA_FAKE_ROOT_DIR,
+        )
     if provider_name == "s3":
         return S3StorageMediaProvider(
             endpoint=cfg.MEDIA_S3_ENDPOINT,

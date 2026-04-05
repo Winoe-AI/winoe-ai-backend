@@ -29,19 +29,19 @@ DEFAULT_5_DAY_BLUEPRINT = [
     {
         "day_index": 4,
         "type": "handoff",
-        "title": "Refactor & Handoff",
+        "title": "Demo Presentation",
         "description": (
-            "Refactor the solution for clarity and maintainability. "
-            "Prepare it so another engineer could continue your work."
+            "Upload a short demo presentation walking through the work, "
+            "key decisions, tradeoffs, and outcomes from your simulation."
         ),
     },
     {
         "day_index": 5,
         "type": "documentation",
-        "title": "Reflection",
+        "title": "Reflection Essay",
         "description": (
-            "Write a structured reflection covering challenges, decisions, "
-            "tradeoffs, communication/handoff, and what you would do next."
+            "Write a markdown reflection essay covering your experience, "
+            "challenges, decisions, and what you would do next."
         ),
     },
 ]

@@ -16,6 +16,13 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_pri
     CandidatePrivacyConsentRequest,
     CandidatePrivacyConsentResponse,
 )
+from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_review_schema import (
+    CandidateCompletedReviewResponse,
+    CandidateReviewDayArtifact,
+    CandidateReviewMarkdownArtifact,
+    CandidateReviewPresentationArtifact,
+    CandidateReviewWorkspaceArtifact,
+)
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_schedule_schema import (
     CandidateSessionResolveResponse,
     CandidateSessionScheduleRequest,
@@ -34,8 +41,13 @@ __all__ = [
     "CandidateInviteListItem",
     "CandidateInviteRequest",
     "CandidateInviteResponse",
+    "CandidateCompletedReviewResponse",
     "CandidatePrivacyConsentRequest",
     "CandidatePrivacyConsentResponse",
+    "CandidateReviewDayArtifact",
+    "CandidateReviewMarkdownArtifact",
+    "CandidateReviewPresentationArtifact",
+    "CandidateReviewWorkspaceArtifact",
     "CandidateSessionListItem",
     "CandidateSessionResolveResponse",
     "CandidateSessionScheduleRequest",

@@ -42,12 +42,44 @@ def is_day5_reflection_task(task: Task) -> bool:
 
 
 def _require_content_text(payload) -> None:
+    _, error_code = _resolve_content_text_value(payload)
+    if error_code is None:
+        return
+    if error_code == "invalid_type":
+        detail = "contentText must be a string"
+    else:
+        detail = "contentText is required"
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=detail,
+    )
+
+
+def _resolve_content_text_value(payload) -> tuple[str | None, str | None]:
     content_text = getattr(payload, "contentText", None)
-    if not isinstance(content_text, str) or not content_text.strip():
+    if content_text is None:
+        return None, "missing"
+    if not isinstance(content_text, str):
+        return None, "invalid_type"
+    normalized = content_text.strip()
+    if not normalized:
+        return None, "missing"
+    return normalized, None
+
+
+def _require_content_text_value(payload) -> str:
+    content_text, error_code = _resolve_content_text_value(payload)
+    if error_code is None and content_text is not None:
+        return content_text
+    if error_code == "invalid_type":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="contentText is required",
+            detail="contentText must be a string",
         )
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="contentText is required",
+    )
 
 
 def _log_day5_validation_failure(fields: dict[str, list[str]]) -> None:
@@ -65,11 +97,17 @@ def _log_day5_validation_failure(fields: dict[str, list[str]]) -> None:
 
 def _validate_day5_reflection_payload(payload) -> dict[str, object]:
     fields: dict[str, list[str]] = {}
+    content_text, content_text_error = _resolve_content_text_value(payload)
+    if content_text_error is not None:
+        fields["contentText"] = [content_text_error]
     reflection_payload = getattr(payload, "reflection", None)
-    reflection: dict[str, object] = {}
     if reflection_payload is None:
-        fields["reflection"] = ["missing"]
-    elif not isinstance(reflection_payload, dict):
+        if fields:
+            _log_day5_validation_failure(fields)
+            raise SubmissionValidationError(fields=fields)
+        return {"kind": DAY5_REFLECTION_KIND, "markdown": content_text}
+    reflection: dict[str, object] = {}
+    if not isinstance(reflection_payload, dict):
         fields["reflection"] = ["invalid_type"]
     else:
         reflection = reflection_payload
@@ -93,15 +131,15 @@ def _validate_day5_reflection_payload(payload) -> dict[str, object]:
             continue
         sections[section] = normalized
 
-    content_text = getattr(payload, "contentText", None)
-    if not isinstance(content_text, str) or not content_text.strip():
-        fields["contentText"] = ["missing"]
-
     if fields:
         _log_day5_validation_failure(fields)
         raise SubmissionValidationError(fields=fields)
 
-    return {"kind": DAY5_REFLECTION_KIND, "sections": sections}
+    return {
+        "kind": DAY5_REFLECTION_KIND,
+        "markdown": content_text,
+        "sections": sections,
+    }
 
 
 def validate_submission_payload(task: Task, payload) -> dict[str, object] | None:

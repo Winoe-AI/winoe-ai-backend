@@ -32,6 +32,15 @@ class DummySessionMaker:
         await self.session.__aexit__(*exc)
 
 
+def _has_route(app, path: str, method: str) -> bool:
+    for route in app.routes:
+        if getattr(route, "path", None) != path:
+            continue
+        if method.upper() in (getattr(route, "methods", None) or set()):
+            return True
+    return False
+
+
 @pytest.mark.asyncio
 async def test_get_session_uses_async_session_maker(monkeypatch):
     maker = DummySessionMaker()
@@ -112,6 +121,37 @@ def test_create_app_skips_proxy_headers_without_trusted_cidrs(monkeypatch):
     create_app()
     assert "TrustedProxyHeadersMiddleware" not in calls
     assert "ProxyHeadersMiddleware" not in calls
+
+
+def test_create_app_omits_dev_session_controls_without_admin_key(monkeypatch):
+    monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
+    monkeypatch.setattr(settings, "ENV", "local")
+    monkeypatch.setattr(settings, "ADMIN_API_KEY", "")
+
+    app = create_app()
+
+    assert (
+        _has_route(
+            app,
+            "/api/admin/candidate_sessions/{candidate_session_id}/day_windows/control",
+            "POST",
+        )
+        is False
+    )
+
+
+def test_create_app_includes_dev_session_controls_with_admin_key(monkeypatch):
+    monkeypatch.delenv("DEV_AUTH_BYPASS", raising=False)
+    monkeypatch.setattr(settings, "ENV", "local")
+    monkeypatch.setattr(settings, "ADMIN_API_KEY", "test-admin-key")
+
+    app = create_app()
+
+    assert _has_route(
+        app,
+        "/api/admin/candidate_sessions/{candidate_session_id}/day_windows/control",
+        "POST",
+    )
 
 
 @pytest.mark.asyncio

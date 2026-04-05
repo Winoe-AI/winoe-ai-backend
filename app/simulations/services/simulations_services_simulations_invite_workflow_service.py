@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.github import GithubClient
 from app.notifications.services import service as notification_service
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.simulations import services as sim_service
+from app.simulations.services import (
+    simulations_services_simulations_codespace_specializer_service as codespace_specializer,
+)
 from app.simulations.services import (
     simulations_services_simulations_invite_preprovision_service as invite_preprovision,
 )
@@ -41,7 +45,7 @@ async def create_candidate_invite_workflow(
             user_id,
         )
     sim_service.require_simulation_invitable(sim)
-    now = now or datetime.now(UTC)
+    now = now or shared_utcnow()
     try:
         scenario_version = await sim_service.lock_active_scenario_for_invites(
             db,
@@ -57,6 +61,12 @@ async def create_candidate_invite_workflow(
             simulation_id=simulation_id,
             now=now,
         )
+    await codespace_specializer.ensure_precommit_bundle_ready_for_invites(
+        db,
+        simulation=sim,
+        scenario_version=scenario_version,
+        tasks=tasks,
+    )
     cs, outcome = await sim_service.create_or_resend_invite(
         db,
         simulation_id,

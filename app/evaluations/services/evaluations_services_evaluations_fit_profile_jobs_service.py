@@ -11,6 +11,7 @@ from app.shared.database.shared_database_models_model import Job
 from app.shared.jobs.repositories import repository as jobs_repo
 
 EVALUATION_RUN_JOB_TYPE = "evaluation_run"
+EVALUATION_RUN_JOB_MAX_ATTEMPTS = 7
 
 
 def build_evaluation_job_payload(
@@ -57,6 +58,7 @@ async def enqueue_evaluation_run(
         company_id=company_id,
         candidate_session_id=candidate_session_id,
         correlation_id=f"candidate_session:{candidate_session_id}:evaluation_run",
+        max_attempts=EVALUATION_RUN_JOB_MAX_ATTEMPTS,
         commit=False,
     )
     payload_with_job_id = dict(job.payload_json or {})
@@ -72,6 +74,7 @@ async def enqueue_evaluation_run(
 
 __all__ = [
     "EVALUATION_RUN_JOB_TYPE",
+    "EVALUATION_RUN_JOB_MAX_ATTEMPTS",
     "build_evaluation_job_payload",
     "build_evaluation_job_idempotency_key",
     "enqueue_evaluation_run",

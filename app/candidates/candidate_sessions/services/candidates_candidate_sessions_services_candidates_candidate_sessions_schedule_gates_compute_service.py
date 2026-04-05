@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_schedule_gates_model import (
@@ -12,6 +12,7 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_sessions_services_scheduling_candidates_candidate_sessions_scheduling_day_windows_service import (
     coerce_utc_datetime,
 )
+from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 
 
 def _closed_window(now: datetime) -> TaskWindow:
@@ -56,7 +57,7 @@ def compute_task_window_impl(
     normalize_optional_datetime: Callable[[datetime | None], datetime | None],
 ) -> TaskWindow:
     """Compute task window impl."""
-    resolved_now = coerce_utc_datetime(now_utc or datetime.now(UTC))
+    resolved_now = coerce_utc_datetime(now_utc or shared_utcnow())
     day_index = coerce_task_day_index(task)
     if day_index is None:
         return _closed_window(resolved_now)

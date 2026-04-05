@@ -16,6 +16,7 @@ from app.simulations.repositories.scenario_versions.simulations_repositories_sce
     SCENARIO_VERSION_STATUS_GENERATING,
 )
 from app.simulations.services.simulations_services_simulations_scenario_generation_service import (
+    SCENARIO_GENERATION_JOB_MAX_ATTEMPTS,
     SCENARIO_GENERATION_JOB_TYPE,
 )
 from app.simulations.services.simulations_services_simulations_scenario_payload_builder_service import (
@@ -37,6 +38,8 @@ def clone_pending_scenario(
         storyline_md=active.storyline_md,
         task_prompts_json=copy.deepcopy(active.task_prompts_json),
         rubric_json=copy.deepcopy(active.rubric_json),
+        codespace_spec_json=copy.deepcopy(active.codespace_spec_json),
+        ai_policy_snapshot_json=copy.deepcopy(active.ai_policy_snapshot_json),
         focus_notes=active.focus_notes,
         template_key=active.template_key,
         tech_stack=active.tech_stack,
@@ -62,5 +65,6 @@ async def enqueue_regeneration_job(
         payload_json=payload_json,
         company_id=simulation.company_id,
         correlation_id=f"simulation:{simulation.id}:scenario_version:{regenerated.id}",
+        max_attempts=SCENARIO_GENERATION_JOB_MAX_ATTEMPTS,
         commit=False,
     )

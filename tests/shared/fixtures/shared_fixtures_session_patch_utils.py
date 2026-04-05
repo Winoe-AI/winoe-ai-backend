@@ -1,13 +1,30 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker
+
+
+class _SharedSessionContext:
+    def __init__(self, session):
+        self._session = session
+
+    async def __aenter__(self):
+        return self._session
+
+    async def __aexit__(self, exc_type, exc, tb):
+        del exc_type, exc, tb
+        return False
+
+
+class _SharedSessionMaker:
+    def __init__(self, session):
+        self._session = session
+
+    def __call__(self):
+        return _SharedSessionContext(self._session)
 
 
 def _session_maker(async_session):
-    return async_sessionmaker(
-        bind=async_session.bind, expire_on_commit=False, autoflush=False
-    )
+    return _SharedSessionMaker(async_session)
 
 
 @pytest.fixture(autouse=True)
