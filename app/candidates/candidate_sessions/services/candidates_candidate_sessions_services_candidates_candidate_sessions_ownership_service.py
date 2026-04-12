@@ -7,6 +7,7 @@ from fastapi import status
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_email_service import (
     normalize_email,
 )
+from app.config import settings
 from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import CandidateSession
 from app.shared.utils.shared_utils_errors_utils import (
@@ -32,6 +33,8 @@ def ensure_email_verified(
 ) -> None:
     """Ensure email verified."""
     email_verified = principal.claims.get("email_verified")
+    if settings.ENV == "local":
+        return
     if email_verified is False or (
         require_verified_claim_present and email_verified is not True
     ):
