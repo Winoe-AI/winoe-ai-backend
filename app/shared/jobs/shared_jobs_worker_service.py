@@ -65,8 +65,9 @@ async def run_forever(
 
 def main() -> None:  # pragma: no cover - thin CLI wrapper
     """Execute main."""
-    register_builtin_handlers()
-    asyncio.run(run_forever())
+    from app.shared.jobs.shared_jobs_worker_cli_service import main as cli_main
+
+    cli_main(["worker"])
 
 
 __all__ = [

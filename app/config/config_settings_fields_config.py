@@ -40,6 +40,8 @@ class SettingsFields(BaseSettings):
         default_factory=list
     )
     DEMO_ADMIN_JOB_STALE_SECONDS: int = 900
+    WORKER_HEARTBEAT_INTERVAL_SECONDS: int = 15
+    WORKER_HEARTBEAT_STALE_SECONDS: int = 60
     AI_RUNTIME_MODE: str = "real"
     DEV_AUTH_BYPASS: str | None = Field(
         default=None,
