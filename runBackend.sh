@@ -143,6 +143,8 @@ run_migrations() {
 run_local_bootstrap() {
   load_environment
   apply_local_defaults
+  # Seed data should not depend on auth bypass state from the caller.
+  export DEV_AUTH_BYPASS=0
   require_database_config
 
   log_info "Bootstrapping Winoe local demo seed data."
