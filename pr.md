@@ -1,39 +1,62 @@
-# Summary
-Closes #277.
+# Orchestrate Winoe API and worker startup
+Closes #278.
 
-This PR unifies the backend schema on canonical `trials` records and repairs legacy child foreign keys so upgraded databases match the ORM and runtime expectations again. It adds a reversible schema repair migration, normalizes legacy `simulation` naming to `trial` naming, and hardens migration helpers so split-brain states fail loudly instead of being silently tolerated.
+## TL;DR
+- `./runBackend.sh` now coordinates the local API and worker together so the standard dev entrypoint matches production process topology.
+- `migrate` runs after environment loading, so database commands use the same Winoe configuration bootstrap as the runtime commands.
+- `Procfile` is split into clear `release`, `web`, and `worker` process types for production deployment.
+- Worker heartbeats now persist to the database, providing the first observability and future readiness-check foundation for `#279`.
+- Dead-letter jobs can be retried from the worker CLI, both for targeted job IDs and for the full queue of eligible dead letters.
+- `bootstrap-local` now gives developers a single, repeatable local demo flow that seeds the expected Winoe state.
 
-# Problem
-- Upgraded databases could still have a legacy `simulations` parent table while application code already reads and writes `trials`.
-- Child tables such as `scenario_versions`, `candidate_sessions`, and `tasks` could still expose `simulation_id` while the ORM expects `trial_id`.
-- That mismatch caused scenario-generation failures, inconsistent foreign key state, and candidate/session isolation problems across mixed legacy and canonical rows.
+## Problem
+Issue `#278` was needed because the backend could not be started and verified as a complete Winoe system. The API and worker were not orchestrated together in the normal launch path, migrations did not consistently run after the environment was loaded, and production startup still lacked a clean split between release, web, and worker responsibilities. That left the local demo path incomplete and made it hard to validate worker health, dead-letter recovery, and bootstrap data in the same run.
 
-# What Changed
-- Added Alembic migration `202604130001_unify_trials_schema_and_child_fks.py`.
-- Canonicalized the parent table to `trials`, merged safe legacy `simulations` rows into canonical rows, and removed `simulations` once no child foreign keys still reference it.
-- Canonicalized direct child foreign keys on `scenario_versions`, `candidate_sessions`, and `tasks` to `trial_id`, including backfills for partially repaired schemas where both `trial_id` and `simulation_id` briefly coexist.
-- Renamed or recreated legacy `simulation`-named indexes, unique constraints, and foreign keys with canonical `trial` naming.
-- Mapped legacy parent column `terminated_by_recruiter_id` onto canonical `terminated_by_talent_partner_id` during repair.
-- Derived missing `active_scenario_version_id` values from version-1 `scenario_versions` rows when trial status requires an active scenario, and raised a clear error when derivation is impossible.
-- Backfilled missing version-1 `scenario_versions` rows and `candidate_sessions.scenario_version_id` links for canonical rows that still needed them after repair.
-- Added downgrade support to restore legacy `simulations` and `simulation_id` naming for the migration surface.
-- Updated `app/core/db/migrations/shared_trial_schema_compat.py` to raise on split parent tables or split child FK columns instead of silently choosing one side.
-- Added focused migration coverage for fresh canonical, legacy-only, partially repaired, safe split-parent, unsafe split-parent, FK rename, loud-failure, and downgrade paths.
+## What changed
+### `runBackend.sh`
+- Added a supervised default startup mode that launches both the API and worker, watches both processes, and shuts the pair down cleanly on signal or child failure.
+- Kept `api`, `worker`, `migrate`, `bootstrap-local`, `retry-dead-jobs`, and `test` as explicit subcommands so the script still supports narrow workflows.
+- Moved environment loading and Winoe local defaults into the commands that need them, including `migrate` and `bootstrap-local`.
+- Added direct worker heartbeat and dead-letter retry command wiring through the same backend entrypoint.
 
-# Safety
-- Supports fresh canonical databases.
-- Supports legacy-only upgraded databases.
-- Supports partially repaired databases where both old and new schema surfaces may exist temporarily.
-- Fails loudly for unsafe states instead of guessing:
-  - divergent `trials` vs `simulations` parent rows
-  - conflicting `trial_id` vs `simulation_id` child values
-  - non-null unmapped legacy-only parent columns
-  - required active-scenario pointers that cannot be derived
+### `Procfile`
+- Split production process types into `release`, `web`, and `worker`.
+- Mapped `release` to migrations, `web` to the API, and `worker` to the worker process so deployment startup is explicit.
 
-# Testing
-- `poetry run pytest --no-cov tests/core/db/migrations/test_core_db_migrations_unify_trials_schema_issue_277.py tests/core/db/migrations/test_core_db_migrations_reconcile_helpers_utils.py`
-- `poetry run pytest --no-cov tests/trials/routes/test_trials_scenario_generation_flow_success_routes.py`
+### Worker heartbeat runtime
+- Added the worker heartbeat table, repository, and service layer.
+- The worker now records a `running` heartbeat on startup, refreshes it over time, and marks the row `stopped` on shutdown.
+- Added freshness helpers and logging that establish the observability foundation for follow-up readiness checks.
+- Wired the new heartbeat model into the shared database model registry and config settings.
 
-# Risks / Notes
-- This session verified the migration matrix and the existing trial scenario-generation smoke path, but it did not run a live PostgreSQL upgrade/downgrade cycle.
-- The migration intentionally blocks ambiguous legacy states. If production data has unexpected split-brain rows, the upgrade will now stop with an explicit error that needs manual cleanup before retry.
+### Dead-letter retry path
+- Added the dead-letter retry service and repository support to requeue eligible jobs.
+- Exposed both targeted retry by job ID and unfiltered retry for all eligible dead-letter jobs through the worker CLI.
+
+### Local bootstrap flow
+- Updated the local bootstrap command to use the same environment and database setup path as the rest of the backend entrypoints.
+- Kept the local seed flow aligned with the Winoe demo data expectations so developers can bring up a complete local environment with one command.
+
+### Tests/docs
+- Added focused coverage for startup scripts, worker heartbeat persistence, dead-letter retry behavior, the heartbeat migration, and the local bootstrap flow.
+- Updated `README.md` so the new startup and bootstrap workflow is documented alongside the backend entrypoint.
+
+## QA / verification
+- `./runBackend.sh migrate` passed
+- `./runBackend.sh bootstrap-local` passed
+- `./runBackend.sh` started both API and worker
+- worker heartbeat row observed in running state and updated over time
+- clean shutdown marked worker heartbeat as `stopped`
+- targeted and unfiltered dead-letter retry verified
+- focused regression suite passed: `26 passed in 2.32s`
+
+## Files changed
+- Startup/orchestration: `runBackend.sh`, `Procfile`
+- Heartbeat foundation: `alembic/versions/202604140001_add_worker_heartbeats_table.py`, `app/config/config_settings_fields_config.py`, `app/shared/database/shared_database_models_model.py`, `app/shared/jobs/__init__.py`, `app/shared/jobs/shared_jobs_worker_cli_service.py`, `app/shared/jobs/shared_jobs_worker_service.py`, `app/shared/jobs/shared_jobs_worker_heartbeat_service.py`, `app/shared/jobs/repositories/shared_jobs_repositories_worker_heartbeats_repository.py`, `app/shared/jobs/repositories/shared_jobs_repositories_worker_heartbeats_repository_model.py`
+- Dead-letter retry: `app/shared/jobs/shared_jobs_dead_letter_retry_service.py`, `app/shared/jobs/repositories/shared_jobs_repositories_repository.py`, `app/shared/jobs/repositories/shared_jobs_repositories_repository_dead_letter_repository.py`
+- Docs: `README.md`
+- Tests: `tests/core/db/migrations/test_core_db_migrations_worker_heartbeats.py`, `tests/scripts/test_run_backend_bootstrap_local_shell.py`, `tests/scripts/test_run_backend_migrate_shell.py`, `tests/shared/jobs/repositories/test_shared_jobs_repository_dead_letter_retry_repository.py`, `tests/shared/jobs/repositories/test_shared_jobs_repository_worker_heartbeats_repository.py`, `tests/shared/jobs/test_shared_jobs_dead_letter_retry_service.py`, `tests/shared/jobs/test_shared_jobs_worker_cli_service.py`, `tests/shared/jobs/test_shared_jobs_worker_heartbeat_service.py`, `tests/trials/routes/test_trials_local_bootstrap_seed_and_create_trial_routes.py`
+
+## Notes / follow-ups
+- `#279` will consume this heartbeat foundation for readiness checks.
+- This PR does not add the readiness endpoint itself; it only lays the worker-heartbeat groundwork needed for that follow-up.

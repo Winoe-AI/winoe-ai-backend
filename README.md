@@ -54,16 +54,40 @@ poetry install
 3. Apply database migrations.
 
 ```bash
-poetry run alembic upgrade head
+./runBackend.sh migrate
 ```
 
-4. Start API server.
+4. Bootstrap the local demo seed data if you are starting from a fresh database.
 
 ```bash
-poetry run uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+./runBackend.sh bootstrap-local
 ```
 
-5. Smoke check.
+5. Start API server and worker together for local development.
+
+```bash
+./runBackend.sh
+```
+
+6. Start API only.
+
+```bash
+./runBackend.sh api
+```
+
+7. Start worker only.
+
+```bash
+./runBackend.sh worker
+```
+
+8. Retry dead-letter Winoe jobs after schema repair.
+
+```bash
+./runBackend.sh retry-dead-jobs
+```
+
+9. Smoke check.
 
 ```bash
 curl -s http://localhost:8000/health
@@ -76,6 +100,7 @@ Canonical env keys are summarized below by primary group.
 | Group | Primary Keys |
 |---|---|
 | Core runtime | `WINOE_ENV`, `WINOE_API_PREFIX`, `DEV_AUTH_BYPASS`, `WINOE_DEV_AUTH_BYPASS`, `WINOE_RATE_LIMIT_ENABLED`, `WINOE_MAX_REQUEST_BODY_BYTES` |
+| Jobs runtime | `WINOE_WORKER_HEARTBEAT_INTERVAL_SECONDS`, `WINOE_WORKER_HEARTBEAT_STALE_SECONDS` |
 | Perf / diagnostics | `WINOE_DEBUG_PERF`, `WINOE_PERF_SPANS_ENABLED`, `WINOE_PERF_SQL_FINGERPRINTS_ENABLED`, `WINOE_PERF_SPAN_SAMPLE_RATE` |
 | Demo/admin mode | `WINOE_DEMO_MODE`, `WINOE_SCENARIO_DEMO_MODE`, `WINOE_DEMO_ADMIN_ALLOWLIST_*` |
 | Database | `WINOE_DATABASE_URL`, `WINOE_DATABASE_URL_SYNC` |
@@ -182,6 +207,16 @@ Detailed schema-level API docs are generated at [`docs/api.md`](docs/api.md).
 - Talent Partner/candidate authorization is dependency-based; admin template endpoints use explicit API key dependency.
 - GitHub integration keeps transport/client/actions/artifact parsing concerns separated for testability.
 - Durable job status uses polling endpoints plus worker handlers for async side effects.
+- Worker health is tracked through a persisted heartbeat row per worker instance, which later readiness checks can inspect.
+
+## Runtime Commands
+
+- `./runBackend.sh` or `./runBackend.sh up`: start the API server and Winoe worker with local supervision.
+- `./runBackend.sh api`: start the API server only.
+- `./runBackend.sh worker`: start the Winoe worker only.
+- `./runBackend.sh migrate`: load environment values and run Alembic migrations.
+- `./runBackend.sh bootstrap-local`: seed the local demo Talent Partner accounts and repair missing company links.
+- `./runBackend.sh retry-dead-jobs`: requeue dead-letter Winoe jobs after schema repair.
 
 ## Tests and Verification
 

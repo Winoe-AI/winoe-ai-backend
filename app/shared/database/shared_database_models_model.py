@@ -14,6 +14,9 @@ from app.media.repositories.transcripts.media_repositories_transcripts_media_tra
 )
 from app.shared.database.shared_database_base_model import Base, TimestampMixin
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import Job
+from app.shared.jobs.repositories.shared_jobs_repositories_worker_heartbeats_repository_model import (
+    WorkerHeartbeat,
+)
 from app.submissions.repositories.github_native.workspaces.submissions_repositories_github_native_workspaces_submissions_github_native_workspaces_core_model import (
     Workspace,
     WorkspaceGroup,
@@ -60,6 +63,7 @@ __all__ = [
     "EvaluationDayScore",
     "EvaluationRun",
     "Job",
+    "WorkerHeartbeat",
     "PrecommitBundle",
     "RecordingAsset",
     "ScenarioEditAudit",

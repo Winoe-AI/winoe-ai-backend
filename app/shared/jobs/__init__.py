@@ -6,9 +6,12 @@ from app.shared.utils.shared_utils_lazy_module_aliases_utils import (
 )
 
 _MODULE_ALIASES = {
+    "dead_letter_retry": "app.shared.jobs.shared_jobs_dead_letter_retry_service",
     "handlers": "app.shared.jobs.handlers",
+    "heartbeat": "app.shared.jobs.shared_jobs_worker_heartbeat_service",
     "repositories": "app.shared.jobs.repositories",
     "schemas": "app.shared.jobs.schemas",
+    "worker_cli": "app.shared.jobs.shared_jobs_worker_cli_service",
     "worker": "app.shared.jobs.shared_jobs_worker_service",
     "worker_runtime": "app.shared.jobs.worker_runtime",
 }

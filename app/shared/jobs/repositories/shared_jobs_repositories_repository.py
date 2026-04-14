@@ -17,6 +17,9 @@ from app.shared.jobs.repositories import (
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_claim_repository import (
     claim_next_runnable,
 )
+from app.shared.jobs.repositories.shared_jobs_repositories_repository_dead_letter_repository import (
+    requeue_dead_letter_jobs,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_lookup_repository import (
     get_by_id,
     get_by_id_for_principal,
@@ -43,6 +46,11 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_status_rep
     mark_dead_letter,
     mark_failed_and_reschedule,
     mark_succeeded,
+)
+from app.shared.jobs.repositories.shared_jobs_repositories_worker_heartbeats_repository import (
+    get_latest_worker_heartbeat,
+    mark_worker_stopped,
+    upsert_worker_heartbeat,
 )
 
 
@@ -83,11 +91,15 @@ __all__ = [
     "create_or_update_many_idempotent",
     "get_by_id",
     "get_by_id_for_principal",
+    "get_latest_worker_heartbeat",
     "mark_dead_letter",
     "mark_failed_and_reschedule",
+    "mark_worker_stopped",
     "mark_succeeded",
     "requeue_nonterminal_idempotent_job",
+    "requeue_dead_letter_jobs",
     "sanitize_error",
+    "upsert_worker_heartbeat",
     "_job_from_spec",
     "_load_idempotent_job",
     "_load_idempotent_jobs_for_keys",
