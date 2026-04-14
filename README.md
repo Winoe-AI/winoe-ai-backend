@@ -7,7 +7,7 @@ FastAPI + PostgreSQL backend for Winoe's async trial platform. Talent Partners c
 - Domain modules: trials, candidate sessions, tasks, submissions, evaluations, media, notifications, talent_partners/admin, and shared runtime infrastructure.
 - GitHub-native flow: workspace repo provisioning from templates, Codespaces init/status, Actions run dispatch/polling, artifact parsing, and persisted run/test/diff metadata.
 - Auth model: bearer-token principal model with talent_partner/candidate permission gates, plus admin key and demo admin dependency paths.
-- Current API surface: 46 HTTP endpoints (generated from live OpenAPI).
+- Current API surface: 57 HTTP endpoints (generated from live OpenAPI).
 
 ## Stack (Poetry Constraints)
 
@@ -93,6 +93,13 @@ poetry install
 curl -s http://localhost:8000/health
 ```
 
+10. Readiness check and local demo smoke test.
+
+```bash
+curl -s http://localhost:8000/ready
+poetry run python scripts/local_demo_smoke_test.py --base-url http://localhost:8000
+```
+
 ## Environment
 
 Canonical env keys are summarized below by primary group.
@@ -132,11 +139,13 @@ Canonical env keys are summarized below by primary group.
 | `qa_verifications/` | QA runner scripts and latest generated QA reports |
 | `scripts/` | Operational tooling, docs audits/exports |
 
-## API Overview (46 Endpoints)
+## API Overview (57 Endpoints)
 
 ### Health / Auth
 
 - `GET /health`
+- `GET /ready`
+- `POST /api/auth/talent-partner-onboarding`
 - `GET /api/auth/me`
 - `POST /api/auth/logout`
 
@@ -144,6 +153,7 @@ Canonical env keys are summarized below by primary group.
 
 - `GET /api/admin/templates/health`
 - `POST /api/admin/templates/health/run`
+- `POST /api/admin/candidate_sessions/{candidate_session_id}/day_windows/control`
 - `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
 - `POST /api/admin/jobs/{job_id}/requeue`
 - `POST /api/admin/trials/{trial_id}/scenario/use_fallback`
@@ -175,9 +185,17 @@ Canonical env keys are summarized below by primary group.
 - `GET /api/candidate/session/{token}`
 - `POST /api/candidate/session/{token}/claim`
 - `POST /api/candidate/session/{token}/schedule`
+- `GET /api/candidate/session/{token}/review`
 - `GET /api/candidate/session/{candidate_session_id}/current_task`
 - `GET /api/candidate/invites`
 - `POST /api/candidate/session/{candidate_session_id}/privacy/consent`
+
+### Company Config / Media Storage
+
+- `GET /api/companies/me/ai-config`
+- `PUT /api/companies/me/ai-config`
+- `GET /api/recordings/storage/fake/download`
+- `PUT /api/recordings/storage/fake/upload`
 
 ### Candidate Task Execution / Draft / Handoff APIs
 
@@ -188,6 +206,9 @@ Canonical env keys are summarized below by primary group.
 - `POST /api/tasks/{task_id}/submit`
 - `GET /api/tasks/{task_id}/draft`
 - `PUT /api/tasks/{task_id}/draft`
+- `POST /api/tasks/{task_id}/presentation/upload/init`
+- `POST /api/tasks/{task_id}/presentation/upload/complete`
+- `GET /api/tasks/{task_id}/presentation/upload/status`
 - `POST /api/tasks/{task_id}/handoff/upload/init`
 - `POST /api/tasks/{task_id}/handoff/upload/complete`
 - `GET /api/tasks/{task_id}/handoff/status`
@@ -217,6 +238,7 @@ Detailed schema-level API docs are generated at [`docs/api.md`](docs/api.md).
 - `./runBackend.sh migrate`: load environment values and run Alembic migrations.
 - `./runBackend.sh bootstrap-local`: seed the local demo Talent Partner accounts and repair missing company links.
 - `./runBackend.sh retry-dead-jobs`: requeue dead-letter Winoe jobs after schema repair.
+- `poetry run python scripts/local_demo_smoke_test.py`: verify readiness, create a Trial, and wait for scenario generation to reach a ready state.
 
 ## Tests and Verification
 
