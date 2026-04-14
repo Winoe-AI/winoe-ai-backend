@@ -4,6 +4,7 @@ import importlib
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+import pytest
 import sqlalchemy as sa
 
 reconcile_constants = importlib.import_module(
@@ -24,6 +25,9 @@ reconcile_scenario_backfill = importlib.import_module(
 reconcile_upgrade = importlib.import_module(
     "app.core.db.migrations.reconcile_202603190001.upgrade"
 )
+trial_schema_compat = importlib.import_module(
+    "app.core.db.migrations.shared_trial_schema_compat"
+)
 
 
 class _RecordingOp:
@@ -35,6 +39,50 @@ class _RecordingOp:
             self.calls.append((name, args, kwargs))
 
         return _record
+
+
+def test_shared_trial_schema_compat_resolves_canonical_names(monkeypatch):
+    inspector = SimpleNamespace(
+        get_table_names=lambda: ["trials", "candidate_sessions"],
+        get_columns=lambda table_name: (
+            [{"name": "trial_id"}, {"name": "scenario_version_id"}]
+            if table_name == "candidate_sessions"
+            else [{"name": "id"}]
+        ),
+    )
+    monkeypatch.setattr(trial_schema_compat.sa, "inspect", lambda _bind: inspector)
+
+    assert trial_schema_compat.resolve_trial_parent_table_name(object()) == "trials"
+    assert (
+        trial_schema_compat.resolve_candidate_session_parent_column_name(object())
+        == "trial_id"
+    )
+
+
+def test_shared_trial_schema_compat_raises_for_split_parent_tables(monkeypatch):
+    inspector = SimpleNamespace(
+        get_table_names=lambda: ["trials", "simulations"],
+        get_columns=lambda _table_name: [{"name": "id"}],
+    )
+    monkeypatch.setattr(trial_schema_compat.sa, "inspect", lambda _bind: inspector)
+
+    with pytest.raises(RuntimeError, match="both canonical 'trials' and legacy"):
+        trial_schema_compat.resolve_trial_parent_table_name(object())
+
+
+def test_shared_trial_schema_compat_raises_for_split_parent_columns(monkeypatch):
+    inspector = SimpleNamespace(
+        get_table_names=lambda: ["trials", "candidate_sessions"],
+        get_columns=lambda table_name: (
+            [{"name": "trial_id"}, {"name": "simulation_id"}]
+            if table_name == "candidate_sessions"
+            else [{"name": "id"}]
+        ),
+    )
+    monkeypatch.setattr(trial_schema_compat.sa, "inspect", lambda _bind: inspector)
+
+    with pytest.raises(RuntimeError, match="both canonical 'trial_id' and legacy"):
+        trial_schema_compat.resolve_candidate_session_parent_column_name(object())
 
 
 def test_reconcile_introspection_helpers_collect_names(monkeypatch):
