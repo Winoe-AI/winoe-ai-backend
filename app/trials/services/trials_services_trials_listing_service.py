@@ -8,6 +8,7 @@ from sqlalchemy.orm import load_only
 
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
+    Trial,
     WinoeReport,
 )
 from app.trials.repositories import repository as sim_repo
@@ -28,6 +29,7 @@ async def list_candidates_with_profile(
     """Return candidates with profile."""
     stmt = (
         select(CandidateSession, WinoeReport.id)
+        .join(Trial, Trial.id == CandidateSession.trial_id)
         .options(
             load_only(
                 CandidateSession.id,
@@ -46,7 +48,7 @@ async def list_candidates_with_profile(
             WinoeReport,
             WinoeReport.candidate_session_id == CandidateSession.id,
         )
-        .where(CandidateSession.trial_id == trial_id)
+        .where(Trial.id == trial_id)
         .order_by(CandidateSession.id.desc())
     )
     return (await db.execute(stmt)).all()

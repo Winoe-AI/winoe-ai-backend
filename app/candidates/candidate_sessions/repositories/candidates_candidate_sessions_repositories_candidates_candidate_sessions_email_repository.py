@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.database.shared_database_models_model import CandidateSession, Trial
 
 
 async def get_by_trial_and_email(
@@ -14,8 +14,9 @@ async def get_by_trial_and_email(
     """Return by trial and email."""
     stmt = (
         select(CandidateSession)
+        .join(Trial, Trial.id == CandidateSession.trial_id)
         .where(
-            CandidateSession.trial_id == trial_id,
+            Trial.id == trial_id,
             func.lower(CandidateSession.invite_email) == func.lower(invite_email),
         )
         .order_by(CandidateSession.id.desc())
@@ -31,8 +32,9 @@ async def get_by_trial_and_email_for_update(
     """Return by trial and email for update."""
     stmt = (
         select(CandidateSession)
+        .join(Trial, Trial.id == CandidateSession.trial_id)
         .where(
-            CandidateSession.trial_id == trial_id,
+            Trial.id == trial_id,
             func.lower(CandidateSession.invite_email) == func.lower(invite_email),
         )
         .with_for_update()
