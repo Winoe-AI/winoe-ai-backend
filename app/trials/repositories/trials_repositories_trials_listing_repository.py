@@ -21,11 +21,20 @@ async def list_with_candidate_counts(
     counts_subq = (
         select(
             CandidateSession.trial_id.label("trial_id"),
-            func.count(CandidateSession.id).label("num_candidates"),
+            func.count(func.distinct(CandidateSession.id)).label("num_candidates"),
         )
+        .join(Trial, Trial.id == CandidateSession.trial_id)
+        .where(Trial.created_by == user_id)
         .group_by(CandidateSession.trial_id)
-        .subquery()
     )
+    if not include_terminated:
+        counts_subq = counts_subq.where(
+            or_(
+                Trial.status.is_(None),
+                Trial.status != TRIAL_STATUS_TERMINATED,
+            )
+        )
+    counts_subq = counts_subq.subquery()
 
     stmt = (
         select(

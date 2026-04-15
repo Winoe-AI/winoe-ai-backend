@@ -11,6 +11,7 @@ from app.shared.database.shared_database_models_model import (
     CandidateSession,
     Submission,
     Task,
+    Trial,
 )
 from app.trials.services.trials_services_trials_candidates_compare_constants import (
     COMPARE_DAYS,
@@ -45,7 +46,8 @@ async def load_day_completion(
             func.count(Submission.id).label("submitted_count"),
             func.max(Submission.submitted_at).label("latest_submission_at"),
         )
-        .join(Task, Task.trial_id == CandidateSession.trial_id)
+        .join(Trial, Trial.id == CandidateSession.trial_id)
+        .join(Task, Task.trial_id == Trial.id)
         .outerjoin(
             Submission,
             and_(
@@ -54,7 +56,7 @@ async def load_day_completion(
             ),
         )
         .where(
-            CandidateSession.trial_id == trial_id,
+            Trial.id == trial_id,
             CandidateSession.id.in_(candidate_session_ids),
             Task.day_index.in_(COMPARE_DAYS),
         )

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
+    Trial,
     WinoeReport,
 )
 from app.trials.services.trials_services_trials_candidates_compare_subqueries_service import (
@@ -72,6 +73,7 @@ def candidate_compare_rows_stmt(*, trial_id: int) -> Any:
             latest_run_success.c.run_generated_at.label("latest_success_generated_at"),
             active_job.c.active_job_updated_at.label("active_job_updated_at"),
         )
+        .join(Trial, Trial.id == CandidateSession.trial_id)
         .outerjoin(WinoeReport, WinoeReport.candidate_session_id == CandidateSession.id)
         .outerjoin(
             latest_run_any, latest_run_any.c.candidate_session_id == CandidateSession.id
@@ -81,7 +83,7 @@ def candidate_compare_rows_stmt(*, trial_id: int) -> Any:
             latest_run_success.c.candidate_session_id == CandidateSession.id,
         )
         .outerjoin(active_job, active_job.c.candidate_session_id == CandidateSession.id)
-        .where(CandidateSession.trial_id == trial_id)
+        .where(Trial.id == trial_id)
         .order_by(CandidateSession.id.asc())
     )
 
