@@ -6,13 +6,11 @@ from tests.candidates.routes.candidates_session_schedule_api_utils import *
 
 
 @pytest.mark.asyncio
-async def test_schedule_endpoint_rejects_expired_token_with_error_code(
+async def test_schedule_endpoint_rejects_invalid_github_username(
     async_client, async_session, override_dependencies
 ):
     _talent_partner, _trial, cs = await _seed_claimed_session(async_session)
     await _claim(async_client, cs.token, cs.invite_email)
-    cs.expires_at = datetime.now(UTC) - timedelta(minutes=1)
-    await async_session.commit()
 
     provider = MemoryEmailProvider()
     email_service = EmailService(provider, sender="noreply@test.com")
@@ -24,13 +22,11 @@ async def test_schedule_endpoint_rejects_expired_token_with_error_code(
             json={
                 "scheduledStartAt": start_at.isoformat().replace("+00:00", "Z"),
                 "candidateTimezone": "America/New_York",
-                "githubUsername": "octocat",
+                "githubUsername": "bad user",
             },
             headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
         )
 
-    assert response.status_code == 410
-    body = response.json()
-    assert body["detail"] == "Invite token expired"
-    assert body["errorCode"] == "INVITE_TOKEN_EXPIRED"
+    assert response.status_code == 400
+    assert response.json()["errorCode"] == "INVALID_GITHUB_USERNAME"
     assert len(provider.sent) == 0

@@ -17,6 +17,7 @@ class CandidateSessionListItem(APIModel):
     candidateSessionId: int
     inviteEmail: EmailStr
     candidateName: str
+    githubUsername: str | None = None
     status: CandidateSessionStatus
     startedAt: datetime | None
     completedAt: datetime | None

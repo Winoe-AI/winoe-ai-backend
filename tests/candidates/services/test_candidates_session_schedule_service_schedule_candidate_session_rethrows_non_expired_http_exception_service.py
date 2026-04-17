@@ -34,6 +34,7 @@ async def test_schedule_candidate_session_rethrows_non_expired_http_exception(
             principal=principal,
             scheduled_start_at=datetime.now(UTC) + timedelta(days=1),
             candidate_timezone="America/New_York",
+            github_username="octocat",
             email_service=email_service,
             now=datetime.now(UTC),
         )

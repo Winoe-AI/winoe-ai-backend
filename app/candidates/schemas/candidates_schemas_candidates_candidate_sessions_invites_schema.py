@@ -65,6 +65,7 @@ class CandidateInviteListItem(APIModel):
     isExpired: bool
     scheduledStartAt: datetime | None = None
     candidateTimezone: str | None = None
+    githubUsername: str | None = None
     dayWindows: list[DayWindow] = Field(default_factory=list)
     scheduleLockedAt: datetime | None = None
     currentDayWindow: CurrentDayWindow | None = None

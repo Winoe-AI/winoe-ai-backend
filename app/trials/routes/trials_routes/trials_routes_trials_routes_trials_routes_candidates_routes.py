@@ -58,6 +58,7 @@ async def list_trial_candidates(
             candidateSessionId=cs.id,
             inviteEmail=cs.invite_email,
             candidateName=cs.candidate_name,
+            githubUsername=getattr(cs, "github_username", None),
             status=cs.status,
             startedAt=cs.started_at,
             completedAt=cs.completed_at,

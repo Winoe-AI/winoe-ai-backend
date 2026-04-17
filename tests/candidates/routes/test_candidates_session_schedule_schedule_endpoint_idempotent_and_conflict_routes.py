@@ -18,6 +18,7 @@ async def test_schedule_endpoint_idempotent_and_conflict(
     payload = {
         "scheduledStartAt": start_at.isoformat().replace("+00:00", "Z"),
         "candidateTimezone": "America/New_York",
+        "githubUsername": "octocat",
     }
 
     with override_dependencies({get_email_service: lambda: email_service}):
@@ -39,6 +40,7 @@ async def test_schedule_endpoint_idempotent_and_conflict(
             .isoformat()
             .replace("+00:00", "Z"),
             "candidateTimezone": "America/New_York",
+            "githubUsername": "octocat",
         }
         conflict = await async_client.post(
             f"/api/candidate/session/{cs.token}/schedule",

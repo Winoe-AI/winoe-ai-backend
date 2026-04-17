@@ -23,6 +23,7 @@ async def test_schedule_endpoint_rejects_invalid_timezone_and_past(
             json={
                 "scheduledStartAt": future_start.isoformat().replace("+00:00", "Z"),
                 "candidateTimezone": "Invalid/Timezone",
+                "githubUsername": "octocat",
             },
             headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
         )
@@ -31,6 +32,7 @@ async def test_schedule_endpoint_rejects_invalid_timezone_and_past(
             json={
                 "scheduledStartAt": past_start.isoformat().replace("+00:00", "Z"),
                 "candidateTimezone": "America/New_York",
+                "githubUsername": "octocat",
             },
             headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
         )

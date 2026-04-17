@@ -18,6 +18,7 @@ async def test_resolve_and_invites_include_schedule_fields(
     schedule_payload = {
         "scheduledStartAt": start_at.isoformat().replace("+00:00", "Z"),
         "candidateTimezone": "America/New_York",
+        "githubUsername": "octocat",
     }
 
     with override_dependencies({get_email_service: lambda: email_service}):
@@ -36,6 +37,7 @@ async def test_resolve_and_invites_include_schedule_fields(
     resolve_body = resolve.json()
     assert resolve_body["scheduledStartAt"] == schedule_payload["scheduledStartAt"]
     assert resolve_body["candidateTimezone"] == "America/New_York"
+    assert resolve_body["githubUsername"] == "octocat"
     assert len(resolve_body["dayWindows"]) == 5
     assert resolve_body["scheduleLockedAt"] is not None
     assert resolve_body["currentDayWindow"] is not None
@@ -51,6 +53,7 @@ async def test_resolve_and_invites_include_schedule_fields(
     assert invite_items[0]["candidateSessionId"] == cs.id
     assert invite_items[0]["scheduledStartAt"] == schedule_payload["scheduledStartAt"]
     assert invite_items[0]["candidateTimezone"] == "America/New_York"
+    assert invite_items[0]["githubUsername"] == "octocat"
     assert len(invite_items[0]["dayWindows"]) == 5
     assert invite_items[0]["scheduleLockedAt"] is not None
     assert invite_items[0]["currentDayWindow"] is not None
@@ -61,3 +64,4 @@ async def test_resolve_and_invites_include_schedule_fields(
         )
     ).scalar_one()
     assert refreshed.schedule_locked_at is not None
+    assert refreshed.github_username == "octocat"

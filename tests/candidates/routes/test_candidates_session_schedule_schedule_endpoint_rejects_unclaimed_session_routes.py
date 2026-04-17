@@ -21,6 +21,7 @@ async def test_schedule_endpoint_rejects_unclaimed_session(
             json={
                 "scheduledStartAt": start_at.isoformat().replace("+00:00", "Z"),
                 "candidateTimezone": "America/New_York",
+                "githubUsername": "octocat",
             },
             headers={"Authorization": f"Bearer candidate:{cs.invite_email}"},
         )

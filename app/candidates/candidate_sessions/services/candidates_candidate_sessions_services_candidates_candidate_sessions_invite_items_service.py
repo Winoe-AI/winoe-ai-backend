@@ -85,6 +85,7 @@ async def build_invite_item(
         isExpired=is_expired,
         scheduledStartAt=schedule_payload["scheduledStartAt"],
         candidateTimezone=schedule_payload["candidateTimezone"],
+        githubUsername=getattr(candidate_session, "github_username", None),
         dayWindows=schedule_payload["dayWindows"],
         scheduleLockedAt=schedule_payload["scheduleLockedAt"],
         currentDayWindow=schedule_payload["currentDayWindow"],

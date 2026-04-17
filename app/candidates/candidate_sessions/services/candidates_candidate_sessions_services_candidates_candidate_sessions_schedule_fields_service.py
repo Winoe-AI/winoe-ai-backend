@@ -32,6 +32,7 @@ def schedule_payload_for_candidate_session(
             getattr(candidate_session, "scheduled_start_at", None)
         ),
         "candidateTimezone": getattr(candidate_session, "candidate_timezone", None),
+        "githubUsername": getattr(candidate_session, "github_username", None),
         "dayWindows": day_windows,
         "scheduleLockedAt": _normalize_optional_datetime(
             getattr(candidate_session, "schedule_locked_at", None)

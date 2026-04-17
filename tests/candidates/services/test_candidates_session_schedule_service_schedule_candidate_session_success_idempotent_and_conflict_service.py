@@ -25,12 +25,14 @@ async def test_schedule_candidate_session_success_persists_windows_and_jobs(
         principal=principal,
         scheduled_start_at=start_at,
         candidate_timezone="America/New_York",
+        github_username="octocat",
         email_service=email_service,
         now=now,
         correlation_id="req-1",
     )
     assert result.created is True
     assert result.candidate_session.schedule_locked_at is not None
+    assert result.candidate_session.github_username == "octocat"
     assert result.candidate_session.day_windows_json is not None
     for window in result.candidate_session.day_windows_json:
         assert isinstance(window["dayIndex"], int)

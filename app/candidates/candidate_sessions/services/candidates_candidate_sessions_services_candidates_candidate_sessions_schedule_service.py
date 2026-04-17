@@ -27,6 +27,9 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 )
 from app.notifications.services import service as notification_service
 from app.shared.auth.principal import Principal
+from app.submissions.services.submissions_services_submissions_github_user_service import (
+    validate_and_normalize_github_username,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,17 +51,20 @@ async def schedule_candidate_session(
     principal: Principal,
     scheduled_start_at: datetime,
     candidate_timezone: str,
+    github_username: str,
     email_service,
     now: datetime | None = None,
     correlation_id: str | None = None,
 ) -> ScheduleCandidateSessionResult:
     """Schedule candidate session."""
+    normalized_github_username = validate_and_normalize_github_username(github_username)
     return await schedule_candidate_session_impl(
         db,
         token=token,
         principal=principal,
         scheduled_start_at=scheduled_start_at,
         candidate_timezone=candidate_timezone,
+        github_username=normalized_github_username,
         email_service=email_service,
         now=now,
         correlation_id=correlation_id,

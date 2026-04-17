@@ -30,6 +30,7 @@ async def test_build_invite_item_uses_progress_snapshot_when_completed_ids_missi
         created_at=now,
         token="invite-token",
         status="in_progress",
+        github_username="octocat",
     )
 
     async def _tasks_loader(_trial_id: int):
@@ -66,3 +67,4 @@ async def test_build_invite_item_uses_progress_snapshot_when_completed_ids_missi
     assert item.progress.completed == 2
     assert item.progress.total == 3
     assert item.companyName == "Acme"
+    assert item.githubUsername == "octocat"

@@ -35,6 +35,7 @@ async def test_schedule_candidate_session_validation_errors(async_session):
             principal=claimed_principal,
             scheduled_start_at=datetime.now(UTC) - timedelta(minutes=1),
             candidate_timezone="America/New_York",
+            github_username="octocat",
             email_service=email_service,
             now=datetime.now(UTC),
         )
@@ -48,6 +49,7 @@ async def test_schedule_candidate_session_validation_errors(async_session):
             principal=claimed_principal,
             scheduled_start_at=datetime.now(UTC) + timedelta(days=1),
             candidate_timezone="Bad/Timezone",
+            github_username="octocat",
             email_service=email_service,
             now=datetime.now(UTC),
         )
@@ -64,6 +66,7 @@ async def test_schedule_candidate_session_validation_errors(async_session):
             principal=claimed_principal,
             scheduled_start_at=datetime.now(UTC) + timedelta(days=2),
             candidate_timezone="America/New_York",
+            github_username="octocat",
             email_service=email_service,
             now=datetime.now(UTC),
         )

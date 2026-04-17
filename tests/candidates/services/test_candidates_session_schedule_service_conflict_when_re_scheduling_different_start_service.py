@@ -25,6 +25,7 @@ async def test_schedule_candidate_session_conflict_when_re_scheduling_different_
         principal=principal,
         scheduled_start_at=start_at,
         candidate_timezone="America/New_York",
+        github_username="octocat",
         email_service=email_service,
         now=now,
     )
@@ -36,6 +37,7 @@ async def test_schedule_candidate_session_conflict_when_re_scheduling_different_
             principal=principal,
             scheduled_start_at=start_at + timedelta(days=1),
             candidate_timezone="America/New_York",
+            github_username="octocat",
             email_service=email_service,
             now=now,
         )

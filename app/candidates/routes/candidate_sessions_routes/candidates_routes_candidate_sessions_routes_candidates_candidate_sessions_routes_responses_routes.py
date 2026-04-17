@@ -41,6 +41,7 @@ def render_schedule_response(cs) -> CandidateSessionScheduleResponse:
         candidateSessionId=cs.id,
         scheduledStartAt=schedule_payload["scheduledStartAt"],
         candidateTimezone=schedule_payload["candidateTimezone"],
+        githubUsername=schedule_payload["githubUsername"],
         dayWindows=schedule_payload["dayWindows"],
         scheduleLockedAt=schedule_payload["scheduleLockedAt"],
     )

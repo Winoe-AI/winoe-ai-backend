@@ -16,7 +16,10 @@ async def test_init_codespace_success_path(monkeypatch, async_session):
     async def _return_task(*_a, **_k):
         return task
 
+    captured = {}
+
     async def _return_workspace(*_a, **_k):
+        captured["github_username"] = _k["github_username"]
         return workspace
 
     monkeypatch.setattr(
@@ -64,3 +67,5 @@ async def test_init_codespace_success_path(monkeypatch, async_session):
     assert result.workspaceId == workspace.id
     assert result.baseTemplateSha == "base"
     assert result.precommitSha == "precommit-sha-1"
+    assert captured["github_username"] == "octocat"
+    assert cs.github_username == "octocat"

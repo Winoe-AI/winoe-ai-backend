@@ -35,6 +35,7 @@ def _stub_cs():
         trial_id=1,
         status="in_progress",
         scheduled_start_at=datetime.now(UTC) - timedelta(days=1),
+        github_username=None,
     )
 
 

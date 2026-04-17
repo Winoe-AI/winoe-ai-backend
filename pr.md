@@ -1,73 +1,74 @@
-# P0 AI pipeline: generate from-scratch project briefs instead of codespace specifications #317
+# Require GitHub username capture before Day 2 Codespace init #285
 
 ## Title
-P0 AI pipeline: generate from-scratch project briefs instead of codespace specifications #317
+Require GitHub username capture before Day 2 Codespace init #285
 
-## TL;DR
-- Prestart now generates a from-scratch project brief plus rubric.
-- Trial detail / preview exposes `projectBriefMd`.
-- Candidate repo bootstrap uses the canonical project brief as `README.md`.
-- The canonical contract no longer emits `codespaceSpecJson`.
+## Summary
+Winoe AI now captures, validates, normalizes, and persists `githubUsername` earlier in the from-scratch Trial flow, so Codespace init and repo permissioning use the stored candidate session value instead of relying on transient request data.
 
 ## Problem
-Winoe v4 pivots trials to from-scratch candidate builds in empty repos. That removes the old template-specialization path and makes codespace-spec output the wrong artifact for this stage of the product.
+- Frontend/init contract expected `githubUsername`, but GitHub username was not guaranteed to be captured and persisted before Day 2.
+- This created a mismatch between candidate flow, Codespace init, and repo permissioning.
 
-Before this change, Prestart was still oriented around a future specializer agent and produced codespace instructions instead of a candidate-facing project brief. For v4, Prestart needed to generate a buildable project brief that gives the candidate enough business context, requirements, constraints, and deliverables to start from nothing in Days 2-3.
+## Root cause
+- `candidate_sessions.github_username` existed, but the schedule flow did not capture it.
+- Codespace init was effectively the first reliable place the backend saw the username.
+- Some frontend-facing payloads did not expose the stored username consistently.
 
-## What changed
-- Updated the Prestart brain document to describe from-scratch project brief generation.
-- Updated the AI output / schema contract to produce `project_brief_md` and rubric output, without codespace-spec fields.
-- Updated the scenario generation pipeline to build project brief markdown for the candidate repo README.
-- Added a centralized canonical project-brief normalization helper so preview, bootstrap, and downstream consumers all resolve the same brief.
-- Updated trial detail / preview serialization to return `projectBriefMd`.
-- Updated README/bootstrap sourcing so provisioned candidate repos are seeded from the canonical project brief.
-- Added and updated focused tests around brief generation, preview serialization, and bootstrap seeding.
+## Implementation summary
+- Schedule flow now accepts, validates, normalizes, and persists `githubUsername`.
+- Candidate session resolve/invites payloads expose stored `githubUsername`.
+- Talent Partner trial candidate list exposes stored `githubUsername`.
+- Codespace init validates request input, backfills legacy-null sessions, and treats stored session username as canonical.
+- Mismatch policy is explicit: `409 GITHUB_USERNAME_MISMATCH`.
 
-## Decisions / implementation notes
-- `project_brief_md` is the canonical exposed field now.
-- Legacy compatibility is preserved through one shared normalization helper.
-- No database migration was introduced in this issue.
-- `preferred_language_framework` is treated as context-only, not binding.
+## API contract changes
+- Candidate schedule request now requires `githubUsername`.
+- Candidate schedule response includes `githubUsername`.
+- Candidate session resolve payload includes `githubUsername`.
+- Candidate invites payload includes `githubUsername`.
+- Trial candidate list payload includes `githubUsername`.
+- Codespace init still accepts `githubUsername` for compatibility, but persisted session state is canonical.
 
-## QA / test plan
-Automated:
-- `bash precommit.sh`
-- Result: `1702 passed, 13 warnings`
-- Coverage gate: `96.16%`
-- Coverage report line: `TOTAL 18520 711 96%`
+## Persistence / model impact
+- No new column added.
+- Existing `candidate_sessions.github_username` is now part of the normal pre-Day-2 flow.
+- Legacy null rows are safely backfilled on init.
 
-Manual QA:
-- Verified the local end-to-end scenario flow with the demo runtime mode: `WINOE_SCENARIO_GENERATION_RUNTIME_MODE=demo`.
-- Create trial.
-- Scenario generation completes.
-- Preview / detail returns `projectBriefMd`.
-- Approve scenario.
-- Activate trial.
-- Invite candidate.
-- Candidate repo README matches the canonical project brief content.
+## Repo permissioning / provisioning impact
+- Codespace init no longer relies only on transient request data.
+- Stored `candidate_sessions.github_username` is the durable source of truth passed into workspace provisioning and repo permissioning flow.
 
-Concrete QA findings:
-- No blocking defects found.
-- The generated project brief stayed tech-stack-agnostic.
-- `preferred_language_framework` remained optional context only.
-- `codespaceSpecJson` was absent from the updated trial detail payload.
+## Tests added / updated
+- Schedule persistence: `tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_persists_and_sends_emails_routes.py`
+- Invalid GitHub username rejection: `tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_rejects_invalid_github_username_routes.py`
+- Resolve/invites exposure: `tests/candidates/routes/test_candidates_session_schedule_resolve_and_invites_include_schedule_fields_routes.py`
+- Trial candidate list exposure: `tests/trials/routes/test_trials_candidates_list_populated_routes.py`
+- Codespace init backfill: `tests/candidates/routes/test_candidates_submissions_router_init_codespace_username_contract_routes.py::test_init_codespace_backfills_missing_github_username`
+- Codespace init mismatch behavior: `tests/candidates/routes/test_candidates_submissions_router_init_codespace_username_contract_routes.py::test_init_codespace_rejects_github_username_mismatch`
 
-## Acceptance criteria mapping
-- Brain document updated for from-scratch project brief generation -> updated `winoe-prestart-background-information-creator-brain.md`.
-- Prestart output includes project brief and evaluation rubric -> AI output contract now emits `project_brief_md` and rubric data.
-- Prestart output does not include codespace-specializer output -> canonical contract no longer emits `codespaceSpecJson`.
-- Generated project brief describes a system buildable from scratch in 2 days -> scenario generation now frames the trial as an empty-repo build with a two-day implementation window.
-- Project brief is tech-stack-agnostic -> brief generation avoids prescribing framework, language, or database.
-- `preferred_language_framework` is context only -> helper includes it as optional Talent Partner context, not a requirement.
-- Generated project brief stored as `README.md` content -> repo bootstrap seeds the README from the canonical brief.
-- Scenario generation job succeeds end to end with new brief format -> scenario generation flow passed and detail/bootstrap paths consumed the new brief.
-- Talent Partner can preview the project brief before approving -> trial detail / preview serializes `projectBriefMd`.
+## Manual QA evidence
+- Invalid schedule request with `bad user` returned `400 INVALID_GITHUB_USERNAME`.
+- Valid schedule request persisted `github_username = "octocat"`.
+- Resolve payload returned `githubUsername: "octocat"`.
+- Invites payload returned `githubUsername: "octocat"`.
+- Trial candidate list returned stored usernames.
+- Backfill init succeeded for null stored username and persisted `"octocat"`.
+- Mismatch init returned `409 GITHUB_USERNAME_MISMATCH`.
+- Workspace rows were created for successful init paths and not created for mismatch path.
 
-## Non-blocking follow-ups
-- Local QA used `WINOE_SCENARIO_GENERATION_RUNTIME_MODE=demo`.
-- Scenario AI snapshot metadata still contains a `codespace` runtime entry.
+## Exact QA commands run
+- `poetry run pytest -o addopts='' tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_persists_and_sends_emails_routes.py tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_rejects_invalid_github_username_routes.py tests/candidates/routes/test_candidates_session_schedule_resolve_and_invites_include_schedule_fields_routes.py tests/candidates/routes/test_candidates_submissions_router_init_codespace_username_contract_routes.py tests/candidates/routes/test_candidates_submissions_router_init_codespace_success_path_routes.py tests/candidates/routes/test_candidates_submissions_router_init_codespace_normalizes_legacy_url_routes.py tests/trials/routes/test_trials_candidates_list_populated_routes.py`
+- Result: `8 passed`
+- `poetry run pytest tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_persists_and_sends_emails_routes.py`
+- Result: test passed, but the repo-wide coverage gate failed with `Required test coverage of 96% not reached. Total coverage: 49.75%`
+- Narrow pytest slices therefore required `-o addopts=''` to bypass the repo-wide coverage gate.
 
-These are non-blocking and out of scope for #317.
+## Rollout / compatibility notes
+- Frontend can continue sending `githubUsername` to Codespace init.
+- Backend now guarantees persistence earlier in the candidate flow.
+- Legacy sessions with null usernames are backfilled on first successful init.
 
-## Notes
-This PR intentionally does not perform the broader retired-code cleanup tracked in the separate cleanup issue.
+## Risks / follow-ups
+- Case-sensitive mismatch policy is intentional for now; case-insensitive reconciliation can be a follow-up if desired.
+- Live external GitHub/email integration was stubbed in local QA; this PR validates backend contract and flow correctness.
