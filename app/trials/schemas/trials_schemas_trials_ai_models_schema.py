@@ -40,6 +40,12 @@ class TrialCompanyContext(BaseModel):
         min_length=1,
         max_length=MAX_COMPANY_CONTEXT_VALUE_CHARS,
     )
+    preferred_language_framework: str | None = Field(
+        default=None,
+        alias="preferredLanguageFramework",
+        min_length=1,
+        max_length=MAX_COMPANY_CONTEXT_VALUE_CHARS,
+    )
 
     @model_serializer(mode="plain")
     def _serialize(self):
@@ -48,6 +54,8 @@ class TrialCompanyContext(BaseModel):
             data["domain"] = self.domain
         if self.product_area is not None:
             data["productArea"] = self.product_area
+        if self.preferred_language_framework is not None:
+            data["preferredLanguageFramework"] = self.preferred_language_framework
         return data
 
 

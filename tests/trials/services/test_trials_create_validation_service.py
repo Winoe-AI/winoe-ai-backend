@@ -4,6 +4,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.config import settings
+from app.trials.constants.trials_constants_trials_template_keys_constants import (
+    DEFAULT_TEMPLATE_KEY,
+)
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     TrialCreate,
 )
@@ -13,9 +16,7 @@ def _base_payload() -> dict:
     return {
         "title": "Backend Node Trial",
         "role": "Backend Engineer",
-        "techStack": "Node.js, PostgreSQL",
         "seniority": "mid",
-        "focus": "Emphasize code quality and test discipline.",
     }
 
 
@@ -56,10 +57,10 @@ def test_trial_create_rejects_ai_non_bool_value() -> None:
 
 def test_trial_create_normalizes_aliases_and_day_keys() -> None:
     payload = _base_payload()
+    payload["techStack"] = "Node.js, PostgreSQL"
     payload.pop("seniority")
-    payload.pop("focus")
-    payload["roleLevel"] = "Mid"
     payload["focusNotes"] = "Focus notes"
+    payload["roleLevel"] = "Mid"
     payload["companyContext"] = {"productArea": "creator tools"}
     payload["ai"] = {"evalEnabledByDay": {1: True, "2": False}}
 
@@ -71,6 +72,27 @@ def test_trial_create_normalizes_aliases_and_day_keys() -> None:
     assert parsed.company_context.product_area == "creator tools"
     assert parsed.ai is not None
     assert parsed.ai.eval_enabled_by_day == {"1": True, "2": False}
+
+
+def test_trial_create_allows_pivoted_payload_without_legacy_fields() -> None:
+    payload = _base_payload()
+    payload["preferredLanguageFramework"] = "TypeScript/Node"
+
+    parsed = TrialCreate.model_validate(payload)
+
+    assert parsed.techStack is None
+    assert parsed.focus is None
+    assert parsed.preferred_language_framework == "TypeScript/Node"
+    assert parsed.templateKey == DEFAULT_TEMPLATE_KEY
+
+
+def test_trial_create_accepts_snake_case_preferred_language_framework() -> None:
+    payload = _base_payload()
+    payload["preferred_language_framework"] = "Python/FastAPI"
+
+    parsed = TrialCreate.model_validate(payload)
+
+    assert parsed.preferred_language_framework == "Python/FastAPI"
 
 
 def test_trial_create_rejects_invalid_day_window_bounds() -> None:

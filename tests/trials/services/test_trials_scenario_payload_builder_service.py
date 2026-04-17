@@ -16,7 +16,11 @@ def test_build_scenario_generation_payload_includes_talent_partner_context_field
         scenario_template="default-5day-node-postgres",
         seniority="Mid",
         focus="Emphasize docs and test discipline.",
-        company_context={"domain": "social", "productArea": "creator tools"},
+        company_context={
+            "domain": "social",
+            "productArea": "creator tools",
+            "preferredLanguageFramework": "TypeScript/Node",
+        },
         ai_notice_version="mvp1",
         ai_notice_text="AI may be used for scenario generation.",
         ai_eval_enabled_by_day={1: True, "2": True, "3": False, "9": True},
@@ -30,6 +34,10 @@ def test_build_scenario_generation_payload_includes_talent_partner_context_field
     assert payload["talentPartnerContext"]["seniority"] == "mid"
     assert payload["talentPartnerContext"]["focus"] == trial.focus
     assert payload["talentPartnerContext"]["companyContext"] == trial.company_context
+    assert (
+        payload["talentPartnerContext"]["companyContext"]["preferredLanguageFramework"]
+        == "TypeScript/Node"
+    )
     assert payload["talentPartnerContext"]["ai"] == {
         "noticeVersion": "mvp1",
         "noticeText": "AI may be used for scenario generation.",

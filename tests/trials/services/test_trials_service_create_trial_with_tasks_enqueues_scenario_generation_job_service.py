@@ -76,3 +76,43 @@ async def test_create_trial_with_tasks_enqueues_scenario_generation_job(
             },
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_create_trial_with_tasks_accepts_pivoted_payload(
+    async_session,
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="sim-job-pivot@test.com"
+    )
+    payload = type(
+        "P",
+        (),
+        {
+            "title": "Title",
+            "role": "Role",
+            "seniority": "Mid",
+            "preferredLanguageFramework": "Python/FastAPI",
+            "companyContext": {"domain": "social"},
+            "ai": {
+                "noticeVersion": "mvp1",
+                "noticeText": "AI may assist with scenario generation.",
+                "evalEnabledByDay": {"1": True},
+            },
+        },
+    )()
+
+    sim, _tasks, scenario_job = await sim_service.create_trial_with_tasks(
+        async_session, payload, talent_partner
+    )
+
+    assert sim.tech_stack == "Python/FastAPI"
+    assert sim.focus == ""
+    assert sim.company_context == {
+        "domain": "social",
+        "preferredLanguageFramework": "Python/FastAPI",
+    }
+    assert scenario_job.payload_json["talentPartnerContext"]["companyContext"] == {
+        "domain": "social",
+        "preferredLanguageFramework": "Python/FastAPI",
+    }

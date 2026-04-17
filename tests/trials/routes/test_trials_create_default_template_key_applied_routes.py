@@ -29,14 +29,16 @@ async def test_default_template_key_applied_without_task_template_repo(
         json={
             "title": "Backend Node Trial",
             "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
             "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
+            "preferredLanguageFramework": "Node.js, PostgreSQL",
         },
     )
     assert resp.status_code == 201, resp.text
     data = resp.json()
     assert data["templateKey"] == "python-fastapi"
+    assert data["techStack"] == "Node.js, PostgreSQL"
+    assert data["focus"] == ""
+    assert data["companyContext"]["preferredLanguageFramework"] == "Node.js, PostgreSQL"
     sim_id = data["id"]
 
     rows = (
