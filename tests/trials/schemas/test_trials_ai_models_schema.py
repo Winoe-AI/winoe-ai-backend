@@ -14,6 +14,9 @@ def test_trial_company_context_serializer_omits_none_fields():
     assert TrialCompanyContext.model_validate(
         {"productArea": "payments"}
     ).model_dump() == {"productArea": "payments"}
+    assert TrialCompanyContext.model_validate(
+        {"preferredLanguageFramework": "TypeScript/Node"}
+    ).model_dump() == {"preferredLanguageFramework": "TypeScript/Node"}
 
 
 def test_trial_ai_config_serializer_omits_none_fields():

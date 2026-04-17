@@ -40,18 +40,32 @@ class TrialCreate(BaseModel):
 
     title: str = Field(..., min_length=1, max_length=200)
     role: str = Field(..., min_length=1, max_length=200)
-    techStack: str = Field(..., min_length=1, max_length=500)
+    techStack: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=500,
+        validation_alias=AliasChoices("techStack", "tech_stack"),
+    )
     seniority: str = Field(
         ...,
         min_length=1,
         max_length=100,
         validation_alias=AliasChoices("seniority", "roleLevel", "role_level"),
     )
-    focus: str = Field(
-        ...,
+    focus: str | None = Field(
+        default=None,
         min_length=1,
         max_length=MAX_FOCUS_NOTES_CHARS,
         validation_alias=AliasChoices("focus", "focusNotes", "focus_notes"),
+    )
+    preferred_language_framework: str | None = Field(
+        default=None,
+        alias="preferredLanguageFramework",
+        min_length=1,
+        max_length=500,
+        validation_alias=AliasChoices(
+            "preferredLanguageFramework", "preferred_language_framework"
+        ),
     )
     company_context: TrialCompanyContext | None = Field(
         default=None, alias="companyContext"

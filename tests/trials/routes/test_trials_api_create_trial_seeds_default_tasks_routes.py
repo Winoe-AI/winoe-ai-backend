@@ -16,9 +16,8 @@ async def test_create_trial_seeds_default_tasks(
     payload = {
         "title": "Backend Node Trial",
         "role": "Backend Engineer",
-        "techStack": "Node.js, PostgreSQL",
         "seniority": "Mid",
-        "focus": "Build a new API and iterate over 5 days",
+        "preferredLanguageFramework": "Node.js, PostgreSQL",
     }
 
     res = await async_client.post(
@@ -28,6 +27,9 @@ async def test_create_trial_seeds_default_tasks(
 
     body = res.json()
     assert body["title"] == payload["title"]
+    assert body["techStack"] == "Node.js, PostgreSQL"
+    assert body["focus"] == ""
+    assert body["companyContext"]["preferredLanguageFramework"] == "Node.js, PostgreSQL"
     assert len(body["tasks"]) == 5
     assert [t["day_index"] for t in body["tasks"]] == [1, 2, 3, 4, 5]
     assert body["tasks"][0]["type"] == "design"

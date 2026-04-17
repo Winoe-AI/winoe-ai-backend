@@ -64,11 +64,14 @@ async def test_local_bootstrap_seeds_talent_partner_and_allows_trial_creation(
         json={
             "title": "Local Trial",
             "role": "Backend Engineer",
-            "techStack": "Python, PostgreSQL",
             "seniority": "Mid",
-            "focus": "Create a local demo trial after bootstrap",
+            "preferredLanguageFramework": "Python, PostgreSQL",
         },
     )
 
     assert response.status_code == 201, response.text
     assert response.json()["title"] == "Local Trial"
+    assert response.json()["techStack"] == "Python, PostgreSQL"
+    assert response.json()["companyContext"]["preferredLanguageFramework"] == (
+        "Python, PostgreSQL"
+    )

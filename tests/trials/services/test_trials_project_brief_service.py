@@ -61,3 +61,18 @@ def test_project_brief_generation_stays_stack_agnostic() -> None:
     assert "## Talent Partner Context" in project_brief_md
     assert "Preferred language/framework: TypeScript/Node" in project_brief_md
     assert "context only, not as a requirement" in project_brief_md
+
+
+def test_project_brief_reads_preferred_language_framework_from_company_context() -> (
+    None
+):
+    project_brief_md = build_project_brief_markdown(
+        role="Backend Engineer",
+        company_context={
+            "domain": "payments",
+            "preferredLanguageFramework": "Python/FastAPI",
+        },
+        focus=None,
+    )
+
+    assert "Preferred language/framework: Python/FastAPI" in project_brief_md

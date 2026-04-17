@@ -32,9 +32,19 @@ async def test_create_trial_creates_sim_and_5_tasks(
         payload = {
             "title": "Backend Node Trial",
             "role": "Backend Engineer",
-            "techStack": "Node.js, PostgreSQL",
             "seniority": "Mid",
-            "focus": "Build new API feature and debug an issue",
+            "preferredLanguageFramework": "Node.js, PostgreSQL",
+            "ai": {
+                "noticeVersion": AI_NOTICE_DEFAULT_VERSION,
+                "noticeText": AI_NOTICE_DEFAULT_TEXT,
+                "evalEnabledByDay": {
+                    "1": True,
+                    "2": True,
+                    "3": True,
+                    "4": True,
+                    "5": True,
+                },
+            },
         }
 
         resp = await async_client.post("/api/trials", json=payload)
@@ -51,6 +61,11 @@ async def test_create_trial_creates_sim_and_5_tasks(
             "handoff",
             "documentation",
         ]
+        assert data["techStack"] == "Node.js, PostgreSQL"
+        assert data["focus"] == ""
+        assert data["companyContext"]["preferredLanguageFramework"] == (
+            "Node.js, PostgreSQL"
+        )
         assert data["templateKey"] == "python-fastapi"
         assert data["status"] == "generating"
         assert isinstance(data["scenarioGenerationJobId"], str)

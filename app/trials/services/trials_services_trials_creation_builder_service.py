@@ -22,6 +22,23 @@ from .trials_services_trials_creation_extractors_service import (
 from .trials_services_trials_template_keys_service import resolve_template_key
 
 
+def _resolve_preferred_language_framework(payload: Any) -> str | None:
+    for key in ("preferredLanguageFramework", "preferred_language_framework"):
+        value = getattr(payload, key, None)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _resolve_tech_stack(payload: Any, preferred_language_framework: str | None) -> str:
+    raw_tech_stack = getattr(payload, "techStack", getattr(payload, "tech_stack", None))
+    if isinstance(raw_tech_stack, str) and raw_tech_stack.strip():
+        return raw_tech_stack.strip()
+    if preferred_language_framework is not None:
+        return preferred_language_framework
+    return ""
+
+
 def build_trial_for_create(
     payload: Any, user: Any
 ) -> tuple[Trial, str, dict[str, bool]]:
@@ -51,13 +68,20 @@ def build_trial_for_create(
         day_window_overrides_enabled,
         day_window_overrides_json,
     ) = extract_day_window_config(payload)
+    preferred_language_framework = _resolve_preferred_language_framework(payload)
+    company_context = extract_company_context(payload)
+    if preferred_language_framework is not None:
+        company_context = {
+            **(company_context or {}),
+            "preferredLanguageFramework": preferred_language_framework,
+        }
     sim = Trial(
         title=payload.title,
         role=payload.role,
-        tech_stack=getattr(payload, "techStack", getattr(payload, "tech_stack", "")),
+        tech_stack=_resolve_tech_stack(payload, preferred_language_framework),
         seniority=normalized_seniority or raw_seniority,
-        focus=payload.focus,
-        company_context=extract_company_context(payload),
+        focus=getattr(payload, "focus", None) or "",
+        company_context=company_context,
         ai_prompt_overrides_json=ai_prompt_overrides_json,
         ai_notice_version=resolved_notice_version,
         ai_notice_text=resolved_notice_text,

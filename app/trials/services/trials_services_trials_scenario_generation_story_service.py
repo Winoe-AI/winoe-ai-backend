@@ -65,6 +65,11 @@ def build_project_brief_markdown(
         product_area = normalize_text(
             company_context.get("productArea") or company_context.get("product_area")
         )
+        if not preferred_stack:
+            preferred_stack = normalize_text(
+                company_context.get("preferredLanguageFramework")
+                or company_context.get("preferred_language_framework")
+            )
     business_context = "; ".join(
         part
         for part in (
