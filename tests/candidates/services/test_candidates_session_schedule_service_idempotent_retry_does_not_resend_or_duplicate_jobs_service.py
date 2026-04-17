@@ -25,6 +25,7 @@ async def test_schedule_candidate_session_idempotent_retry_does_not_resend_or_du
         principal=principal,
         scheduled_start_at=start_at,
         candidate_timezone="America/New_York",
+        github_username="octocat",
         email_service=email_service,
         now=now,
         correlation_id="req-1",
@@ -37,6 +38,7 @@ async def test_schedule_candidate_session_idempotent_retry_does_not_resend_or_du
         principal=principal,
         scheduled_start_at=start_at,
         candidate_timezone="America/New_York",
+        github_username="octocat",
         email_service=email_service,
         now=now,
     )

@@ -14,6 +14,7 @@ from app.submissions.services.submissions_services_submissions_diff_summary_serv
     summarize_diff,
 )
 from app.submissions.services.submissions_services_submissions_github_user_service import (
+    validate_and_normalize_github_username,
     validate_github_username,
 )
 from app.submissions.services.submissions_services_submissions_payload_validation_service import (
@@ -102,6 +103,7 @@ __all__ = [
     "run_actions_tests",
     "summarize_diff",
     "validate_branch",
+    "validate_and_normalize_github_username",
     "validate_github_username",
     "validate_repo_full_name",
     "validate_run_allowed",

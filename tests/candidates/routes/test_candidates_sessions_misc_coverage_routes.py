@@ -33,7 +33,9 @@ async def test_schedule_route_returns_rendered_response(monkeypatch):
     response = await cs_schedule.schedule_candidate_session(
         token="t" * 24,
         payload=SimpleNamespace(
-            scheduledStartAt=datetime.now(UTC), candidateTimezone="UTC"
+            scheduledStartAt=datetime.now(UTC),
+            candidateTimezone="UTC",
+            githubUsername="octocat",
         ),
         request=SimpleNamespace(headers={"x-correlation-id": "corr-123"}),
         principal=SimpleNamespace(sub="auth0|candidate"),

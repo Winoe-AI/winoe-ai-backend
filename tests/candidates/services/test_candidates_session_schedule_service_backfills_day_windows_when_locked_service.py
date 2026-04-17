@@ -25,9 +25,11 @@ async def test_schedule_candidate_session_backfills_day_windows_when_locked(
         principal=principal,
         scheduled_start_at=start_at,
         candidate_timezone="America/New_York",
+        github_username="octocat",
         email_service=email_service,
         now=now,
     )
+    assert candidate_session.github_username == "octocat"
 
     candidate_session.day_windows_json = None
     await async_session.commit()
@@ -38,8 +40,10 @@ async def test_schedule_candidate_session_backfills_day_windows_when_locked(
         principal=principal,
         scheduled_start_at=start_at,
         candidate_timezone="America/New_York",
+        github_username="octocat",
         email_service=email_service,
         now=now,
     )
     assert refill.created is False
     assert refill.candidate_session.day_windows_json is not None
+    assert refill.candidate_session.github_username == "octocat"

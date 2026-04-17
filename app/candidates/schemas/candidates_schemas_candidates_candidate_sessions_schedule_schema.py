@@ -33,6 +33,7 @@ class CandidateSessionResolveResponse(APIModel):
     windowEndAt: datetime | None = None
     scheduledStartAt: datetime | None = None
     candidateTimezone: str | None = None
+    githubUsername: str | None = None
     dayWindows: list[DayWindow] = Field(default_factory=list)
     scheduleLockedAt: datetime | None = None
     currentDayWindow: CurrentDayWindow | None = None
@@ -43,6 +44,7 @@ class CandidateSessionScheduleRequest(APIModel):
 
     scheduledStartAt: datetime
     candidateTimezone: str = Field(..., min_length=1, max_length=255)
+    githubUsername: str
 
 
 class CandidateSessionScheduleResponse(APIModel):
@@ -51,5 +53,6 @@ class CandidateSessionScheduleResponse(APIModel):
     candidateSessionId: int
     scheduledStartAt: datetime
     candidateTimezone: str
+    githubUsername: str | None = None
     dayWindows: list[DayWindow]
     scheduleLockedAt: datetime

@@ -18,6 +18,7 @@ async def test_schedule_endpoint_persists_and_sends_emails(
     payload = {
         "scheduledStartAt": start_at.isoformat().replace("+00:00", "Z"),
         "candidateTimezone": "America/New_York",
+        "githubUsername": "octocat",
     }
 
     with override_dependencies({get_email_service: lambda: email_service}):
@@ -31,6 +32,7 @@ async def test_schedule_endpoint_persists_and_sends_emails(
     body = response.json()
     assert body["candidateSessionId"] == cs.id
     assert body["candidateTimezone"] == "America/New_York"
+    assert body["githubUsername"] == "octocat"
     assert body["scheduledStartAt"] == payload["scheduledStartAt"]
     assert len(body["dayWindows"]) == 5
     assert body["scheduleLockedAt"] is not None
@@ -38,6 +40,7 @@ async def test_schedule_endpoint_persists_and_sends_emails(
     await async_session.refresh(cs)
     assert cs.scheduled_start_at is not None
     assert cs.candidate_timezone == "America/New_York"
+    assert cs.github_username == "octocat"
     assert cs.schedule_locked_at is not None
     assert cs.day_windows_json is not None
 

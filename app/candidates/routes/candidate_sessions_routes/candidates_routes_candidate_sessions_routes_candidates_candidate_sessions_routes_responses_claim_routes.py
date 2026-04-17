@@ -52,6 +52,7 @@ def render_claim_response(
         windowEndAt=window_end_at,
         scheduledStartAt=schedule_payload["scheduledStartAt"],
         candidateTimezone=schedule_payload["candidateTimezone"],
+        githubUsername=schedule_payload["githubUsername"],
         dayWindows=schedule_payload["dayWindows"],
         scheduleLockedAt=schedule_payload["scheduleLockedAt"],
         currentDayWindow=schedule_payload["currentDayWindow"],

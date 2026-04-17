@@ -19,3 +19,15 @@ def validate_github_username(username: str) -> None:
             detail="Invalid GitHub username",
             error_code="INVALID_GITHUB_USERNAME",
         )
+
+
+def normalize_github_username(username: str | None) -> str:
+    """Normalize a GitHub username for persistence and comparisons."""
+    return (username or "").strip()
+
+
+def validate_and_normalize_github_username(username: str | None) -> str:
+    """Validate and return a normalized GitHub username."""
+    normalized_username = normalize_github_username(username)
+    validate_github_username(normalized_username)
+    return normalized_username

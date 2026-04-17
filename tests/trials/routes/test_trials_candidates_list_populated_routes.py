@@ -38,6 +38,7 @@ async def test_trial_with_multiple_sessions_returns_all_and_has_report(
         invite_email="ada@example.com",
         token="tok-1",
         status="not_started",
+        github_username="ada-lovelace",
         expires_at=None,
     )
     cs2 = CandidateSession(
@@ -69,6 +70,7 @@ async def test_trial_with_multiple_sessions_returns_all_and_has_report(
     by_id = {row["candidateSessionId"]: row for row in data}
     assert by_id[cs1.id]["inviteEmail"] == "ada@example.com"
     assert by_id[cs1.id]["candidateName"] == "Ada Lovelace"
+    assert by_id[cs1.id]["githubUsername"] == "ada-lovelace"
     assert by_id[cs1.id]["status"] == "not_started"
     assert by_id[cs1.id]["hasWinoeReport"] is False
     assert by_id[cs2.id]["inviteEmail"] == "bob@example.com"

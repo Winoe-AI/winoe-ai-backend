@@ -67,6 +67,7 @@ async def schedule_candidate_session(
         principal=principal,
         scheduled_start_at=payload.scheduledStartAt,
         candidate_timezone=payload.candidateTimezone,
+        github_username=payload.githubUsername,
         email_service=email_service,
         correlation_id=correlation_id,
     )

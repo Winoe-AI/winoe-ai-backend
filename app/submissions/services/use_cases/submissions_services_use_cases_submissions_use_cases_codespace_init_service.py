@@ -10,12 +10,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.candidates.candidate_sessions import services as cs_service
 from app.integrations.github.client import GithubClient
 from app.shared.database.shared_database_models_model import CandidateSession, Trial
-from app.shared.utils.shared_utils_errors_utils import ApiError
+from app.shared.utils.shared_utils_errors_utils import (
+    GITHUB_USERNAME_MISMATCH,
+    ApiError,
+)
 from app.submissions.services import (
     submissions_services_submissions_candidate_service as submission_service,
 )
 from app.submissions.services.submissions_services_submissions_codespace_urls_service import (
     ensure_canonical_workspace_url,
+)
+from app.submissions.services.submissions_services_submissions_github_user_service import (
+    validate_and_normalize_github_username,
 )
 from app.submissions.services.submissions_services_submissions_rate_limits_constants import (
     apply_rate_limit,
@@ -65,6 +71,19 @@ async def init_codespace(
 ):
     """Initialize codespace."""
     apply_rate_limit(candidate_session.id, "init")
+    normalized_username = validate_and_normalize_github_username(github_username)
+    stored_username = (
+        getattr(candidate_session, "github_username", None) or ""
+    ).strip()
+    if stored_username and stored_username != normalized_username:
+        raise ApiError(
+            status_code=409,
+            detail="GitHub username does not match the stored session value.",
+            error_code=GITHUB_USERNAME_MISMATCH,
+            retryable=False,
+        )
+    if stored_username != normalized_username:
+        candidate_session.github_username = normalized_username
     task = await _validate_codespace_request_with_legacy_fallback(
         db, candidate_session, task_id
     )
@@ -83,7 +102,7 @@ async def init_codespace(
         scenario_version=scenario_version,
         task=task,
         github_client=github_client,
-        github_username=github_username,
+        github_username=candidate_session.github_username,
         repo_prefix=repo_prefix,
         destination_owner=destination_owner,
         now=now or datetime.now(UTC),
@@ -91,12 +110,6 @@ async def init_codespace(
         hydrate_precommit_bundle=False,
         bootstrap_empty_repo=True,
     )
-    normalized_username = (github_username or "").strip()
-    if (
-        normalized_username
-        and getattr(candidate_session, "github_username", None) != normalized_username
-    ):
-        candidate_session.github_username = normalized_username
     if not workspace.repo_full_name:
         raise ApiError(
             status_code=409,

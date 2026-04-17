@@ -12,6 +12,7 @@ from app.candidates.candidate_sessions.services.scheduling.candidates_candidate_
 )
 from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.shared.utils.shared_utils_errors_utils import (
+    GITHUB_USERNAME_MISMATCH,
     INVITE_TOKEN_EXPIRED,
     SCHEDULE_INVALID_TIMEZONE,
     SCHEDULE_INVALID_WINDOW,
@@ -27,6 +28,7 @@ async def schedule_candidate_session_impl(
     principal,
     scheduled_start_at: datetime,
     candidate_timezone: str,
+    github_username: str,
     email_service,
     now: datetime | None,
     correlation_id: str | None,
@@ -71,6 +73,19 @@ async def schedule_candidate_session_impl(
             ) from exc
         raise
     changed = require_claimed_ownership(candidate_session, principal)
+    existing_username = (
+        getattr(candidate_session, "github_username", None) or ""
+    ).strip()
+    if existing_username and existing_username != github_username:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="GitHub username does not match the stored session value.",
+            error_code=GITHUB_USERNAME_MISMATCH,
+            retryable=False,
+        )
+    if existing_username != github_username:
+        candidate_session.github_username = github_username
+        changed = True
     schedule_created = False
     trial_for_email = None
     if getattr(candidate_session, "schedule_locked_at", None) is not None:

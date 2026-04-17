@@ -35,6 +35,7 @@ async def list_candidates_with_profile(
                 CandidateSession.id,
                 CandidateSession.invite_email,
                 CandidateSession.candidate_name,
+                CandidateSession.github_username,
                 CandidateSession.token,
                 CandidateSession.status,
                 CandidateSession.started_at,
