@@ -69,6 +69,11 @@ class TalentPartnerTranscriptOut(APIModel):
 
     status: str
     modelName: str | None = None
+    lastError: str | None = None
+    jobStatus: str | None = None
+    jobAttempt: int | None = None
+    jobMaxAttempts: int | None = None
+    retryable: bool | None = None
     text: str | None = None
     segmentsJson: list[dict[str, Any]] | None = None
     segments: list[dict[str, Any]] | None = None

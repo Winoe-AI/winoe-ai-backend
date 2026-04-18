@@ -19,14 +19,22 @@ def build_recording_payload(recording, *, download_url: str | None):
     }
 
 
-def build_transcript_payload(transcript):
+def build_transcript_payload(transcript, *, transcript_job=None):
     """Build transcript payload."""
     if transcript is None:
         return None
     segments = transcript.segments_json
+    job_status = getattr(transcript_job, "status", None)
+    job_attempt = getattr(transcript_job, "attempt", None)
+    job_max_attempts = getattr(transcript_job, "max_attempts", None)
     return {
         "status": transcript.status,
         "modelName": transcript.model_name,
+        "lastError": transcript.last_error,
+        "jobStatus": job_status,
+        "jobAttempt": job_attempt,
+        "jobMaxAttempts": job_max_attempts,
+        "retryable": bool(transcript_job is not None and job_status != "succeeded"),
         "text": transcript.text,
         "segmentsJson": segments,
         "segments": segments,

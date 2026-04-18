@@ -37,6 +37,7 @@ from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipe
     _get_or_start_run,
 )
 from app.integrations.winoe_report_review import WinoeReportReviewProviderError
+from app.media.repositories.transcripts import repository as transcripts_repo
 from app.shared.utils.shared_utils_project_brief_service import (
     canonical_project_brief_markdown,
 )
@@ -130,20 +131,40 @@ async def process_evaluation_run_job_impl(
         audits = await deps["_day_audits_by_day"](
             db, candidate_session_id=context.candidate_session.id
         )
-        transcript, transcript_ref = await deps["_resolve_day4_transcript"](
+        transcript_resolution = await deps["_resolve_day4_transcript"](
             db,
             candidate_session_id=context.candidate_session.id,
             day4_task=tasks.get(4),
             day4_submission=submissions.get(4),
         )
+        transcript_state = getattr(
+            transcript_resolution,
+            "transcript_state",
+            transcripts_repo.TRANSCRIPT_EVALUATION_STATE_MISSING,
+        )
+        try:
+            transcript, transcript_ref, transcript_state = transcript_resolution
+        except ValueError:
+            transcript, transcript_ref = transcript_resolution
+        day4_disabled = transcript_state != "ready"
+        effective_disabled_days = list(disabled_days)
+        if day4_disabled:
+            effective_disabled_days.append(4)
+        effective_disabled_days = sorted(set(effective_disabled_days))
 
         day_inputs = _build_day_inputs(
             tasks_by_day=tasks,
             submissions_by_day=submissions,
             day_audits=audits,
             transcript_reference=transcript_ref,
-            normalized_segments=_normalize_transcript_segments(
-                transcript.segments_json if transcript else None
+            normalized_segments=(
+                _normalize_transcript_segments(
+                    transcript.segments_json
+                    if transcript and not day4_disabled
+                    else None
+                )
+                if not day4_disabled
+                else []
             ),
         )
 
@@ -155,7 +176,7 @@ async def process_evaluation_run_job_impl(
             submissions_by_day=submissions,
             transcript_reference=transcript_ref,
             transcript=transcript,
-            disabled_days=disabled_days,
+            disabled_days=effective_disabled_days,
             enabled_days=enabled_days,
             requested_by_user_id=user_id,
             job_id=job_id,
@@ -204,7 +225,7 @@ async def process_evaluation_run_job_impl(
                 or DEFAULT_EVALUATION_PROMPT_VERSION
             ),
             rubric_version=rubric_version,
-            disabled_day_indexes=disabled_days,
+            disabled_day_indexes=effective_disabled_days,
             day_inputs=day_inputs,
             trial_context_json={
                 "trialId": context.trial.id,
@@ -212,7 +233,6 @@ async def process_evaluation_run_job_impl(
                 "role": getattr(context.trial, "role", None),
                 "techStack": getattr(context.trial, "tech_stack", None),
                 "seniority": getattr(context.trial, "seniority", None),
-                "templateKey": getattr(context.trial, "template_key", None),
                 "focus": getattr(context.trial, "focus", None),
                 "companyContext": getattr(context.trial, "company_context", None),
                 "storylineMd": getattr(context.scenario_version, "storyline_md", None),

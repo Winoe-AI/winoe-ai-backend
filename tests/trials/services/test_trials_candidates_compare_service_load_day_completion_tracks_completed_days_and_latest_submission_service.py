@@ -78,3 +78,37 @@ async def test_load_day_completion_tracks_completed_days_and_latest_submission_w
         "5": False,
     }
     assert latest[candidate_a.id] == submitted_at
+
+
+@pytest.mark.asyncio
+async def test_load_day_completion_ignores_rows_for_unknown_days():
+    completion, latest = await compare_service._load_day_completion(
+        _FakeDB(
+            [
+                _RowsResult(
+                    [
+                        SimpleNamespace(
+                            candidate_session_id=9,
+                            day_index=6,
+                            task_count=1,
+                            submitted_count=1,
+                            latest_submission_at=datetime(
+                                2026, 3, 16, 10, 0, tzinfo=UTC
+                            ),
+                        )
+                    ]
+                )
+            ]
+        ),
+        trial_id=77,
+        candidate_session_ids=[9],
+    )
+
+    assert completion[9] == {
+        "1": False,
+        "2": False,
+        "3": False,
+        "4": False,
+        "5": False,
+    }
+    assert latest[9] is None

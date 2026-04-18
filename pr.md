@@ -1,74 +1,96 @@
-# Enforce Codespace-only Day 2/3 workflow and remove offline/local work permission #286
+# Backend: block failed Day 4 transcript from Winoe scoring + expose retry/dead-letter state
 
 ## 1. Summary
-Winoe AI now enforces a Codespace-only Day 2/3 workflow end to end. Active Day 2 and Day 3 flows no longer expose legacy workspace fields, post-cutoff access is locked down with `TASK_WINDOW_CLOSED`, and cutoff evidence is recorded separately so evaluation stays anchored to the recorded cutoff SHA rather than mutable later workspace state.
+Day 4 transcript failure no longer silently enters Winoe evaluation.
 
-## 2. Problem
-The product requires canadidates to build from scratch in Codespaces, with the entire repo being their work. The backend still exposed legacy copy and response fields that suggested offline/local work was acceptable, and cutoff enforcement was not consistently applied across active Day 2/3 flows.
+Winoe Report generation excludes Day 4 when the transcript is missing, failed, empty, or not ready. Transcript jobs now retry before terminal dead-letter. Day 4 handoff/status and Talent Partner-visible detail surfaces expose transcript failure plus job retry/dead-letter metadata. Candidate progress/current-task and compare `dayCompletion` remain submission/progress-based and are not repurposed into transcript-health semantics. Compatibility was preserved for existing helper/route surfaces that use lightweight doubles or legacy tuple shapes.
 
-## 3. Root cause
-- Contract issue: active Codespace init/status responses still exposed legacy fields that implied a pre-cutoff workspace basis.
-- Enforcement issue: the backend did not uniformly block active Day 2/3 actions after cutoff across init, status, run, and submit.
+## 2. Problem / Why
+This was a demo-blocking trust bug. Day 4 could appear complete and influence Winoe scoring even when the transcript had failed or was empty.
 
-## 4. Implementation summary
-- Active Day 2/3 Codespace init/status responses now omit `baseTemplateSha` and `precommitSha`.
-- Active Day 2/3 flows now call the shared cutoff gate before init, status, run, and submit.
-- Day 2 and Day 3 cutoff evidence is written as separate `candidate_day_audits` rows.
-- Day 2 submit persists `checkpointSha`.
-- Day 3 submit persists `finalSha`.
-- The response mapping and handler tests now reflect the cutoff contract directly.
+## 3. What changed
 
-## 5. API contract changes
-- `baseTemplateSha` was removed from active Day 2/3 Codespace init/status responses.
-- `precommitSha` was removed from active Day 2/3 Codespace init/status responses.
-- Day 2 submit responses return `checkpointSha` for the Day 2 checkpoint.
-- Day 3 submit responses return `finalSha` for the Day 3 final state.
-- Post-cutoff error payloads include the cutoff basis fields needed for evaluation and audit traceability.
+### Media transcript repositories/services
+- Transcript persistence and lookup now distinguish ready, failed, empty, missing, and not-ready states instead of treating all non-ready states as scorable.
+- Talent Partner-visible transcript detail now carries failure and retry/dead-letter metadata.
 
-## 6. Cutoff enforcement behavior
-- Active Day 2/3 `codespace/init`, `codespace/status`, `run`, and `submit` requests now reject after cutoff with `409 TASK_WINDOW_CLOSED`.
-- Rejection payloads include cutoff details such as `cutoffCommitSha`, `cutoffAt`, and `evalBasisRef`.
-- The same cutoff gate is used consistently across the active Day 2/3 backend paths, so post-cutoff behavior is uniform instead of route-specific.
+### Winoe Report transcript/pipeline services
+- The evaluation pipeline now checks transcript status before including Day 4 evidence.
+- Day 4 is excluded from scoring whenever the transcript is missing, failed, empty, or not ready.
 
-## 7. Evaluation basis behavior
-- The evaluation basis is pinned to the recorded cutoff SHA after cutoff, even if `workspace.latest_commit_sha` changes later.
-- Successful pre-cutoff Day 2/Day 3 submit responses may still return `cutoffCommitSha = null` and `evalBasisRef = null` because the cutoff audit row does not exist yet at that moment.
-- Once the cutoff audit exists, later active requests resolve cutoff details from the audit row rather than from mutable workspace state.
+### Handoff/presentation status and submission-detail payloads
+- Day 4 handoff/status responses surface the failed transcript state clearly.
+- Submission detail payloads expose the transcript failure and retry/dead-letter metadata so Talent Partners can see why Day 4 is not ready for scoring.
 
-## 8. Persistence / model impact
-- `candidate_day_audits` now carries the authoritative Day 2 and Day 3 cutoff record.
-- Separate audit rows are persisted for `dayIndex = 2` and `dayIndex = 3`.
-- The recorded cutoff SHA and evaluation basis reference are stored per day, which keeps Day 2 and Day 3 evaluation inputs distinct.
+### Shared jobs transcribe-recording handler/runtime
+- Transcript jobs now retry before reaching dead-letter.
+- The runtime now preserves the terminal dead-letter state after retries are exhausted.
 
-## 9. Tests added / updated
-- `tests/candidates/routes/test_candidates_submissions_router_init_codespace_success_path_routes.py`
-- `tests/candidates/routes/test_candidates_schedule_gates_run_and_submit_post_cutoff_return_task_window_closed_routes.py`
-- `tests/tasks/routes/test_tasks_run_codespace_init_rejects_after_day_audit_routes.py`
-- `tests/tasks/routes/test_tasks_run_submit_rejects_after_day_audit_routes.py`
-- `tests/tasks/routes/test_tasks_run_codespace_status_returns_summary_routes.py`
-- `tests/tasks/routes/test_tasks_run_codespace_status_naive_cutoff_routes.py`
-- `tests/tasks/routes/test_tasks_submit_submit_day3_debug_returns_and_persists_final_sha_routes.py`
-- `tests/candidates/routes/test_candidates_session_api_current_task_includes_cutoff_fields_when_day_audit_exists_routes.py`
-- `tests/candidates/routes/test_candidates_session_api_current_task_returns_null_cutoff_fields_when_day_audit_missing_routes.py`
-- `tests/tasks/routes/test_tasks_run_codespace_init_works_for_debug_task_routes.py`
+### Candidate progress / compare contract fixes
+- `dayCompletion` remains a submission/progress signal.
+- It is not used as transcript readiness or evaluation readiness.
 
-## 10. Manual QA evidence
-- Command: `poetry run pytest -o addopts='' tests/candidates/routes/test_candidates_submissions_router_init_codespace_success_path_routes.py tests/candidates/routes/test_candidates_schedule_gates_run_and_submit_post_cutoff_return_task_window_closed_routes.py tests/tasks/routes/test_tasks_submit_submit_day3_debug_returns_and_persists_final_sha_routes.py tests/tasks/routes/test_tasks_run_codespace_init_rejects_after_day_audit_routes.py tests/tasks/routes/test_tasks_run_submit_rejects_after_day_audit_routes.py tests/tasks/routes/test_tasks_run_codespace_status_returns_summary_routes.py tests/tasks/routes/test_tasks_run_codespace_status_naive_cutoff_routes.py`
-- Result: `7 passed`
-- Command: `poetry run pytest`
-- Result: `1711 passed`, coverage `96.15%`
-- Day 2 init success response did not include legacy bundle fields.
-- Day 2 status before cutoff returned normal status with `cutoffCommitSha = null` and `cutoffAt = null`.
-- Day 2 submit returned `checkpointSha` and null cutoff fields before cutoff.
-- Day 2 post-cutoff `status`, `run`, and `submit` rejected with `409 TASK_WINDOW_CLOSED` and cutoff details.
-- Day 3 submit returned `finalSha`.
-- Day 3 post-cutoff `status` rejected with `409 TASK_WINDOW_CLOSED` and cutoff details.
-- Separate Day 2 and Day 3 audit rows existed in the database with different `dayIndex` values and different cutoff SHAs.
-- Mutating `workspace.latest_commit_sha` after cutoff did not change the cutoff details returned by later active requests.
-- Focused tests passed.
-- Full repo test suite passed.
+### Targeted tests and QA coverage tests
+- Coverage was updated around transcript readiness, retry/dead-letter behavior, Day 4 exclusion from Winoe evaluation, and the surfaced handoff/submission-detail state.
 
-## 11. Risks / follow-ups
-- Frontend copy and UI should stay aligned with the tightened backend cutoff contract so candidates do not see outdated offline/local wording.
+## 4. Behavioral details
 
-## 12. Fixes #286
+### Day 4 submission progress vs Day 4 evaluation readiness
+- Day 4 submission/progress still reflects whether the candidate completed the submission flow.
+- Winoe evaluation readiness is separate and depends on transcript usability.
+
+### Transcript readiness rules
+- Missing transcript: excluded from Winoe evaluation.
+- Failed transcript: excluded from Winoe evaluation.
+- Empty transcript: excluded from Winoe evaluation.
+- Not ready transcript: excluded from Winoe evaluation.
+
+### Retry-before-dead-letter behavior
+- Transcript jobs retry multiple times before a terminal dead-letter state.
+- The final terminal state is visible and distinct from an in-flight retry state.
+
+### Where failed transcript state is surfaced to the Talent Partner
+- Day 4 handoff/status.
+- Submission detail.
+- Transcript job retry/dead-letter metadata attached to the transcript surface.
+
+### Why compare `dayCompletion` remains submission-based
+- Compare `dayCompletion` tracks candidate progress through the submission flow.
+- It intentionally stays separate from transcript evaluation gating so progress reporting does not get conflated with transcript health.
+
+## 5. Manual QA evidence
+- Local migrate/bootstrap passed.
+- API-only runtime was used with controlled one-shot worker execution for deterministic transcript-job stepping.
+- Real Trial / candidate session / Day 4 upload were exercised through live endpoints.
+- Retry timeline was captured cleanly before dead-letter.
+- Surfaced Day 4 failed state was verified in handoff status, submission detail, and compare.
+- Evaluation bundle showed `disabled_day_indexes = [4]`.
+- Evaluation bundle included the failed Day 4 transcript reference.
+- Evaluation bundle included empty Day 4 transcript segments.
+- Transcript job retried repeatedly before dead-letter.
+- Final terminal state was `dead_letter`.
+- Transcript ended `failed`.
+- Compare `dayCompletion` stayed submission/progress-based.
+- Winoe evaluation skipped Day 4.
+
+## 6. Automated verification
+- Full suite passed.
+- Final result: `1732 passed`.
+- Coverage gate passed at `96.04%`.
+- `git diff --check` passed.
+- Pre-commit checks passed.
+
+## 7. Acceptance criteria mapping
+- Day 4 completion blocked or degraded when transcription fails: Day 4 is now excluded from Winoe evaluation when transcript readiness is missing, failed, empty, or not ready, and the surfaced status makes the failure visible.
+- Winoe evaluation skips Day 4 from failed transcript: the pipeline checks transcript status before including Day 4 evidence.
+- Transcript job has retry logic before dead-letter: transcript jobs retry before reaching the terminal dead-letter state.
+- Failed state visible to Talent Partner with retry: failed transcript state and retry/dead-letter metadata are exposed in handoff/status and submission detail.
+- Pipeline checks transcript status before including Day 4 evidence: Day 4 evidence is only considered when transcript readiness is valid.
+
+## 8. Risks / notes
+- Helper/route compatibility paths were intentionally retained for legacy test doubles and tuple-style mocks.
+- No schema migration was required.
+- Compare progress semantics were intentionally kept separate from transcript evaluation gating.
+
+## 9. Final note
+Day 4 submission/progress is not the same thing as Day 4 transcript usability for Winoe evaluation.

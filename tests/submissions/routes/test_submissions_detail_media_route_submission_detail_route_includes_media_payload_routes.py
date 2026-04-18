@@ -58,5 +58,9 @@ async def test_submission_detail_route_includes_media_payload(async_session):
     assert payload.recording.downloadUrl is not None
     assert payload.transcript is not None
     assert payload.transcript.status == TRANSCRIPT_STATUS_READY
+    assert payload.transcript.jobStatus is None
+    assert payload.transcript.jobAttempt is None
+    assert payload.transcript.jobMaxAttempts is None
+    assert payload.transcript.retryable is False
     assert payload.handoff is not None
     assert payload.handoff.recordingId == f"rec_{recording.id}"

@@ -47,16 +47,48 @@ def serialize_transcript_segments(raw_segments: object) -> list[dict[str, object
     return segments
 
 
-def build_transcript_status_payload(transcript) -> dict[str, object]:
+def normalize_handoff_status_result(
+    result: object,
+) -> tuple[object | None, object | None, object | None]:
+    """Normalize handoff status results across legacy and enriched shapes."""
+    if not isinstance(result, tuple):
+        return None, None, None
+    if len(result) >= 3:
+        recording, transcript, transcript_job = result[:3]
+        return recording, transcript, transcript_job
+    if len(result) == 2:
+        recording, transcript = result
+        return recording, transcript, None
+    if len(result) == 1:
+        return result[0], None, None
+    return None, None, None
+
+
+def build_transcript_status_payload(
+    transcript,
+    *,
+    transcript_job=None,
+) -> dict[str, object]:
     """Build transcript status payload."""
     text = None
     segments = None
-    if transcript.status == TRANSCRIPT_STATUS_READY:
-        text = transcript.text
-        segments = serialize_transcript_segments(transcript.segments_json)
+    transcript_status = getattr(transcript, "status", None)
+    if transcript_status == TRANSCRIPT_STATUS_READY:
+        text = getattr(transcript, "text", None)
+        segments = serialize_transcript_segments(
+            getattr(transcript, "segments_json", None)
+        )
     return {
-        "status": transcript.status,
+        "status": transcript_status,
         "progress": None,
+        "lastError": getattr(transcript, "last_error", None),
+        "jobStatus": getattr(transcript_job, "status", None),
+        "jobAttempt": getattr(transcript_job, "attempt", None),
+        "jobMaxAttempts": getattr(transcript_job, "max_attempts", None),
+        "retryable": bool(
+            transcript_job is not None
+            and getattr(transcript_job, "status", None) != "succeeded"
+        ),
         "text": text,
         "segments": segments,
     }

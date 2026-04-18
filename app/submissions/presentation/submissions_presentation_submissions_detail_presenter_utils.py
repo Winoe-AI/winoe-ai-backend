@@ -39,6 +39,7 @@ def present_detail(
     day_audit=None,
     recording=None,
     transcript=None,
+    transcript_job=None,
     recording_download_url: str | None = None,
 ):
     """Present detail."""
@@ -62,7 +63,9 @@ def present_detail(
         max_output_chars=max_output_chars(True),
         commit_sha_override=commit_sha,
     )
-    transcript_payload = build_transcript_payload(transcript)
+    transcript_payload = build_transcript_payload(
+        transcript, transcript_job=transcript_job
+    )
     return {
         "submissionId": sub.id,
         "candidateSessionId": cs.id,
