@@ -41,7 +41,12 @@ async def get_submission_detail_route(
         talent_partner_company_id=getattr(user, "company_id", None),
     )
     day_audit = await resolve_day_audit(db, sub=sub, task=task)
-    recording, transcript, recording_download_url = await resolve_media_payload(
+    (
+        recording,
+        transcript,
+        transcript_job,
+        recording_download_url,
+    ) = await resolve_media_payload(
         db,
         sub=sub,
         task=task,
@@ -58,6 +63,7 @@ async def get_submission_detail_route(
         day_audit=day_audit,
         recording=recording,
         transcript=transcript,
+        transcript_job=transcript_job,
         recording_download_url=recording_download_url,
     )
     return TalentPartnerSubmissionDetailOut(**payload)

@@ -31,7 +31,7 @@ async def test_handoff_status_route_impl_returns_transcript_without_recording():
         is_downloadable_fn=lambda _recording: True,
         resolve_signed_url_ttl_fn=lambda: 900,
         recording_public_id_fn=lambda recording_id: f"rec_{recording_id}",
-        build_transcript_status_payload_fn=lambda transcript: {
+        build_transcript_status_payload_fn=lambda transcript, transcript_job=None: {
             "status": transcript.status,
             "text": "done",
         },
@@ -69,7 +69,7 @@ async def test_handoff_status_route_impl_skips_signing_when_recording_not_downlo
         is_downloadable_fn=lambda _recording: False,
         resolve_signed_url_ttl_fn=lambda: 900,
         recording_public_id_fn=lambda recording_id: f"rec_{recording_id}",
-        build_transcript_status_payload_fn=lambda transcript: {
+        build_transcript_status_payload_fn=lambda transcript, transcript_job=None: {
             "status": transcript.status
         },
         logger=logger,

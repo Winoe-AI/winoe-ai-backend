@@ -58,6 +58,11 @@ class HandoffStatusTranscriptOut(APIModel):
 
     status: str
     progress: int | None = None
+    lastError: str | None = None
+    jobStatus: str | None = None
+    jobAttempt: int | None = None
+    jobMaxAttempts: int | None = None
+    retryable: bool | None = None
     text: str | None = None
     segments: list[HandoffStatusTranscriptSegmentOut] | None = None
 

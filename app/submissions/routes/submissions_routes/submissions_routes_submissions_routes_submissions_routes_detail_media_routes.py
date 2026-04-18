@@ -17,6 +17,10 @@ from app.integrations.storage_media.integrations_storage_media_storage_media_bas
 )
 from app.media.repositories.recordings import repository as recordings_repo
 from app.media.repositories.transcripts import repository as transcripts_repo
+from app.media.services.media_services_media_transcription_jobs_service import (
+    load_transcribe_recording_job,
+)
+from app.shared.database.shared_database_models_model import Trial
 from app.shared.utils.shared_utils_errors_utils import (
     MEDIA_STORAGE_UNAVAILABLE,
     ApiError,
@@ -52,6 +56,11 @@ async def resolve_media_payload(
     signed_url_ttl_resolver = signed_url_ttl_resolver or resolve_signed_url_ttl
     recording = await _resolve_recording(db, sub=sub, task=task, cs=cs)
     transcript = await _resolve_transcript(db, recording=recording)
+    transcript_job = await _resolve_transcript_job(
+        db,
+        recording=recording,
+        cs=cs,
+    )
     recording_download_url = _resolve_download_url(
         recording=recording,
         sub=sub,
@@ -60,7 +69,7 @@ async def resolve_media_payload(
         provider_factory=provider_factory,
         signed_url_ttl_resolver=signed_url_ttl_resolver,
     )
-    return recording, transcript, recording_download_url
+    return recording, transcript, transcript_job, recording_download_url
 
 
 async def _resolve_recording(db: AsyncSession, *, sub, task, cs):
@@ -94,6 +103,22 @@ async def _resolve_transcript(db: AsyncSession, *, recording):
     if recording is None or recordings_repo.is_deleted_or_purged(recording):
         return None
     return await transcripts_repo.get_by_recording_id(db, recording.id)
+
+
+async def _resolve_transcript_job(db: AsyncSession, *, recording, cs):
+    if recording is None or recordings_repo.is_deleted_or_purged(recording):
+        return None
+    company_id = getattr(getattr(cs, "trial", None), "company_id", None)
+    if not isinstance(company_id, int) and isinstance(
+        getattr(cs, "trial_id", None), int
+    ):
+        trial = await db.get(Trial, cs.trial_id)
+        company_id = getattr(trial, "company_id", None)
+    if not isinstance(company_id, int):
+        return None
+    return await load_transcribe_recording_job(
+        db, company_id=company_id, recording_id=recording.id
+    )
 
 
 def _resolve_download_url(

@@ -43,6 +43,29 @@ async def completed_task_ids(
     return await loader(db, candidate_session_id)
 
 
+async def completed_task_ids_for_tasks(
+    db: AsyncSession,
+    *,
+    candidate_session_id: int,
+    tasks: list[Task],
+) -> set[int]:
+    """Execute completed task ids for a provided task list."""
+    completed_ids = await completed_task_ids(db, candidate_session_id)
+    task_map = {task.id: task for task in tasks}
+    if not task_map:
+        return completed_ids
+    for task_id in list(completed_ids):
+        task = task_map.get(task_id)
+        if task is None:
+            continue
+        if task.day_index == 4:
+            # Day 4 completion is driven by the candidate's submitted handoff,
+            # not by transcript evaluation readiness. Evaluation gating is
+            # handled separately on the Talent Partner surfaces.
+            continue
+    return completed_ids
+
+
 async def load_tasks_with_completion_state(
     db: AsyncSession,
     *,

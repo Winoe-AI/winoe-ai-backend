@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from types import SimpleNamespace
 
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
     RECORDING_ASSET_STATUS_DELETED,
@@ -34,6 +35,14 @@ def is_retryable_transcription_error(exc: Exception) -> bool:
     return any(
         marker in normalized for marker in _RETRYABLE_TRANSCRIPTION_ERROR_MARKERS
     )
+
+
+def _transcription_job_view_for_retry_headroom(job):
+    if job is None:
+        return None
+    attempt = int(getattr(job, "attempt", 0) or 0)
+    max_attempts = int(getattr(job, "max_attempts", 0) or 0)
+    return SimpleNamespace(attempt=attempt + 1, max_attempts=max_attempts)
 
 
 async def handle_transcribe_recording_impl(
@@ -121,9 +130,10 @@ async def handle_transcribe_recording_impl(
             except Exception:
                 retrying_job = None
         duration_ms = int((time.perf_counter() - started) * 1000)
+        retry_headroom_job = _transcription_job_view_for_retry_headroom(retrying_job)
         if is_retryable_transcription_error(
             exc
-        ) and transcription_job_has_retry_headroom(retrying_job):
+        ) and transcription_job_has_retry_headroom(retry_headroom_job):
             await mark_retrying(recording_id, reason=error_reason)
             logger.warning(
                 "transcription_job_retryable_failure recordingId=%s attempt=%s maxAttempts=%s durationMs=%s reason=%s",

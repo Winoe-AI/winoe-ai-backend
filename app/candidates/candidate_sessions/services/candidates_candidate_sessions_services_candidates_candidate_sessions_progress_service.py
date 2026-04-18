@@ -14,6 +14,9 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
     completed_task_ids as _completed_task_ids,
 )
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_progress_loaders_service import (
+    completed_task_ids_for_tasks as _completed_task_ids_for_tasks,
+)
+from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_progress_loaders_service import (
     load_tasks as _load_tasks,
 )
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_progress_loaders_service import (
@@ -76,7 +79,9 @@ async def progress_snapshot(
     """Execute progress snapshot."""
     if tasks:
         task_list = tasks
-        completed_ids = await completed_task_ids(db, candidate_session.id)
+        completed_ids = await _completed_task_ids_for_tasks(
+            db, candidate_session_id=candidate_session.id, tasks=task_list
+        )
     else:
         task_list, completed_ids = await load_tasks_with_completion_state(
             db,

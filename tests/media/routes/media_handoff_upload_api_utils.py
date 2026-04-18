@@ -36,6 +36,9 @@ from app.shared.database.shared_database_models_model import (
     Submission,
     Transcript,
 )
+from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
+    JOB_STATUS_DEAD_LETTER,
+)
 from app.shared.utils.shared_utils_errors_utils import (
     MEDIA_STORAGE_UNAVAILABLE,
     REQUEST_TOO_LARGE,
