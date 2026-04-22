@@ -12,6 +12,9 @@ from app.media.repositories.recordings.media_repositories_recordings_media_recor
 from app.media.repositories.transcripts.media_repositories_transcripts_media_transcripts_core_model import (
     Transcript,
 )
+from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_core_model import (
+    NotificationDeliveryAudit,
+)
 from app.shared.database.shared_database_base_model import Base, TimestampMixin
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import Job
 from app.shared.jobs.repositories.shared_jobs_repositories_worker_heartbeats_repository_model import (
@@ -63,6 +66,7 @@ __all__ = [
     "EvaluationDayScore",
     "EvaluationRun",
     "Job",
+    "NotificationDeliveryAudit",
     "WorkerHeartbeat",
     "PrecommitBundle",
     "RecordingAsset",

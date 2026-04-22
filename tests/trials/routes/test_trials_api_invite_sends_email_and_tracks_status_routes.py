@@ -30,6 +30,24 @@ async def test_invite_sends_email_and_tracks_status(
     assert len(provider.sent) == 1
     assert provider.sent[0].to == cs.invite_email
 
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id == cs.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 1
+    assert audits[0].notification_type == "trial_invite"
+    assert audits[0].recipient_role == "candidate"
+    assert audits[0].status == "sent"
+    assert audits[0].provider_message_id == "memory-1"
+    assert audits[0].sent_at is not None
+
     list_res = await async_client.get(
         f"/api/trials/{sim.id}/candidates",
         headers=auth_header_factory(talent_partner),

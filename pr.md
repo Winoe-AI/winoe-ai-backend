@@ -1,68 +1,96 @@
-# Add auth isolation regressions for Talent Partner, candidate session, and invite-token routes
+## 1. Title
 
-## 1. Summary
+Verify invite, scheduling, and Winoe Report notifications
 
-This PR adds auth isolation regressions for Talent Partner, Candidate, and invite-token resources. No production auth logic changes were needed; the existing ownership and auth guards already enforced the required boundaries. Existing CSRF posture and production dev-bypass guards were validated.
+## 2. Summary
 
-## 2. Problem
+This change completes the notification delivery path for the candidate Golden Path in Winoe:
 
-Login worked, but cross-tenant and cross-session isolation needed explicit regression coverage. Issue #292 required proof that:
+- candidate invite delivery is durably audited
+- invite resend is audited and rate-limited
+- schedule confirmation is audited for both the candidate and the Talent Partner
+- Winoe Report-ready notification delivery is audited and skip-safe after success
+- existing candidate-session invite summary fields remain intact
+- schedule idempotency is preserved for repeated identical requests
 
-- Talent Partner A cannot read Talent Partner B's candidates
-- Candidate A cannot read Candidate B's session
-- Invite-token resources are properly scoped
-- CSRF posture is verified
-- Dev bypasses are disabled in production
+The implementation is centered on a new durable `notification_delivery_audits` table plus service-layer checks that avoid duplicate sends when a successful delivery already exists.
 
-## 3. What Changed
+## 3. What changed
 
-### Talent Partner isolation
+- Added durable `notification_delivery_audits` persistence with indexed rows for candidate-session, notification-type, and status lookups.
+- Recorded invite send and resend outcomes as immutable audit rows, while preserving existing `candidate_sessions` invite status fields such as `inviteEmailStatus`, `inviteEmailSentAt`, and `inviteEmailError`.
+- Added schedule confirmation audit persistence for both recipients:
+  - candidate
+  - Talent Partner
+- Added a success-detection guard so schedule confirmations and Winoe Report-ready notifications skip re-sending after a successful prior delivery.
+- Restored the schedule idempotency contract so repeated identical schedule requests do not create new notifications or new audit rows.
+- Kept Winoe Report terminology in the report-ready notification subject and body, and persisted the corresponding delivery audit row.
+- Kept the invite preprovision flow exercised through the repo-supported `StubGithubClient` path during local FastAPI QA.
 
-- Added regression coverage for the Talent Partner candidate-list route to confirm a Talent Partner cannot read another Talent Partner's candidates.
+## 4. Why
 
-### Candidate session isolation
+The issue acceptance criteria required proof that the candidate Golden Path notifications are not just surfaced in response payloads, but actually delivered, retried, audited, and replay-safe.
 
-- Added regression coverage for candidate session read and current-task routes to confirm Candidate A cannot access Candidate B's session data.
+The audit table provides durable evidence across the full lifecycle:
 
-### Invite-token isolation
+- invite send
+- invite resend
+- schedule confirmation
+- Winoe Report-ready notification
 
-- Added regression coverage for invite-token read and claim surfaces to confirm mismatched-email requests are rejected.
+The skip-safe guards prevent duplicate notification sends after a successful delivery has already been recorded, which keeps the notification history consistent with the user-visible state.
 
-### Security posture coverage
+## 5. QA performed
 
-- Added/updated regressions that verify CSRF origin enforcement on logout.
-- Added/updated regressions that confirm production dev-bypass behavior remains disabled.
+### Iteration 3 evidence
 
-## 4. QA
+- `./runBackend.sh migrate`
+- local backend startup
+- live FastAPI route exercise for:
+  - invite
+  - resend
+  - claim
+  - schedule
+  - repeated identical schedule
+  - report generation
+  - report-ready notification processing
+- psql evidence for:
+  - `candidate_sessions`
+  - `notification_delivery_audits`
+  - `winoe_reports`
 
-### Live verification
+### Observed behavior
 
-- `GET /api/trials/19/candidates` as Talent Partner A against Talent Partner B's Trial -> `404 {"detail":"Trial not found"}`
-- `POST /api/auth/logout` with hostile origin + cookie -> `403 {"error":"CSRF_ORIGIN_MISMATCH","message":"Request origin not allowed."}`
-- `GET /api/candidate/session/20/current_task` as candidate A against candidate B session -> `403 CANDIDATE_INVITE_EMAIL_MISMATCH`
-- `GET /api/candidate/session/2lBOgydRX_1WeKPNvFqb9w` as candidate A -> `403 CANDIDATE_INVITE_EMAIL_MISMATCH`
-- `POST /api/candidate/session/2lBOgydRX_1WeKPNvFqb9w/claim` as candidate A -> `403 CANDIDATE_INVITE_EMAIL_MISMATCH`
+- Invite resend is rate-limited immediately by design and succeeded after cooldown.
+- Repeated identical schedule requests did not resend notifications or create new audit rows.
+- Repeated Winoe Report-ready processing was skip-safe after a successful send.
+- Real GitHub org provisioning was not validated live because the PAT only had `metadata:read`.
+- The invite/preprovision route was verified through the repo’s supported `StubGithubClient` via the real FastAPI flow.
 
-### Database evidence
+### QA report references
 
-- Target session row remained unchanged across denied candidate requests:
-  - `candidate_auth0_sub`
-  - `candidate_auth0_email`
-  - `candidate_email`
-  - `claimed_at`
-  - `status`
-- Unrelated session row remained unchanged as well.
+- API verification: [api_endpoints_qa_report.md](qa_verifications/API-Endpoints-QA/api_qa_latest/api_endpoints_qa_report.md)
+- Database verification: [db_protocol_qa_report.md](qa_verifications/Database-Protocol-QA/db_protocol_qa_latest/db_protocol_qa_report.md)
+- Service logic verification: [service_logic_qa_report.md](qa_verifications/Service-Logic-QA/service_logic_qa_latest/service_logic_qa_report.md)
 
-### Focused tests
+### Supporting evidence from the repo
 
-- `8 passed, 16 deselected in 0.61s`
+- `candidate_sessions` still carries the invite summary fields used by the invite response and candidate list response.
+- `notification_delivery_audits` exists as an immutable audit table with `attempted_at`, `sent_at`, `status`, `recipient_role`, and idempotency metadata.
+- `winoe_reports` remains the marker table for report readiness; the ready notification logic checks prior successful delivery before sending again.
 
-### QA notes
+## 6. Known limitations / follow-ups
 
-- Manual QA was completed on a repo-owned local server with local/dev-bypass posture enabled for localhost shorthand auth testing.
-- The issue acceptance criteria were verified live and by focused tests.
+- Live GitHub org provisioning was not validated against the real provider in QA because the available PAT did not include write permissions.
+- The local FastAPI invite/preprovision path was validated with the repository’s `StubGithubClient`, which covers the supported local flow but not external GitHub side effects.
 
-## 5. Risk / notes
+## 7. Checklist
 
-- The local QA database had duplicate candidate-email rows from earlier attempts, so the final evidence pinned specific scenario row IDs.
-- No blocker remains for this issue.
+- [x] Invite email sends and is durably audited
+- [x] Invite resend is rate-limited, resendable after cooldown, and audited
+- [x] Schedule confirmation is audited for both the candidate and the Talent Partner
+- [x] Winoe Report-ready notification uses Winoe terminology and is audited
+- [x] Winoe Report-ready processing skips repeat sends after success
+- [x] Existing candidate-session invite summary fields are preserved
+- [x] Repeated identical schedule requests remain idempotent
+- [x] Audit trail is persisted in `notification_delivery_audits`

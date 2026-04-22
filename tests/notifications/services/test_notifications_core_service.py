@@ -1,11 +1,15 @@
 from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy import select
 
 from app.integrations.email.email_provider import MemoryEmailProvider
 from app.notifications.services import service as notification_service
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailService,
+)
+from app.shared.database.shared_database_models_model import (
+    NotificationDeliveryAudit,
 )
 from app.trials import services as sim_service
 from tests.shared.factories import (
@@ -44,6 +48,24 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
     assert sent_message.to == cs.invite_email
     assert sim.title in sent_message.subject
 
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id == cs.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 1
+    assert audits[0].notification_type == "trial_invite"
+    assert audits[0].recipient_role == "candidate"
+    assert audits[0].status == "sent"
+    assert audits[0].provider_message_id == "memory-1"
+    assert audits[0].sent_at is not None
+
     # Second send within rate window should be blocked and not call provider.
     second = await notification_service.send_invite_email(
         async_session,
@@ -59,6 +81,20 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
     assert cs.invite_email_status == "rate_limited"
     assert cs.invite_email_error == "Rate limited"
     assert len(provider.sent) == 1  # no extra send
+
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id == cs.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 2
+    assert {audit.status for audit in audits} == {"sent", "rate_limited"}
 
 
 def test_invite_email_content_and_rate_limit_helpers():
@@ -101,3 +137,18 @@ async def test_send_invite_email_failure_path(async_session):
     assert result.status == "failed"
     assert cs.invite_email_status == "failed"
     assert cs.invite_email_error == "boom"
+
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id == cs.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 1
+    assert audits[0].status == "failed"
+    assert audits[0].error == "boom"

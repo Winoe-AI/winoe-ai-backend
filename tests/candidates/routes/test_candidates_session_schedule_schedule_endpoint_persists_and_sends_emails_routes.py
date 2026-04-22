@@ -49,3 +49,20 @@ async def test_schedule_endpoint_persists_and_sends_emails(
     assert cs.invite_email in recipients
     assert talent_partner.email in recipients
     assert any("Schedule confirmed" in message.subject for message in provider.sent)
+
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id == cs.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 2
+    assert {audit.notification_type for audit in audits} == {
+        "schedule_confirmation_candidate",
+        "schedule_confirmation_talent_partner",
+    }

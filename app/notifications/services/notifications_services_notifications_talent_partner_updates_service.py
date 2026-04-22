@@ -8,6 +8,10 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_repository import (
+    has_successful_notification_delivery,
+    record_notification_delivery_audit,
+)
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailService,
 )
@@ -266,6 +270,7 @@ async def _send_talent_partner_update_email(
 
     candidate_name, candidate_email = _candidate_identity(candidate_session)
     if mode == "candidate_completed":
+        notification_type = CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE
         subject, text, html = _candidate_completed_email_content(
             candidate_name=candidate_name,
             candidate_email=candidate_email,
@@ -273,6 +278,7 @@ async def _send_talent_partner_update_email(
             completed_at=getattr(candidate_session, "completed_at", None),
         )
     else:
+        notification_type = WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE
         subject, text, html = _winoe_report_ready_email_content(
             candidate_name=candidate_name,
             candidate_email=candidate_email,
@@ -280,12 +286,45 @@ async def _send_talent_partner_update_email(
             generated_at=winoe_report_generated_at,
         )
 
+    if await has_successful_notification_delivery(
+        db,
+        candidate_session_id=candidate_session_id,
+        notification_type=notification_type,
+        recipient_email=talent_partner_email,
+        recipient_role="talent_partner",
+    ):
+        return {
+            "status": "sent",
+            "candidateSessionId": candidate_session_id,
+            "to": talent_partner_email,
+            "messageId": None,
+            "mode": mode,
+            "skipped": True,
+        }
+
+    sent_at = _utcnow()
     result = await email_service.send_email(
         to=talent_partner_email,
         subject=subject,
         text=text,
         html=html,
     )
+    await record_notification_delivery_audit(
+        db,
+        notification_type=notification_type,
+        candidate_session_id=candidate_session_id,
+        trial_id=trial.id,
+        recipient_email=talent_partner_email,
+        recipient_role="talent_partner",
+        subject=subject,
+        status=result.status,
+        provider_message_id=result.message_id,
+        error=result.error,
+        attempted_at=sent_at,
+        sent_at=sent_at if result.status == "sent" else None,
+        idempotency_key=f"{notification_type}:{candidate_session_id}",
+    )
+    await db.commit()
     if result.status != "sent":
         raise RuntimeError(result.error or "talent_partner_notification_send_failed")
     return {

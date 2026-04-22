@@ -11,7 +11,10 @@ from app.integrations.email.email_provider import MemoryEmailProvider
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailService,
 )
-from app.shared.database.shared_database_models_model import CandidateSession
+from app.shared.database.shared_database_models_model import (
+    CandidateSession,
+    NotificationDeliveryAudit,
+)
 from app.shared.http.dependencies.shared_http_dependencies_notifications_utils import (
     get_email_service,
 )

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_repository import (
+    record_notification_delivery_audit,
+)
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailSendResult,
     EmailService,
@@ -38,9 +41,21 @@ async def dispatch_invite_email(
 
 
 async def record_send_result(
-    db, candidate_session, now: datetime, result: EmailSendResult
+    db,
+    *,
+    candidate_session,
+    trial,
+    invite_url: str,
+    now: datetime,
+    result: EmailSendResult,
 ) -> EmailSendResult:
     """Record send result."""
+    subject, _text, _html = invite_email_content(
+        candidate_name=candidate_session.candidate_name,
+        invite_url=invite_url,
+        trial=trial,
+        expires_at=getattr(candidate_session, "expires_at", None),
+    )
     candidate_session.invite_email_last_attempt_at = now
     if result.status == "sent":
         candidate_session.invite_email_status = "sent"
@@ -50,5 +65,20 @@ async def record_send_result(
         candidate_session.invite_email_status = result.status
         candidate_session.invite_email_error = sanitize_error(result.error)
 
+    await record_notification_delivery_audit(
+        db,
+        notification_type="trial_invite",
+        candidate_session_id=getattr(candidate_session, "id", None),
+        trial_id=getattr(trial, "id", None),
+        recipient_email=candidate_session.invite_email,
+        recipient_role="candidate",
+        subject=subject,
+        status=result.status,
+        provider_message_id=result.message_id,
+        error=result.error,
+        attempted_at=now,
+        sent_at=now if result.status == "sent" else None,
+        idempotency_key=f"trial_invite:{getattr(candidate_session, 'id', 'unknown')}",
+    )
     await db.commit()
     return result

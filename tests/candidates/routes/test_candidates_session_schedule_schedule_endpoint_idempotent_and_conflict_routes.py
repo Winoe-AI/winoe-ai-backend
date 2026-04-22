@@ -52,5 +52,18 @@ async def test_schedule_endpoint_idempotent_and_conflict(
     assert first.json() == second.json()
     assert len(provider.sent) == 2
 
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id == cs.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 2
+
     assert conflict.status_code == 409
     assert conflict.json()["errorCode"] == "SCHEDULE_ALREADY_SET"
