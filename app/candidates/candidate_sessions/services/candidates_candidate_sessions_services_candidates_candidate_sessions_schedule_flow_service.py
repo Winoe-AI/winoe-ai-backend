@@ -146,6 +146,7 @@ async def schedule_candidate_session_impl(
     if changed:
         await db.commit()
     if schedule_created:
+        trial_for_email = trial_for_email or getattr(candidate_session, "trial", None)
         logger.info(
             "Candidate schedule set candidateSessionId=%s candidateTimezone=%s scheduledStartAt=%s correlationId=%s",
             candidate_session.id,

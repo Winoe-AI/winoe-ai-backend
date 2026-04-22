@@ -4,8 +4,12 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_core_model import (
+    NotificationDeliveryAudit,
+)
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailSendResult,
 )
@@ -134,3 +138,37 @@ async def test_process_talent_partner_update_jobs_send_expected_email(async_sess
     assert email_service.calls[0]["to"] == talent_partner_email
     assert "completed all five days" in (email_service.calls[0]["text"] or "")
     assert "Winoe Report is ready" in (email_service.calls[1]["text"] or "")
+
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id
+                    == candidate_session.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 2
+    assert {audit.notification_type for audit in audits} == {
+        "candidate_completed_notification",
+        "winoe_report_ready_notification",
+    }
+    assert all(audit.recipient_role == "talent_partner" for audit in audits)
+    assert all(audit.status == "sent" for audit in audits)
+
+    second_completed = await process_candidate_completed_notification_job(
+        {"candidateSessionId": candidate_session.id},
+        async_session_maker_obj=session_maker,
+        email_service=email_service,
+    )
+    second_fit = await process_winoe_report_ready_notification_job(
+        {"candidateSessionId": candidate_session.id},
+        async_session_maker_obj=session_maker,
+        email_service=email_service,
+    )
+    assert second_completed["skipped"] is True
+    assert second_fit["skipped"] is True
+    assert len(email_service.calls) == 2

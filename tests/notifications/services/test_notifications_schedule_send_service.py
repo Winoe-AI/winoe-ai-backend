@@ -4,8 +4,12 @@ from datetime import UTC, datetime, time
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import select
 
 from app.integrations.email.email_provider import MemoryEmailProvider
+from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_core_model import (
+    NotificationDeliveryAudit,
+)
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailService,
 )
@@ -47,6 +51,9 @@ async def test_send_schedule_confirmation_emails_incomplete_schedule(async_sessi
     assert candidate_result.status == "failed"
     assert talent_partner_result is None
     assert provider.sent == []
+    result = await async_session.execute(select(NotificationDeliveryAudit))
+    audits = result.scalars().all()
+    assert audits == []
 
 
 @pytest.mark.asyncio
@@ -78,6 +85,12 @@ async def test_send_schedule_confirmation_emails_without_talent_partner(async_se
     assert talent_partner_result is None
     assert len(provider.sent) == 1
     assert provider.sent[0].to == "candidate@test.com"
+    result = await async_session.execute(select(NotificationDeliveryAudit))
+    audits = result.scalars().all()
+    assert len(audits) == 1
+    assert audits[0].notification_type == "schedule_confirmation_candidate"
+    assert audits[0].recipient_role == "candidate"
+    assert audits[0].status == "sent"
 
 
 @pytest.mark.asyncio
@@ -115,3 +128,94 @@ async def test_send_schedule_confirmation_emails_candidate_and_talent_partner(
     recipients = {message.to for message in provider.sent}
     assert "candidate-sched@test.com" in recipients
     assert "talent_partner-sched@test.com" in recipients
+
+    result = await async_session.execute(
+        select(NotificationDeliveryAudit).where(
+            NotificationDeliveryAudit.candidate_session_id == candidate_session.id
+        )
+    )
+    audits = result.scalars().all()
+    assert len(audits) == 2
+    assert {audit.status for audit in audits} == {"sent"}
+    assert {audit.notification_type for audit in audits} == {
+        "schedule_confirmation_candidate",
+        "schedule_confirmation_talent_partner",
+    }
+
+
+@pytest.mark.asyncio
+async def test_send_schedule_confirmation_emails_retries_failed_recipient(
+    async_session,
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="talent_partner-retry@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
+    candidate_session = await create_candidate_session(
+        async_session,
+        trial=trial,
+        invite_email="candidate-retry@test.com",
+        candidate_email="candidate-retry@test.com",
+    )
+    candidate_session.scheduled_start_at = datetime(2026, 3, 10, 13, 0, tzinfo=UTC)
+    candidate_session.candidate_timezone = "America/New_York"
+    await async_session.commit()
+
+    class FlakyProvider:
+        def __init__(self):
+            self.sent = []
+            self.calls = 0
+
+        async def send(self, message):
+            from app.integrations.email.email_provider import EmailSendError
+
+            self.calls += 1
+            if self.calls == 1:
+                raise EmailSendError("candidate send failed", retryable=False)
+            self.sent.append(message)
+            return f"memory-{self.calls}"
+
+    provider = FlakyProvider()
+    email_service = EmailService(provider, sender="noreply@test.com")
+
+    (
+        first_candidate_result,
+        first_talent_partner_result,
+    ) = await send_schedule_confirmation_emails(
+        async_session,
+        candidate_session=candidate_session,
+        trial=trial,
+        email_service=email_service,
+    )
+    assert first_candidate_result.status == "failed"
+    assert first_talent_partner_result is not None
+    assert first_talent_partner_result.status == "sent"
+
+    (
+        second_candidate_result,
+        second_talent_partner_result,
+    ) = await send_schedule_confirmation_emails(
+        async_session,
+        candidate_session=candidate_session,
+        trial=trial,
+        email_service=email_service,
+    )
+    assert second_candidate_result.status == "sent"
+    assert second_talent_partner_result.status == "sent"
+    assert len(provider.sent) == 2
+
+    audits = (
+        (
+            await async_session.execute(
+                select(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.candidate_session_id
+                    == candidate_session.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(audits) == 3
+    assert [audit.status for audit in audits].count("failed") == 1
+    assert [audit.status for audit in audits].count("sent") == 2

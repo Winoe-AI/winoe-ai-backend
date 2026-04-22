@@ -39,7 +39,13 @@ async def send_invite_email(
     """Send invite email."""
     resolved_now = utc_now(now)
     if should_rate_limit(candidate_session, resolved_now):
-        return await record_rate_limit(db, candidate_session, resolved_now)
+        return await record_rate_limit(
+            db,
+            candidate_session=candidate_session,
+            trial=trial,
+            invite_url=invite_url,
+            now=resolved_now,
+        )
 
     result = await dispatch_invite_email(
         email_service,
@@ -47,4 +53,11 @@ async def send_invite_email(
         trial=trial,
         invite_url=invite_url,
     )
-    return await record_send_result(db, candidate_session, resolved_now, result)
+    return await record_send_result(
+        db,
+        candidate_session=candidate_session,
+        trial=trial,
+        invite_url=invite_url,
+        now=resolved_now,
+        result=result,
+    )

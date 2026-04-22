@@ -13,6 +13,7 @@ from app.notifications.services.notifications_services_notifications_email_sende
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
+    NotificationDeliveryAudit,
     ScenarioVersion,
     Workspace,
     WorkspaceGroup,
