@@ -40,9 +40,11 @@ async def test_run_once_succeeds_and_marks_result(async_session):
         idempotency_key="worker-success-1",
         payload_json={"x": 1},
     )
+    expected_job_id = job.id
 
     async def _handler(payload):
-        assert payload == {"x": 1}
+        assert payload["x"] == 1
+        assert payload["jobId"] == expected_job_id
         return {"ok": True}
 
     worker.register_handler("worker_success", _handler)
@@ -53,12 +55,13 @@ async def test_run_once_succeeds_and_marks_result(async_session):
     )
     assert handled is True
 
-    refreshed = await jobs_repo.get_by_id(async_session, job.id)
-    assert refreshed is not None
-    assert refreshed.status == JOB_STATUS_SUCCEEDED
-    assert refreshed.attempt == 1
-    assert refreshed.result_json == {"ok": True}
-    assert refreshed.last_error is None
+    async with _session_maker(async_session)() as check_session:
+        refreshed = await jobs_repo.get_by_id(check_session, job.id)
+        assert refreshed is not None
+        assert refreshed.status == JOB_STATUS_SUCCEEDED
+        assert refreshed.attempt == 1
+        assert refreshed.result_json == {"ok": True}
+        assert refreshed.last_error is None
 
 
 def test_build_worker_id_uses_hostname_and_pid(monkeypatch):

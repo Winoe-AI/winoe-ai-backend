@@ -86,8 +86,7 @@ set -euo pipefail
     assert "poetry:run alembic upgrade head" in log_output
     assert "alembic:upgrade head" in log_output
     assert (
-        "poetry:run python scripts/seed_local_talent_partners.py --reset"
-        in log_output
+        "poetry:run python scripts/seed_local_talent_partners.py --reset" in log_output
     )
     assert "python:scripts/seed_local_talent_partners.py --reset" in log_output
     assert "marker:loaded" in log_output
