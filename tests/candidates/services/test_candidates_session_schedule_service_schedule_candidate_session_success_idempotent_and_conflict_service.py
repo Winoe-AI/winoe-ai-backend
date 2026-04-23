@@ -104,4 +104,7 @@ async def test_schedule_candidate_session_allows_unverified_email_on_claimed_ses
     )
     assert result.created is True
     assert result.candidate_session.schedule_locked_at is not None
-    assert result.candidate_session.candidate_auth0_sub == candidate_session.candidate_auth0_sub
+    assert (
+        result.candidate_session.candidate_auth0_sub
+        == candidate_session.candidate_auth0_sub
+    )
