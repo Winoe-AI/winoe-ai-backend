@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
+from textwrap import dedent
 from typing import Any
 
 from fastapi import HTTPException
@@ -52,27 +53,340 @@ _GITIGNORE_TEXT = "\n".join(
         "",
     ]
 )
-_EVIDENCE_WORKFLOW_TEXT = """name: Evidence Capture
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-jobs:
-  capture:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Capture evidence
-        run: |
-          mkdir -p evidence
-          printf '%s\\n' 'Evidence capture placeholder' > evidence/README.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: evidence-capture
-          path: evidence/
-"""
 _CODESPACE_RETRY_DELAY_SECONDS = 1
+_EVIDENCE_WORKFLOW_PATH = ".github/workflows/evidence-capture.yml"
+
+
+def build_evidence_capture_workflow_yaml() -> str:
+    """Return the seeded evidence-capture workflow content."""
+    return (
+        dedent(
+            """\
+        name: Winoe Evidence Capture
+
+        on:
+          push:
+            branches:
+              - main
+          workflow_dispatch:
+
+        permissions:
+          contents: read
+
+        jobs:
+          capture:
+            runs-on: ubuntu-latest
+            steps:
+              - name: Check out repository
+                uses: actions/checkout@v4
+                with:
+                  fetch-depth: 0
+
+              - name: Prepare artifact directories
+                run: |
+                  mkdir -p artifacts/coverage
+                  mkdir -p artifacts/lint
+                  mkdir -p artifacts/test-results
+
+              - name: Capture repository evidence
+                continue-on-error: true
+                run: |
+                  python - <<'PY'
+                  import json
+                  import pathlib
+                  import subprocess
+                  from datetime import UTC, datetime
+
+                  artifacts = pathlib.Path("artifacts")
+                  artifacts.mkdir(parents=True, exist_ok=True)
+
+                  def run_git(args: list[str]) -> subprocess.CompletedProcess[str]:
+                      return subprocess.run(
+                          ["git", *args],
+                          capture_output=True,
+                          text=True,
+                          check=False,
+                      )
+
+                  def write_json(path: str, payload: object) -> None:
+                      (artifacts / path).write_text(
+                          json.dumps(payload, indent=2, sort_keys=True) + "\\n",
+                          encoding="utf-8",
+                      )
+
+                  def snapshot_tree() -> list[str]:
+                      paths: list[str] = []
+                      for path in pathlib.Path(".").rglob("*"):
+                          if ".git" in path.parts or "artifacts" in path.parts:
+                              continue
+                          relative = path.as_posix()
+                          if path.is_dir():
+                              relative += "/"
+                          paths.append(relative)
+                      return sorted(paths)
+
+                  generated_at = datetime.now(UTC).isoformat()
+                  commit_metadata: dict[str, object] = {
+                      "generatedAt": generated_at,
+                      "commits": [],
+                  }
+                  timeline: dict[str, object] = {
+                      "generatedAt": generated_at,
+                      "filesCreated": [],
+                  }
+
+                  head = run_git(["rev-parse", "HEAD"])
+                  if head.returncode == 0:
+                      commit_metadata["headSha"] = head.stdout.strip()
+
+                  rev_list = run_git(["rev-list", "--reverse", "HEAD"])
+                  for sha in rev_list.stdout.splitlines() if rev_list.returncode == 0 else []:
+                      show = run_git(
+                          [
+                              "show",
+                              "--date=iso-strict",
+                              "--format=%H%x09%ad%x09%s",
+                              "--numstat",
+                              "--no-renames",
+                              sha,
+                          ]
+                      )
+                      if show.returncode != 0:
+                          cast_list = commit_metadata["commits"]  # type: ignore[assignment]
+                          cast_list.append({"sha": sha, "error": "git show failed"})
+                          continue
+                      lines = show.stdout.splitlines()
+                      if not lines:
+                          continue
+                      commit_sha, timestamp, message = lines[0].split("\t", 2)
+                      files: list[str] = []
+                      insertions = 0
+                      deletions = 0
+                      for line in lines[1:]:
+                          if not line.strip():
+                              continue
+                          parts = line.split("\t")
+                          if len(parts) != 3:
+                              continue
+                          added, removed, path = parts
+                          files.append(path)
+                          if added != "-":
+                              insertions += int(added)
+                          if removed != "-":
+                              deletions += int(removed)
+                      cast_list = commit_metadata["commits"]  # type: ignore[assignment]
+                      cast_list.append(
+                          {
+                              "sha": commit_sha,
+                              "timestamp": timestamp,
+                              "message": message,
+                              "filesChanged": files,
+                              "filesChangedCount": len(files),
+                              "insertions": insertions,
+                              "deletions": deletions,
+                          }
+                      )
+
+                  creation_log = run_git(
+                      [
+                          "log",
+                          "--reverse",
+                          "--diff-filter=A",
+                          "--date=iso-strict",
+                          "--format=%H%x09%ad%x09%s",
+                          "--name-only",
+                          "--no-renames",
+                      ]
+                  )
+                  current_event: dict[str, object] | None = None
+                  for line in creation_log.stdout.splitlines() if creation_log.returncode == 0 else []:
+                      if not line.strip():
+                          current_event = None
+                          continue
+                      if current_event is None and line.count("\t") >= 2:
+                          commit_sha, timestamp, message = line.split("\t", 2)
+                          current_event = {
+                              "commitSha": commit_sha,
+                              "timestamp": timestamp,
+                              "message": message,
+                              "files": [],
+                          }
+                          cast_list = timeline["filesCreated"]  # type: ignore[assignment]
+                          cast_list.append(current_event)
+                          continue
+                      if current_event is not None:
+                          files = current_event.setdefault("files", [])
+                          if isinstance(files, list):
+                              files.append(line.strip())
+
+                  write_json("commit-metadata.json", commit_metadata)
+                  write_json("file-creation-timeline.json", timeline)
+                  write_json(
+                      "repo-structure-snapshot.json",
+                      {
+                          "generatedAt": generated_at,
+                          "paths": snapshot_tree(),
+                      },
+                  )
+                  (artifacts / "repo-structure-snapshot.txt").write_text(
+                      "\\n".join(snapshot_tree()) + "\\n",
+                      encoding="utf-8",
+                  )
+                  PY
+
+              - name: Detect and run tests
+                continue-on-error: true
+                run: |
+                  set +e
+                  test_tool="none"
+                  test_command="not-detected"
+                  test_status=0
+                  mkdir -p artifacts/coverage artifacts/test-results
+
+                  if [ -f package.json ]; then
+                    test_tool="npm"
+                    test_command="npm test -- --coverage"
+                    npm test -- --coverage > artifacts/test-results/test-output.log 2>&1
+                    test_status=$?
+                    if [ -d coverage ]; then
+                      cp -R coverage/. artifacts/coverage/ 2>/dev/null || true
+                    fi
+                  elif [ -f requirements.txt ] || [ -f pyproject.toml ]; then
+                    test_tool="pytest"
+                    test_command="python -m pytest --cov=. --cov-report=term-missing --cov-report=xml:artifacts/coverage/coverage.xml"
+                    python -m pytest --cov=. --cov-report=term-missing --cov-report=xml:artifacts/coverage/coverage.xml > artifacts/test-results/test-output.log 2>&1
+                    test_status=$?
+                  elif [ -f go.mod ]; then
+                    test_tool="go"
+                    test_command="go test ./... -coverprofile=artifacts/coverage/coverage.out"
+                    go test ./... -coverprofile=artifacts/coverage/coverage.out > artifacts/test-results/test-output.log 2>&1
+                    test_status=$?
+                  elif [ -f pom.xml ]; then
+                    test_tool="maven"
+                    test_command="mvn test"
+                    mvn test > artifacts/test-results/test-output.log 2>&1
+                    test_status=$?
+                  else
+                    printf '%s\\n' 'No supported test tooling detected.' > artifacts/test-results/test-output.log
+                  fi
+
+                  if [ "${test_tool}" = "none" ]; then
+                    passed=0
+                    failed=0
+                    total=0
+                  elif [ "${test_status}" -eq 0 ]; then
+                    passed=1
+                    failed=0
+                    total=1
+                  else
+                    passed=0
+                    failed=1
+                    total=1
+                  fi
+
+                  cat > artifacts/test-results/test-results.json <<EOF
+                  {
+                    "passed": ${passed},
+                    "failed": ${failed},
+                    "total": ${total},
+                    "detectedTool": "${test_tool}",
+                    "command": "${test_command}",
+                    "exitCode": ${test_status},
+                    "coveragePath": "artifacts/coverage",
+                    "outputLog": "artifacts/test-results/test-output.log",
+                    "summary": {
+                      "detectedTool": "${test_tool}",
+                      "command": "${test_command}",
+                      "exitCode": ${test_status},
+                      "coveragePath": "artifacts/coverage",
+                      "outputLog": "artifacts/test-results/test-output.log"
+                    }
+                  }
+                  EOF
+
+                  if [ ! -s artifacts/test-results/test-output.log ]; then
+                    printf '%s\\n' 'No test output captured.' > artifacts/test-results/test-output.log
+                  fi
+
+              - name: Run lint analysis
+                id: lint
+                continue-on-error: true
+                uses: github/super-linter/slim@v6
+                env:
+                  GITHUB_TOKEN: ${{ github.token }}
+                  DEFAULT_BRANCH: main
+                  VALIDATE_ALL_CODEBASE: true
+                  FILTER_REGEX_INCLUDE: .*
+                  USE_FIND_ALGORITHM: true
+
+              - name: Record lint outcome
+                if: always()
+                run: |
+                  cat > artifacts/lint/lint-results.json <<EOF
+                  {
+                    "actionOutcome": "${{ steps.lint.outcome }}",
+                    "actionConclusion": "${{ steps.lint.conclusion }}",
+                    "notes": "Super-Linter outcome is captured best-effort and never blocks the candidate workspace."
+                  }
+                  EOF
+
+              - name: Upload commit metadata
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                  name: winoe-commit-metadata
+                  path: artifacts/commit-metadata.json
+                  retention-days: 90
+                  if-no-files-found: ignore
+
+              - name: Upload file creation timeline
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                  name: winoe-file-creation-timeline
+                  path: artifacts/file-creation-timeline.json
+                  retention-days: 90
+                  if-no-files-found: ignore
+
+              - name: Upload repository structure snapshot
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                  name: winoe-repo-structure-snapshot
+                  path: artifacts/repo-structure-snapshot.*
+                  retention-days: 90
+                  if-no-files-found: ignore
+
+              - name: Upload test evidence
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                  name: winoe-test-results
+                  path: artifacts/test-results
+                  retention-days: 90
+                  if-no-files-found: ignore
+
+              - name: Upload coverage evidence
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                  name: winoe-coverage
+                  path: artifacts/coverage
+                  retention-days: 90
+                  if-no-files-found: ignore
+
+              - name: Upload lint evidence
+                if: always()
+                uses: actions/upload-artifact@v4
+                with:
+                  name: winoe-lint-results
+                  path: artifacts/lint
+                  retention-days: 90
+                  if-no-files-found: ignore
+        """
+        ).strip()
+        + "\n"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,8 +451,8 @@ def _bootstrap_file_payloads(
             "type": "blob",
         },
         {
-            "path": ".github/workflows/evidence-capture.yml",
-            "content": _EVIDENCE_WORKFLOW_TEXT,
+            "path": _EVIDENCE_WORKFLOW_PATH,
+            "content": build_evidence_capture_workflow_yaml(),
             "mode": "100644",
             "type": "blob",
         },
@@ -157,7 +471,7 @@ def _bootstrap_paths() -> list[str]:
     return [
         ".devcontainer/devcontainer.json",
         ".gitignore",
-        ".github/workflows/evidence-capture.yml",
+        _EVIDENCE_WORKFLOW_PATH,
         "README.md",
     ]
 
@@ -589,5 +903,6 @@ async def bootstrap_empty_candidate_repo(
 __all__ = [
     "BootstrapRepoResult",
     "build_candidate_repo_name",
+    "build_evidence_capture_workflow_yaml",
     "bootstrap_empty_candidate_repo",
 ]

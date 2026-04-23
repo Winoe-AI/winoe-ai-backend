@@ -59,7 +59,19 @@ async def test_handle_github_workflow_artifact_parse_persists_results(
                 stderr=None,
                 head_sha="abc321",
                 html_url="https://example.test/runs/321",
-                raw={"summary": {"passed": 12, "failed": 0}},
+                raw={
+                    "summary": {
+                        "passed": 12,
+                        "failed": 0,
+                        "evidenceArtifacts": {
+                            "commitMetadata": {
+                                "artifactName": "winoe-commit-metadata",
+                                "artifactId": 7,
+                                "data": {"generatedAt": "2026-03-13T00:00:00Z"},
+                            }
+                        },
+                    }
+                },
             )
 
     class StubGithubClient:
@@ -100,8 +112,19 @@ async def test_handle_github_workflow_artifact_parse_persists_results(
     assert parsed_output["runId"] == 321
     assert parsed_output["passed"] == 12
     assert parsed_output["failed"] == 0
+    assert (
+        parsed_output["summary"]["evidenceArtifacts"]["commitMetadata"]["artifactId"]
+        == 7
+    )
 
     assert workspace.last_workflow_run_id == "321"
     assert workspace.last_workflow_conclusion == "success"
     assert workspace.latest_commit_sha == "abc321"
     assert workspace.last_test_summary_json is not None
+    workspace_summary = json.loads(workspace.last_test_summary_json)
+    assert (
+        workspace_summary["summary"]["evidenceArtifacts"]["commitMetadata"][
+            "artifactId"
+        ]
+        == 7
+    )

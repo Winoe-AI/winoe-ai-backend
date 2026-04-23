@@ -1,79 +1,100 @@
-# Phase 3 backend ship set
+## 1. Title
 
-## Summary
+Seed evidence-capture GitHub Actions in empty candidate repos and persist live evidence artifacts
 
-This backend PR supports the Phase 3 Talent Partner golden path and the local verification bootstrap path.
+## 2. Summary
 
-It does four things:
+This change closes the backend slice for #319. Candidate repos are provisioned empty and from-scratch, with no starter app code and no preexisting baseline to compare against. The invite-time bootstrap now seeds the minimum workspace files plus the evidence-capture GitHub Actions workflow, and the backend now parses the live artifacts from that workflow and persists the resulting evidence into the workspace and submission records used downstream.
 
-- Makes the GitHub workflow default point to `evidence-capture.yml`.
-- Makes GitHub Actions dispatch handling treat a queued run as `running` instead of a hard failure.
-- Plumbs `jobId` through worker payloads so scenario-generation logs and handler context are traceable.
-- Hardens candidate workspace bootstrap and local seeding so the live stack is deterministic enough to verify end to end.
+## 3. What Changed
 
-## Why
+- Invite-time provisioning now seeds:
+  - `.devcontainer/devcontainer.json`
+  - `.gitignore`
+  - `.github/workflows/evidence-capture.yml`
+  - `README.md`
+- The evidence-capture workflow now:
+  - runs on push to `main`
+  - supports `workflow_dispatch`
+  - uses `actions/checkout@v4` with `fetch-depth: 0`
+  - is non-blocking via `continue-on-error: true`
+  - captures commit metadata
+  - captures file creation timeline
+  - captures repository structure snapshot
+  - performs best-effort test detection for npm, pytest, go, and Maven
+  - uploads test results, coverage, and lint evidence
+  - retains artifacts for 90 days
+- The backend retrieval and persistence path now:
+  - parses live GitHub artifacts
+  - enriches the run summary with evidence artifact data
+  - persists workflow metadata and parsed evidence into the submission and workspace fields used by later evaluation steps
 
-Phase 3 depends on a real local stack that can bootstrap a Trial, create an empty candidate repo, provision or degrade Codespace setup safely, and survive queued GitHub Actions behavior without false failures.
+## 4. Files / Areas Changed
 
-The previous state was not reliable enough for founder-grade verification:
+- `app/submissions/services/submissions_services_submissions_workspace_bootstrap_service.py` - seeds the empty candidate repo and writes the evidence-capture workflow plus the required bootstrap files.
+- `app/shared/jobs/handlers/shared_jobs_handlers_github_workflow_artifact_parse_handler.py` - entrypoint for handling live workflow-run artifact parsing and persistence.
+- `app/integrations/github/artifacts/integrations_github_artifacts_evidence_parser_utils.py` - parses the evidence artifact ZIPs and normalizes commit, timeline, repo snapshot, lint, and coverage payloads.
+- `app/integrations/github/actions_runner/*` - fetches run state and artifact content from GitHub Actions and builds the run result used by persistence.
+- `app/submissions/services/submissions_services_submissions_submission_actions_service.py` - records workflow metadata on submission records.
+- `app/submissions/services/submissions_services_submissions_submission_builder_service.py` - threads workflow metadata into submission build/update flows.
+- `app/submissions/services/service_talent_partner/*` - surfaces the persisted workflow state in talent partner views.
+- `tests/submissions/services/test_submissions_workspace_bootstrap_service.py` - verifies the bootstrap file set and the generated workflow contents.
+- `tests/shared/jobs/handlers/test_shared_jobs_handlers_github_workflow_artifact_parse_handle_github_workflow_artifact_parse_persists_results_handler.py` - verifies live artifact parsing data is persisted into submission and workspace records.
+- `tests/trials/routes/test_trials_api_invite_preprovisions_day2_day3_workspaces_routes.py` - covers invite-time provisioning for empty candidate repos.
 
-- the workflow default was not aligned with the evidence-capture path,
-- queued GitHub Actions runs were treated as errors,
-- worker handlers did not consistently receive the originating job id,
-- candidate workspace bootstrap lacked enough actor-access and timing resilience,
-- local demo seeding was not deterministic enough for repeated verification.
+## 5. QA
 
-## Implementation Notes
+### Live Verification
 
-### GitHub workflow and dispatch behavior
+- Live candidate session id: `12`
+- Live repo: `winoe-ai-repos/winoe-ws-12`
+- Live repo id: `1218452486`
+- Live codespace name: `vigilant-system-697vv46vrj67h4946`
+- Final live push-triggered run id: `24806259617`
+- Final live commit SHA: `81a61273b72f387e6d817c959325ecb25205ada0`
 
-- Changed the default workflow file to `evidence-capture.yml`.
-- Updated dispatch/poll handling so a queued run now returns `running` and caches that state instead of being treated as a failure.
-- Added logging around observed runs and terminal-state outcomes so dispatch behavior is auditable.
+Observed live artifacts:
 
-### Worker and scenario-generation plumbing
+- `winoe-commit-metadata` - artifact id `6590224940`
+- `winoe-file-creation-timeline` - artifact id `6590225169`
+- `winoe-repo-structure-snapshot` - artifact id `6590225418`
+- `winoe-test-results` - artifact id `6590225646`
+- `winoe-coverage` - artifact id `6590225881`
+- `winoe-lint-results` - artifact id `6590226130`
 
-- Worker runtime now injects `jobId` into handler payloads.
-- Scenario-generation handler now logs start, failure, and completion with runtime/provider/model context.
-- Failures are logged with sanitized error details rather than raw exception text.
+All live artifacts showed 90-day retention with:
 
-### Candidate workspace bootstrap
+- `expires_at=2026-07-21T22:36:53Z`
 
-- Workspace bootstrap now looks up the authenticated GitHub user before provisioning.
-- When a username is available, the bootstrap flow adds collaborator access if needed before Codespace creation.
-- Codespace provisioning now has a short retry window to absorb brief repo-readiness lag.
-- If direct Codespace provisioning is not ready, the flow degrades to a `codespaces.new` URL instead of pretending bootstrap is blocked.
-- Bootstrap timings are logged per phase so repo creation, collaborator access, and Codespace attempts can be traced independently.
-- The seeded candidate repo remains intentionally minimal: `.devcontainer/devcontainer.json`, `.gitignore`, `.github/workflows/evidence-capture.yml`, and `README.md` with the Project Brief.
+Backend persistence evidence:
 
-### Local bootstrap and verification support
+- `workflow_run_id=24806259617`
+- `workflow_run_attempt=1`
+- `workflow_run_status=completed`
+- `workflow_run_conclusion=success`
+- `tests_passed=1`
+- `tests_failed=0`
+- `commit_sha=81a61273b72f387e6d817c959325ecb25205ada0`
+- `test_output.summary.detectedTool=npm`
+- `test_output.summary.command=npm test -- --coverage`
+- workspace persisted:
+  - `last_workflow_run_id=24806259617`
+  - `last_workflow_conclusion=success`
+  - `latest_commit_sha=81a61273b72f387e6d817c959325ecb25205ada0`
 
-- Added a migration bridge revision to restore the missing Alembic chain.
-- `runBackend.sh` local bootstrap now:
-  - sets `PYTHONPATH`,
-  - runs `alembic upgrade head`,
-  - runs `scripts/seed_local_talent_partners.py --reset`.
-- The seed script now supports `--reset` for deterministic local reseeding.
-- The seed data includes the exact verification Talent Partner account used by Phase 3.
+### Automated Tests
 
-## Test / Verification
+- Targeted implementation slice passed functionally.
+- The same narrow slice hit the repository-wide coverage gate when run without coverage suppression.
+- The targeted slice passed with `--no-cov`.
+- Full repository validation is green.
 
-- Backend-focused tests were added and updated for:
-  - GitHub config merging and validation,
-  - canonical workflow dispatch behavior,
-  - queued-run `running` return behavior,
-  - GitHub client helper methods,
-  - worker payload handling,
-  - scenario-generation failure preservation,
-  - workspace bootstrap behavior,
-  - local bootstrap shell behavior,
-  - local trial bootstrap and seed routes.
-- Local verification was performed against the real local backend stack as part of the Phase 3 workflow.
+## 6. Risks / Limitations
 
-## Risks / Limitations
+- Backend persistence during live QA was verified by direct handler invocation against the live GitHub run because the local backend cannot receive public GitHub webhooks in this setup.
+- A GitHub Codespaces quota issue was encountered during QA and resolved operationally, not by code change.
+- A stale `WINOE_GITHUB_ACTIONS_WORKFLOW_FILE=winoe-ci.yml` config value may still exist as config debt, but it did not block invite-time provisioning or the final live evidence-capture run.
 
-- Archive-style cleanup behavior is still what exists.
-- The cleanup payload anomaly is documented, not hidden.
-- Candidate auth-policy changes were intentionally kept out of this backend scope.
-- Global scenario-generation default changes were intentionally kept out of this backend scope.
-- This PR improves local bootstrap determinism, but it does not claim production parity for GitHub or Codespaces timing.
+## 7. Final Result
+
+Fixes #319

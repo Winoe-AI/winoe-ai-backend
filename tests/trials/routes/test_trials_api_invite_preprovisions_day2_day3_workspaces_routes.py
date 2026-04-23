@@ -149,6 +149,15 @@ async def test_invite_preprovisions_day2_day3_workspaces(
         ".github/workflows/evidence-capture.yml",
         "README.md",
     ]
+    workflow_entry = next(
+        entry
+        for entry in stub_client.tree_entries
+        if entry["path"] == ".github/workflows/evidence-capture.yml"
+    )
+    assert "push:" in workflow_entry["content"]
+    assert "workflow_dispatch:" in workflow_entry["content"]
+    assert "continue-on-error: true" in workflow_entry["content"]
+    assert "retention-days: 90" in workflow_entry["content"]
     readme_entry = next(
         entry for entry in stub_client.tree_entries if entry["path"] == "README.md"
     )

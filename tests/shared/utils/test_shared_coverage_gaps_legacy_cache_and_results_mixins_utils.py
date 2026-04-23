@@ -10,6 +10,7 @@ def test_legacy_cache_and_results_mixins():
     cache = SimpleNamespace(
         run_cache={},
         artifact_cache={},
+        evidence_summary_cache={},
         artifact_list_cache={},
         poll_attempts={},
         max_entries=5,
@@ -17,6 +18,8 @@ def test_legacy_cache_and_results_mixins():
         cache_artifact_result=lambda key,
         parsed,
         error: cache.artifact_cache.__setitem__(key, (parsed, error)),
+        cache_evidence_summary=lambda key,
+        summary: cache.evidence_summary_cache.__setitem__(key, summary),
         cache_artifact_list=lambda key,
         artifacts: cache.artifact_list_cache.__setitem__(key, artifacts),
     )
@@ -26,6 +29,8 @@ def test_legacy_cache_and_results_mixins():
     assert holder._run_cache[("repo", 1)] == "value"
     holder._cache_artifact_result("k", {"ok": True}, None)
     assert holder._artifact_cache["k"][0]["ok"] is True
+    holder._cache_evidence_summary(("repo", 2), {"summary": True})
+    assert holder._evidence_summary_cache[("repo", 2)]["summary"] is True
     holder._cache_artifact_list("k", [1])
     assert holder._artifact_list_cache["k"] == [1]
     _ = holder._poll_attempts

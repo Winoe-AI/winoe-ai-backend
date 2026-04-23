@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.integrations.github.artifacts import ParsedTestResults
 
 
@@ -9,6 +11,7 @@ class ArtifactCacheMixin:
     """Cache helpers for artifact lists and parsed content."""
 
     artifact_cache: dict
+    evidence_summary_cache: dict
     artifact_list_cache: dict
     max_entries: int
 
@@ -37,3 +40,12 @@ class ArtifactCacheMixin:
             ]
             for cache_key in to_remove:
                 self.artifact_cache.pop(cache_key, None)
+
+    def cache_evidence_summary(
+        self, key: tuple[str, int], summary: dict[str, Any]
+    ) -> None:
+        """Execute cache evidence summary."""
+        self.evidence_summary_cache[key] = summary
+        self.evidence_summary_cache.move_to_end(key)
+        if len(self.evidence_summary_cache) > self.max_entries:
+            self.evidence_summary_cache.popitem(last=False)

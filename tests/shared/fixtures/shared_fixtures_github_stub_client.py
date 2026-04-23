@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import base64
 
+from app.submissions.services.submissions_services_submissions_workspace_bootstrap_service import (
+    build_evidence_capture_workflow_yaml,
+)
+
 
 class StubGithubClient:
-    _workflow_text = "\n".join(
-        [
-            "uses: actions/upload-artifact@v4",
-            "name: winoe-test-results",
-            "path: artifacts/winoe-test-results.json",
-        ]
-    )
+    _workflow_text = build_evidence_capture_workflow_yaml()
 
     async def generate_repo_from_template(
         self,
