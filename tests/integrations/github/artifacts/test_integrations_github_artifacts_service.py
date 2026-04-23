@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import io
+import json
 from zipfile import ZipFile
 
-from app.integrations.github.artifacts import parse_test_results_zip
+from app.integrations.github.artifacts import (
+    build_evidence_artifact_summary,
+    parse_evidence_artifact_zip,
+    parse_test_results_zip,
+)
 
 
 def test_parse_test_results_prefers_json():
@@ -11,7 +16,12 @@ def test_parse_test_results_prefers_json():
     with ZipFile(buf, "w") as zf:
         zf.writestr(
             "winoe-test-results.json",
-            '{"passed":2,"failed":1,"total":3,"stdout":"ok","stderr":""}',
+            (
+                '{"passed":2,"failed":1,"total":3,"stdout":"ok","stderr":"",'
+                '"summary":{"detectedTool":"pytest","command":"python -m pytest",'
+                '"exitCode":1,"coveragePath":"artifacts/coverage",'
+                '"outputLog":"artifacts/test-results/test-output.log"}}'
+            ),
         )
     parsed = parse_test_results_zip(buf.getvalue())
     assert parsed
@@ -19,6 +29,13 @@ def test_parse_test_results_prefers_json():
     assert parsed.failed == 1
     assert parsed.total == 3
     assert parsed.stdout == "ok"
+    assert parsed.summary == {
+        "detectedTool": "pytest",
+        "command": "python -m pytest",
+        "exitCode": 1,
+        "coveragePath": "artifacts/coverage",
+        "outputLog": "artifacts/test-results/test-output.log",
+    }
 
 
 def test_parse_test_results_handles_malformed_json_gracefully():
@@ -70,3 +87,29 @@ def test_safe_json_load_returns_none_for_non_dict():
     with ZipFile(buf, "w") as zf:
         zf.writestr("array.json", "[1,2,3]")
     assert parse_test_results_zip(buf.getvalue()) is None
+
+
+def test_parse_evidence_artifact_prefers_json_and_keeps_manifest():
+    buf = io.BytesIO()
+    with ZipFile(buf, "w") as zf:
+        zf.writestr(
+            "repo-structure-snapshot.json",
+            json.dumps({"generatedAt": "2026-03-13T00:00:00Z", "paths": ["a.py"]}),
+        )
+        zf.writestr("repo-structure-snapshot.txt", "a.py\n")
+    parsed = parse_evidence_artifact_zip(
+        buf.getvalue(), "winoe-repo-structure-snapshot"
+    )
+    assert parsed is not None
+    assert parsed.artifact_name == "winoe-repo-structure-snapshot"
+    assert parsed.files == [
+        "repo-structure-snapshot.json",
+        "repo-structure-snapshot.txt",
+    ]
+    assert parsed.data == {
+        "generatedAt": "2026-03-13T00:00:00Z",
+        "paths": ["a.py"],
+    }
+    summary = build_evidence_artifact_summary(parsed)
+    assert summary["artifactName"] == "winoe-repo-structure-snapshot"
+    assert summary["jsonFiles"]["repo-structure-snapshot.json"]["paths"] == ["a.py"]

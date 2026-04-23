@@ -4,11 +4,49 @@ import logging
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from app.integrations.github.client import GithubError
 from app.submissions.services import (
     submissions_services_submissions_workspace_bootstrap_service as bootstrap_service,
 )
+
+
+def test_build_evidence_capture_workflow_yaml_is_valid_and_structured():
+    workflow_text = bootstrap_service.build_evidence_capture_workflow_yaml()
+
+    parsed = yaml.load(workflow_text, Loader=yaml.BaseLoader)
+
+    assert parsed["name"] == "Winoe Evidence Capture"
+    assert parsed["on"]["push"]["branches"] == ["main"]
+    assert "workflow_dispatch" in parsed["on"]
+
+    steps = parsed["jobs"]["capture"]["steps"]
+    checkout_step = next(
+        step for step in steps if step["uses"] == "actions/checkout@v4"
+    )
+    assert checkout_step["with"]["fetch-depth"] == "0"
+
+    capture_step = next(
+        step for step in steps if step["name"] == "Capture repository evidence"
+    )
+    assert capture_step["continue-on-error"] == "true"
+
+    upload_steps = {
+        step["with"]["name"]: step
+        for step in steps
+        if step.get("uses") == "actions/upload-artifact@v4"
+    }
+    assert upload_steps["winoe-commit-metadata"]["with"]["retention-days"] == "90"
+    assert (
+        upload_steps["winoe-file-creation-timeline"]["with"]["retention-days"] == "90"
+    )
+    assert (
+        upload_steps["winoe-repo-structure-snapshot"]["with"]["retention-days"] == "90"
+    )
+    assert upload_steps["winoe-test-results"]["with"]["retention-days"] == "90"
+    assert upload_steps["winoe-coverage"]["with"]["retention-days"] == "90"
+    assert upload_steps["winoe-lint-results"]["with"]["retention-days"] == "90"
 
 
 @pytest.mark.asyncio
@@ -124,6 +162,27 @@ async def test_bootstrap_empty_candidate_repo_writes_only_allowed_files():
         ".github/workflows/evidence-capture.yml",
         "README.md",
     ]
+    assert ".github/workflows/winoe-evidence-capture.yml" not in {
+        entry["path"] for entry in client.tree_entries
+    }
+    workflow_entry = next(
+        entry
+        for entry in client.tree_entries
+        if entry["path"] == ".github/workflows/evidence-capture.yml"
+    )
+    workflow_text = workflow_entry["content"]
+    assert "push:" in workflow_text
+    assert "branches:" in workflow_text
+    assert "continue-on-error: true" in workflow_text
+    assert "fetch-depth: 0" in workflow_text
+    assert "retention-days: 90" in workflow_text
+    assert "npm test -- --coverage" in workflow_text
+    assert "python -m pytest --cov=." in workflow_text
+    assert (
+        "go test ./... -coverprofile=artifacts/coverage/coverage.out" in workflow_text
+    )
+    assert "mvn test" in workflow_text
+    assert "github/super-linter/slim@v6" in workflow_text
     readme_entry = next(
         entry for entry in client.tree_entries if entry["path"] == "README.md"
     )
@@ -520,6 +579,11 @@ async def test_bootstrap_empty_candidate_repo_initializes_empty_repo_via_content
         ".github/workflows/evidence-capture.yml",
         "README.md",
     ]
+    workflow_text = client.created_blobs[2]
+    assert "workflow_dispatch:" in workflow_text
+    assert "continue-on-error: true" in workflow_text
+    assert "retention-days: 90" in workflow_text
+    assert "github/super-linter/slim@v6" in workflow_text
     assert client.commit_args == {
         "message": "chore: bootstrap candidate repo",
         "tree": "tree-sha",

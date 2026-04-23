@@ -46,3 +46,9 @@ def test_cache_evictions():
     runner._cache_artifact_list(("org/repo", 3), [])
     runner._cache_artifact_list(("org/repo", 4), [])
     assert ("org/repo", 3, 3) not in runner._artifact_cache
+    runner._cache_evidence_summary(("org/repo", 5), {"summary": 1})
+    runner._cache_evidence_summary(("org/repo", 6), {"summary": 2})
+    assert ("org/repo", 5) not in runner._evidence_summary_cache
+    assert runner._artifact_list_cache[("org/repo", 4)] == []
+    assert runner._evidence_summary_cache[("org/repo", 6)]["summary"] == 2
+    assert runner._max_cache_entries == 1

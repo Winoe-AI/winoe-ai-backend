@@ -15,6 +15,9 @@ class LegacyCacheMixin:
     def _cache_artifact_list(self, key, artifacts):
         self.cache.cache_artifact_list(key, artifacts)
 
+    def _cache_evidence_summary(self, key, summary):
+        self.cache.cache_evidence_summary(key, summary)
+
     @property
     def _run_cache(self):
         return self.cache.run_cache
@@ -26,6 +29,10 @@ class LegacyCacheMixin:
     @property
     def _artifact_list_cache(self):
         return self.cache.artifact_list_cache
+
+    @property
+    def _evidence_summary_cache(self):
+        return self.cache.evidence_summary_cache
 
     @property
     def _poll_attempts(self):

@@ -45,6 +45,9 @@ async def build_result(
         base.status = "error"
         base.raw = base.raw or {}
         base.raw.setdefault("artifact_error", artifact_error)
+        cached_summary = ctx.cache.evidence_summary_cache.get((repo_full_name, run.id))
+        if cached_summary:
+            base.raw.setdefault("summary", cached_summary)
         base.stderr = (
             base.stderr
             or "Test results artifact missing or unreadable. Please re-run tests."

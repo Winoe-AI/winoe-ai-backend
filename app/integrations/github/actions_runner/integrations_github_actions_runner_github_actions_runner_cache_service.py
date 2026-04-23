@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from typing import Any
 
 from app.integrations.github.actions_runner.integrations_github_actions_runner_github_actions_runner_cache_artifacts_service import (
     ArtifactCacheMixin,
@@ -24,6 +25,9 @@ class ActionsCache(RunCacheMixin, ArtifactCacheMixin):
         self.run_cache: OrderedDict[tuple[str, int], ActionsRunResult] = OrderedDict()
         self.artifact_cache: OrderedDict[
             tuple[str, int, int], tuple[ParsedTestResults | None, str | None]
+        ] = OrderedDict()
+        self.evidence_summary_cache: OrderedDict[
+            tuple[str, int], dict[str, Any]
         ] = OrderedDict()
         self.artifact_list_cache: OrderedDict[
             tuple[str, int], list[dict]
