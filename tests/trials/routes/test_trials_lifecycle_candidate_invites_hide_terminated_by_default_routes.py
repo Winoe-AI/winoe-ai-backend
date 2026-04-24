@@ -7,10 +7,10 @@ import pytest
 from fastapi import Request
 
 from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_invites_routes import (
-    router as candidate_invites_router,
+    list_candidate_invites,
 )
 from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_invites_routes import (
-    list_candidate_invites,
+    router as candidate_invites_router,
 )
 
 
