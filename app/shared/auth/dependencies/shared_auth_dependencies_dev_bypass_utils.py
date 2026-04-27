@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 
 from fastapi import HTTPException, Request, status
@@ -14,6 +15,8 @@ from .shared_auth_dependencies_db_utils import lookup_user as lookup_user_defaul
 from .shared_auth_dependencies_env_utils import env_name
 from .shared_auth_dependencies_modules_utils import current_user_module
 
+logger = logging.getLogger(__name__)
+
 
 async def dev_bypass_user(request: Request, db: AsyncSession | None):
     """Allow local dev bypass when enabled and header present."""
@@ -25,7 +28,14 @@ async def dev_bypass_user(request: Request, db: AsyncSession | None):
     dep_module = sys.modules.get("app.shared.auth.dependencies")
     env = getattr(dep_module, "_env_name", env_name)()
     if dev_bypass_env and env != "local":
-        raise RuntimeError("DEV_AUTH_BYPASS must never be enabled outside ENV=local")
+        logger.warning(
+            "dev_auth_bypass_blocked",
+            extra={"reason": "enabled_outside_local", "env": env},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+        )
     if env not in {"local", "test"} and not dev_bypass_env:
         return None
 

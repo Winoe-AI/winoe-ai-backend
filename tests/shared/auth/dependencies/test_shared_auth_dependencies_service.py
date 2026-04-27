@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from fastapi import HTTPException
 
 from app.shared.auth import dependencies
 from tests.shared.auth.dependencies.shared_auth_dependencies_utils import (
@@ -36,10 +37,12 @@ async def test_dev_bypass_rejects_non_localhost(async_session, monkeypatch):
 async def test_dev_bypass_guard_against_prod(monkeypatch):
     monkeypatch.setenv("DEV_AUTH_BYPASS", "1")
     monkeypatch.setattr(dependencies, "_env_name", lambda: "prod")
-    with pytest.raises(RuntimeError):
+    with pytest.raises(HTTPException) as excinfo:
         await dependencies._dev_bypass_user(
             make_request({"x-dev-user-email": "x@example.com"}), None
         )
+    assert excinfo.value.status_code == 401
+    assert excinfo.value.detail == "Not authenticated"
 
 
 def test_env_name_override(monkeypatch):
