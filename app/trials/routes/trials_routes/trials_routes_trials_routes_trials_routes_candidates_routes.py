@@ -36,7 +36,7 @@ async def list_trial_candidates(
     user: Annotated[Any, Depends(get_current_user)],
     includeTerminated: bool = False,
 ):
-    """List candidate sessions for a trial (Talent Partner-only)."""
+    """List Candidate Trials for a trial (Talent Partner-only)."""
     ensure_talent_partner_or_none(user)
     await trial_service.require_owned_trial(
         db,

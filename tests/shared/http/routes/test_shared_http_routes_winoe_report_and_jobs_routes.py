@@ -4,6 +4,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import Response
+from starlette.requests import Request
 
 from app.shared.auth.principal import Principal
 from app.shared.http.routes import shared_http_routes_jobs_routes as jobs_router
@@ -14,6 +16,21 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
     JOB_STATUS_SUCCEEDED,
 )
 from app.shared.utils.shared_utils_errors_utils import ApiError
+
+
+def _request(path: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "headers": [],
+            "query_string": b"",
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "client": ("testclient", 50000),
+        }
+    )
 
 
 @pytest.mark.asyncio
@@ -33,14 +50,85 @@ async def test_winoe_report_router_generate_and_get_routes(monkeypatch):
         AsyncMock(return_value={"status": "running"}),
     )
 
+    generate_response = Response()
     generated = await winoe_report_router.generate_winoe_report_route(
-        11, object(), user
+        11,
+        _request("/api/candidate_trials/11/winoe_report/generate"),
+        generate_response,
+        object(),
+        user,
     )
-    fetched = await winoe_report_router.get_winoe_report_route(11, object(), user)
+    fetch_response = Response()
 
     assert generated.jobId == "job-1"
     assert generated.status == "queued"
+    assert "Deprecation" not in generate_response.headers
+    assert "Link" not in generate_response.headers
+    assert "X-Winoe-Canonical-Resource" not in generate_response.headers
+
+    fetched = await winoe_report_router.get_winoe_report_route(
+        11,
+        _request("/api/candidate_trials/11/winoe_report"),
+        fetch_response,
+        object(),
+        user,
+    )
+
     assert fetched.status == "running"
+    assert "Deprecation" not in fetch_response.headers
+    assert "Link" not in fetch_response.headers
+    assert "X-Winoe-Canonical-Resource" not in fetch_response.headers
+
+
+@pytest.mark.asyncio
+async def test_winoe_report_router_legacy_routes_mark_deprecated(monkeypatch):
+    user = SimpleNamespace(id=7)
+    monkeypatch.setattr(
+        winoe_report_router, "ensure_talent_partner", lambda _user: None
+    )
+    monkeypatch.setattr(
+        winoe_report_router.winoe_report_api,
+        "generate_winoe_report",
+        AsyncMock(return_value={"jobId": "job-1", "status": "queued"}),
+    )
+    monkeypatch.setattr(
+        winoe_report_router.winoe_report_api,
+        "fetch_winoe_report",
+        AsyncMock(return_value={"status": "running"}),
+    )
+
+    generate_response = Response()
+    generated = await winoe_report_router.generate_winoe_report_route(
+        11,
+        _request("/api/candidate_sessions/11/winoe_report/generate"),
+        generate_response,
+        object(),
+        user,
+    )
+    fetch_response = Response()
+    fetched = await winoe_report_router.get_winoe_report_route(
+        11,
+        _request("/api/candidate_sessions/11/winoe_report"),
+        fetch_response,
+        object(),
+        user,
+    )
+
+    assert generated.jobId == "job-1"
+    assert fetched.status == "running"
+    assert generate_response.headers["Deprecation"] == "true"
+    assert (
+        generate_response.headers["Link"]
+        == '</api/candidate_trials/11/winoe_report/generate>; rel="successor-version"'
+    )
+    assert generate_response.headers["X-Winoe-Canonical-Resource"] == (
+        "candidate_trials"
+    )
+    assert fetch_response.headers["Deprecation"] == "true"
+    assert fetch_response.headers["Link"] == (
+        '</api/candidate_trials/11/winoe_report>; rel="successor-version"'
+    )
+    assert fetch_response.headers["X-Winoe-Canonical-Resource"] == "candidate_trials"
 
 
 def test_jobs_router_public_status_and_poll_helpers():

@@ -21,6 +21,7 @@ from .shared_http_middleware_http_request_middleware import (
 from .shared_http_middleware_http_setup_middleware import (
     configure_cors,
     configure_csrf_protection,
+    configure_legacy_candidate_trial_compatibility_headers,
     configure_proxy_headers,
     configure_request_limits,
     configure_security_headers,
@@ -29,6 +30,7 @@ from .shared_http_middleware_http_setup_middleware import (
 __all__ = [
     "CsrfOriginEnforcementMiddleware",
     "configure_csrf_protection",
+    "configure_legacy_candidate_trial_compatibility_headers",
     "configure_proxy_headers",
     "configure_request_limits",
     "configure_cors",

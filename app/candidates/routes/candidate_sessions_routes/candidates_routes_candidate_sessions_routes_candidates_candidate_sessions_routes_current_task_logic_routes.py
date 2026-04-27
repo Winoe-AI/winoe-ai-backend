@@ -21,7 +21,16 @@ from app.submissions.services import (
 
 
 def _require_candidate_session_header_match(candidate_session_id: int, request) -> None:
-    header_value = (request.headers.get("x-candidate-session-id") or "").strip()
+    canonical_header = (request.headers.get("x-candidate-trial-id") or "").strip()
+    legacy_header = (request.headers.get("x-candidate-session-id") or "").strip()
+    if canonical_header and legacy_header and canonical_header != legacy_header:
+        raise ApiError(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Candidate Trial headers do not match",
+            error_code="CANDIDATE_SESSION_HEADER_MISMATCH",
+            retryable=False,
+        )
+    header_value = canonical_header or legacy_header
     if not header_value:
         raise ApiError(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,7 +54,7 @@ def _require_candidate_session_header_match(candidate_session_id: int, request) 
     if header_session_id != candidate_session_id:
         raise ApiError(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Candidate session header does not match requested session.",
+            detail="Candidate Trial header does not match requested Trial.",
             error_code="CANDIDATE_SESSION_HEADER_MISMATCH",
             retryable=False,
         )

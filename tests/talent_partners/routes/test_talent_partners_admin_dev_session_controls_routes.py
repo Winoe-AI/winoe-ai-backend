@@ -45,7 +45,7 @@ async def test_admin_day_window_control_route_maps_response(async_client, monkey
     )
 
     response = await async_client.post(
-        "/api/admin/candidate_sessions/42/day_windows/control",
+        "/api/admin/candidate_trials/42/day_windows/control",
         headers={"X-Admin-Key": "test-admin-key"},
         json={
             "targetDayIndex": 4,
@@ -61,6 +61,26 @@ async def test_admin_day_window_control_route_maps_response(async_client, monkey
     assert payload["targetDayIndex"] == 4
     assert payload["auditId"] == "audit-day-window"
     assert payload["currentDayWindow"]["state"] == "active"
+    assert "Deprecation" not in response.headers
+    assert "Link" not in response.headers
+    assert "X-Winoe-Canonical-Resource" not in response.headers
+
+    legacy_response = await async_client.post(
+        "/api/admin/candidate_sessions/42/day_windows/control",
+        headers={"X-Admin-Key": "test-admin-key"},
+        json={
+            "targetDayIndex": 4,
+            "reason": "accelerate day 4",
+            "candidateTimezone": "America/New_York",
+        },
+    )
+    assert legacy_response.status_code == 200
+    assert legacy_response.json() == payload
+    assert legacy_response.headers["Deprecation"] == "true"
+    assert legacy_response.headers["X-Winoe-Canonical-Resource"] == "candidate_trials"
+    assert legacy_response.headers["Link"] == (
+        '</api/admin/candidate_trials/42/day_windows/control>; rel="successor-version"'
+    )
 
 
 @pytest.mark.asyncio

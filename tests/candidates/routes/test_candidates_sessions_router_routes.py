@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 
 from app.config import settings
 from app.shared.auth.principal import Principal
@@ -59,6 +59,7 @@ async def test_resolve_candidate_session_propagates_claim_error(monkeypatch):
         await candidate_sessions.resolve_candidate_session(
             token="t" * 24,
             request=_request(),
+            response=Response(),
             db=stub_db,
             principal=_principal("test@example.com"),
         )
@@ -105,8 +106,9 @@ async def test_get_current_task_marks_completed(monkeypatch):
     )
 
     resp = await candidate_sessions.get_current_task(
-        candidate_session_id=cs.id,
+        candidate_trial_id=cs.id,
         request=_request(headers={"x-candidate-session-id": str(cs.id)}),
+        response=Response(),
         db=stub_db,
         principal=_principal("user@example.com"),
     )

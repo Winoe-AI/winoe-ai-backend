@@ -118,7 +118,7 @@ async def enqueue_candidate_completed_notification(
     trial_id: int,
     commit: bool = True,
 ) -> Job:
-    """Queue a Talent Partner email for completed candidate sessions."""
+    """Queue a Talent Partner email for completed Candidate Trials."""
     return await _enqueue_talent_partner_notification_job(
         db,
         job_type=CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE,

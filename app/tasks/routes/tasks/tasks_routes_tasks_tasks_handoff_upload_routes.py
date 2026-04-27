@@ -65,9 +65,9 @@ logger = logging.getLogger(__name__)
         " instructions."
     ),
     responses={
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate Trial access denied."},
         status.HTTP_404_NOT_FOUND: {
-            "description": "Task or candidate session not found."
+            "description": "Task or Candidate Trial not found."
         },
     },
 )
@@ -104,7 +104,7 @@ async def init_handoff_upload_route(
         " metadata to the submission."
     ),
     responses={
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate Trial access denied."},
         status.HTTP_404_NOT_FOUND: {"description": "Task or upload record not found."},
     },
 )
@@ -138,10 +138,10 @@ async def complete_handoff_upload_route(
     summary="Handoff Status Route",
     description=(
         "Return the current recording/transcript status for handoff tasks in"
-        " the candidate session."
+        " the Candidate Trial."
     ),
     responses={
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate session access denied."},
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate Trial access denied."},
         status.HTTP_404_NOT_FOUND: {
             "description": "Task or handoff recording not found."
         },

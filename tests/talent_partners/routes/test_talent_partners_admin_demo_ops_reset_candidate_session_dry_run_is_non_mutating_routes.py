@@ -30,7 +30,7 @@ async def test_reset_candidate_session_dry_run_is_non_mutating(
     await async_session.commit()
 
     response = await async_client.post(
-        f"/api/admin/candidate_sessions/{candidate_session.id}/reset",
+        f"/api/admin/candidate_trials/{candidate_session.id}/reset",
         json={
             "targetState": "not_started",
             "reason": "Dry run reset",

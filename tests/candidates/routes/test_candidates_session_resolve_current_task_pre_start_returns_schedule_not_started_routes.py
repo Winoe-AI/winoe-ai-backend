@@ -46,6 +46,11 @@ async def test_current_task_pre_start_returns_schedule_not_started(
         },
     )
     assert res.status_code == 409, res.text
+    assert res.headers["Deprecation"] == "true"
+    assert res.headers["X-Winoe-Canonical-Resource"] == "candidate_trials"
+    assert res.headers["Link"] == (
+        f'</api/candidate/trials/{cs_id}/current_task>; rel="successor-version"'
+    )
     body = res.json()
     assert body["detail"] == "Trial has not started yet."
     assert body["errorCode"] == "SCHEDULE_NOT_STARTED"
@@ -57,3 +62,16 @@ async def test_current_task_pre_start_returns_schedule_not_started(
         "+00:00", "Z"
     )
     assert body["details"]["windowEndAt"] is not None
+
+    canonical_res = await async_client.get(
+        f"/api/candidate/trials/{cs_id}/current_task",
+        headers={
+            "Authorization": "Bearer candidate:jane@example.com",
+            "x-candidate-trial-id": str(cs_id),
+        },
+    )
+    assert canonical_res.status_code == 409, canonical_res.text
+    assert canonical_res.json() == body
+    assert "Deprecation" not in canonical_res.headers
+    assert "X-Winoe-Canonical-Resource" not in canonical_res.headers
+    assert "Link" not in canonical_res.headers

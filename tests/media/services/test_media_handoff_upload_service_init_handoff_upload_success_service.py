@@ -25,5 +25,8 @@ async def test_init_handoff_upload_success(async_session):
 
     assert recording.id > 0
     assert recording.status == "uploading"
+    assert recording.storage_key.startswith(
+        f"candidate-trials/{candidate_session.id}/tasks/{task.id}/recordings/"
+    )
     assert upload_url.startswith("https://fake-storage.local/upload?")
     assert expires_seconds > 0

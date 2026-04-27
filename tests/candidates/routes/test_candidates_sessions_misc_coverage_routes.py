@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
+from fastapi import Response
 
 from app.candidates.routes.candidate_sessions_routes import (
     candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_current_task_logic_routes as current_task_logic,
@@ -38,6 +39,7 @@ async def test_schedule_route_returns_rendered_response(monkeypatch):
             githubUsername="octocat",
         ),
         request=SimpleNamespace(headers={"x-correlation-id": "corr-123"}),
+        response=Response(),
         principal=SimpleNamespace(sub="auth0|candidate"),
         db=object(),
         email_service=object(),

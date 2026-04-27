@@ -14,6 +14,7 @@ from app.shared.http.shared_http_middleware import (
     configure_core_logging,
     configure_cors,
     configure_csrf_protection,
+    configure_legacy_candidate_trial_compatibility_headers,
     configure_perf_logging,
     configure_proxy_headers,
     configure_request_limits,
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     configure_csrf_protection(app)
     configure_cors(app)
     configure_security_headers(app)
+    configure_legacy_candidate_trial_compatibility_headers(app)
     register_routers(app)
     register_error_handlers(app)
     return app

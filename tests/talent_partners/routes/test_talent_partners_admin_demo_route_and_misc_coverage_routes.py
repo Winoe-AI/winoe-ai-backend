@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import Response
 
 from app.shared.http import shared_http_middleware_perf_middleware as middleware_perf
 from app.talent_partners.routes.admin_routes import demo_ops
@@ -51,13 +52,17 @@ async def test_admin_demo_route_response_mapping(monkeypatch):
         ),
     )
     reset_response = await demo_ops.reset_candidate_session(
-        candidate_session_id=101,
+        candidate_trial_id=101,
         payload=SimpleNamespace(
             targetState="claimed",
             reason="reset",
             overrideIfEvaluated=False,
             dryRun=False,
         ),
+        request=SimpleNamespace(
+            url=SimpleNamespace(path="/api/admin/candidate_trials/101/reset")
+        ),
+        response=Response(),
         db=object(),
         actor=SimpleNamespace(actor_id="actor-1"),
     )

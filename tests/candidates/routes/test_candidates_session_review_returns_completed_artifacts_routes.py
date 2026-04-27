@@ -188,4 +188,20 @@ async def test_candidate_session_review_rejects_incomplete_sessions(
         headers={"Authorization": "Bearer candidate:review-incomplete@example.com"},
     )
     assert response.status_code == 409, response.text
+    assert response.headers["Deprecation"] == "true"
+    assert response.headers["X-Winoe-Canonical-Resource"] == "candidate_trials"
+    assert response.headers["Link"] == (
+        f"</api/candidate/trials/{candidate_session.token}/review>;"
+        ' rel="successor-version"'
+    )
     assert response.json()["detail"] == "Trial is not complete yet"
+
+    canonical_response = await async_client.get(
+        f"/api/candidate/trials/{candidate_session.token}/review",
+        headers={"Authorization": "Bearer candidate:review-incomplete@example.com"},
+    )
+    assert canonical_response.status_code == 409, canonical_response.text
+    assert canonical_response.json() == response.json()
+    assert "Deprecation" not in canonical_response.headers
+    assert "X-Winoe-Canonical-Resource" not in canonical_response.headers
+    assert "Link" not in canonical_response.headers

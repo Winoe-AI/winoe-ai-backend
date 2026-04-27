@@ -11,7 +11,7 @@ from app.shared.database.shared_database_base_model import Base
 
 
 class WinoeReport(Base):
-    """Model for storing winoe reports for candidate sessions."""
+    """Model for storing Winoe Reports for Candidate Trials."""
 
     __tablename__ = "winoe_reports"
     __table_args__ = (

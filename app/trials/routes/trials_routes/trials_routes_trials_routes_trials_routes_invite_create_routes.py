@@ -47,7 +47,7 @@ async def create_candidate_invite(
     email_service: Annotated[EmailService, Depends(get_email_service)],
     github_client: Annotated[GithubClient, Depends(get_github_client)],
 ):
-    """Create a candidate_session invite token for a trial (Talent Partner-only)."""
+    """Create a Candidate Trial invite token for a Trial (Talent Partner-only)."""
     ensure_talent_partner_or_none(user)
     return await create_invite_response(
         db,

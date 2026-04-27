@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.storage_media import StorageMediaProvider
@@ -18,6 +18,9 @@ from app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils impo
 )
 from app.shared.http.dependencies.shared_http_dependencies_storage_media_utils import (
     get_media_storage_provider,
+)
+from app.shared.http.shared_http_deprecation_headers import (
+    mark_legacy_candidate_session_route,
 )
 from app.talent_partners.routes.admin_routes.talent_partners_routes_admin_routes_talent_partners_admin_routes_demo_ops_responses_routes import (
     build_fallback_response,
@@ -43,33 +46,56 @@ router = APIRouter()
 
 
 @router.post(
-    "/candidate_sessions/{candidate_session_id}/reset",
+    "/candidate_trials/{candidate_trial_id}/reset",
     response_model=CandidateSessionResetResponse,
     status_code=status.HTTP_200_OK,
-    summary="Reset Candidate Session",
+    summary="Reset Candidate Trial",
+    operation_id="reset_candidate_trial",
     description=(
-        "Reset a candidate session state during demo-mode operations for controlled QA"
+        "Reset a Candidate Trial state during demo-mode operations for controlled QA"
         " or replay flows."
     ),
     responses={
         status.HTTP_400_BAD_REQUEST: {"description": "Invalid reset request payload."},
         status.HTTP_403_FORBIDDEN: {"description": "Admin access required."},
         status.HTTP_404_NOT_FOUND: {
-            "description": "Demo mode disabled or target session not found."
+            "description": "Demo mode disabled or target Trial not found."
+        },
+    },
+)
+@router.post(
+    "/candidate_sessions/{candidate_trial_id}/reset",
+    response_model=CandidateSessionResetResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reset Candidate Trial Legacy Route",
+    operation_id="reset_candidate_trial_legacy",
+    deprecated=True,
+    responses={
+        status.HTTP_400_BAD_REQUEST: {"description": "Invalid reset request payload."},
+        status.HTTP_403_FORBIDDEN: {"description": "Admin access required."},
+        status.HTTP_404_NOT_FOUND: {
+            "description": "Demo mode disabled or target Trial not found."
         },
     },
 )
 async def reset_candidate_session(
-    candidate_session_id: Annotated[int, Path(..., gt=0)],
+    candidate_trial_id: Annotated[int, Path(..., gt=0)],
     payload: CandidateSessionResetRequest,
+    request: Request,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_session)],
     actor: Annotated[DemoAdminActor, Depends(require_demo_mode_admin)],
 ) -> CandidateSessionResetResponse:
-    """Reset candidate session."""
+    """Reset Candidate Trial."""
+    mark_legacy_candidate_session_route(
+        request,
+        response,
+        canonical_path=f"/api/admin/candidate_trials/{candidate_trial_id}/reset",
+    )
     result = await admin_ops_service.reset_candidate_session(
         db,
         actor=actor,
-        candidate_session_id=candidate_session_id,
+        candidate_session_id=candidate_trial_id,
         target_state=payload.targetState,
         reason=payload.reason,
         override_if_evaluated=payload.overrideIfEvaluated,
