@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_windows_schema import (
@@ -13,6 +13,9 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_win
 )
 from app.shared.auth.shared_auth_admin_api_key_utils import require_admin_key
 from app.shared.database import get_session
+from app.shared.http.shared_http_deprecation_headers import (
+    mark_legacy_candidate_session_route,
+)
 from app.talent_partners.schemas.talent_partners_schemas_talent_partners_admin_ops_schema import (
     CandidateSessionDayWindowControlRequest,
     CandidateSessionDayWindowControlResponse,
@@ -36,12 +39,13 @@ def _build_current_day_window(payload: dict | None) -> CurrentDayWindow | None:
 
 
 @router.post(
-    "/candidate_sessions/{candidate_session_id}/day_windows/control",
+    "/candidate_trials/{candidate_trial_id}/day_windows/control",
     response_model=CandidateSessionDayWindowControlResponse,
     status_code=status.HTTP_200_OK,
-    summary="Control Candidate Session Day Windows",
+    summary="Control Candidate Trial Day Windows",
+    operation_id="control_candidate_trial_day_windows",
     description=(
-        "Local/test-only admin-keyed control that retimes a candidate session so a"
+        "Local/test-only admin-keyed control that retimes a Candidate Trial so a"
         " chosen day window is immediately usable for end-to-end validation."
     ),
     responses={
@@ -51,16 +55,39 @@ def _build_current_day_window(payload: dict | None) -> CurrentDayWindow | None:
         },
     },
 )
+@router.post(
+    "/candidate_sessions/{candidate_trial_id}/day_windows/control",
+    response_model=CandidateSessionDayWindowControlResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Control Candidate Trial Day Windows Legacy Route",
+    operation_id="control_candidate_trial_day_windows_legacy",
+    deprecated=True,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Admin access required."},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {
+            "description": "The requested day-window control payload is invalid."
+        },
+    },
+)
 async def control_candidate_session_day_windows(
-    candidate_session_id: Annotated[int, Path(..., gt=0)],
+    candidate_trial_id: Annotated[int, Path(..., gt=0)],
     payload: CandidateSessionDayWindowControlRequest,
+    request: Request,
+    response: Response,
     db: Annotated[AsyncSession, Depends(get_session)],
     _admin_key: Annotated[None, Depends(require_admin_key)],
 ) -> CandidateSessionDayWindowControlResponse:
-    """Control candidate-session day windows for local/test validation."""
+    """Control Candidate Trial day windows for local/test validation."""
+    mark_legacy_candidate_session_route(
+        request,
+        response,
+        canonical_path=(
+            f"/api/admin/candidate_trials/{candidate_trial_id}/day_windows/control"
+        ),
+    )
     result = await admin_ops_service.set_candidate_session_day_window(
         db,
-        candidate_session_id=candidate_session_id,
+        candidate_session_id=candidate_trial_id,
         target_day_index=payload.targetDayIndex,
         reason=payload.reason,
         candidate_timezone=payload.candidateTimezone,

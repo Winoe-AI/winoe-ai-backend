@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions import services as cs_service
@@ -20,38 +20,62 @@ from app.shared.auth.shared_auth_candidate_access_utils import (
     require_candidate_principal,
 )
 from app.shared.database import get_session
+from app.shared.http.shared_http_deprecation_headers import (
+    mark_legacy_candidate_session_route,
+)
 from app.shared.time.shared_time_now_service import utcnow
 
 router = APIRouter()
 
 
 @router.post(
-    "/session/{candidate_session_id}/privacy/consent",
+    "/trials/{candidate_trial_id}/privacy/consent",
     response_model=CandidatePrivacyConsentResponse,
     status_code=status.HTTP_200_OK,
     summary="Record Candidate Privacy Consent",
     description=(
         "Persist candidate consent acknowledgements for recording/privacy notices"
-        " tied to a claimed session."
+        " tied to a claimed Candidate Trial."
     ),
     responses={
         status.HTTP_401_UNAUTHORIZED: {
             "description": "Candidate authentication required."
         },
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate does not own session."},
-        status.HTTP_404_NOT_FOUND: {"description": "Candidate session not found."},
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate does not own Trial."},
+        status.HTTP_404_NOT_FOUND: {"description": "Candidate Trial not found."},
+    },
+)
+@router.post(
+    "/session/{candidate_trial_id}/privacy/consent",
+    response_model=CandidatePrivacyConsentResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Record Candidate Privacy Consent Legacy Route",
+    deprecated=True,
+    responses={
+        status.HTTP_401_UNAUTHORIZED: {
+            "description": "Candidate authentication required."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": "Candidate does not own Trial."},
+        status.HTTP_404_NOT_FOUND: {"description": "Candidate Trial not found."},
     },
 )
 async def record_candidate_privacy_consent(
-    candidate_session_id: Annotated[int, Path(..., ge=1)],
+    candidate_trial_id: Annotated[int, Path(..., ge=1)],
     payload: CandidatePrivacyConsentRequest,
+    request: Request,
+    response: Response,
     principal: Annotated[Principal, Depends(require_candidate_principal)],
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> CandidatePrivacyConsentResponse:
     """Record candidate privacy consent."""
+    mark_legacy_candidate_session_route(
+        request,
+        response,
+        canonical_path=f"/api/candidate/trials/{candidate_trial_id}/privacy/consent",
+    )
     candidate_session = await cs_service.fetch_owned_session(
         db,
-        candidate_session_id,
+        candidate_trial_id,
         principal,
         now=utcnow(),
     )

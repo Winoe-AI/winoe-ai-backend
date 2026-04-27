@@ -20,18 +20,32 @@ from app.shared.utils.shared_utils_errors_utils import ApiError
 
 async def candidate_session_from_headers(
     principal: Annotated[Principal, Depends(require_candidate_principal)],
+    x_candidate_trial_id: Annotated[
+        int | None, Header(alias="x-candidate-trial-id", ge=1)
+    ] = None,
     x_candidate_session_id: Annotated[
         int | None, Header(alias="x-candidate-session-id", ge=1)
     ] = None,
     db: Annotated[AsyncSession, Depends(get_session)] = None,
 ) -> CandidateSession:
     """Load a candidate session for the authenticated candidate."""
-    if x_candidate_session_id is None:
+    if (
+        x_candidate_trial_id is not None
+        and x_candidate_session_id is not None
+        and int(x_candidate_trial_id) != int(x_candidate_session_id)
+    ):
+        raise ApiError(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Candidate Trial headers do not match",
+            error_code="CANDIDATE_SESSION_HEADER_MISMATCH",
+        )
+    candidate_trial_id = x_candidate_trial_id or x_candidate_session_id
+    if candidate_trial_id is None:
         raise ApiError(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing candidate session headers",
             error_code="CANDIDATE_SESSION_HEADER_REQUIRED",
         )
     return await cs_service.fetch_owned_session(
-        db, int(x_candidate_session_id), principal, now=shared_utcnow()
+        db, int(candidate_trial_id), principal, now=shared_utcnow()
     )

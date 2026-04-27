@@ -1,13 +1,13 @@
 # Winoe Backend
 
-FastAPI + PostgreSQL backend for Winoe's async trial platform. Talent Partners create and manage trials, candidates complete session tasks, and GitHub-native workflows capture code/debug execution artifacts for talent_partner review.
+FastAPI + PostgreSQL backend for Winoe's async trial platform. Talent Partners create and manage Trials, candidates complete Candidate Trial tasks, and GitHub-native workflows capture code/debug execution artifacts for Talent Partner review.
 
 ## Overview
 
-- Domain modules: trials, candidate sessions, tasks, submissions, evaluations, media, notifications, talent_partners/admin, and shared runtime infrastructure.
+- Domain modules: Trials, Candidate Trials, tasks, submissions, evaluations, media, notifications, talent_partners/admin, and shared runtime infrastructure.
 - GitHub-native flow: empty-repo workspace provisioning, Codespaces init/status, Actions evidence capture, artifact parsing, and persisted run/test metadata.
 - Auth model: bearer-token principal model with talent_partner/candidate permission gates, plus admin key and demo admin dependency paths.
-- Current API surface: 57 HTTP endpoints (generated from live OpenAPI).
+- Current API surface: 62 HTTP endpoints (generated from live OpenAPI).
 
 ## Stack (Poetry Constraints)
 
@@ -157,8 +157,8 @@ Canonical env keys are summarized below by primary group.
 
 ### Admin Templates / Demo Admin Ops
 
-- `POST /api/admin/candidate_sessions/{candidate_session_id}/day_windows/control`
-- `POST /api/admin/candidate_sessions/{candidate_session_id}/reset`
+- `POST /api/admin/candidate_trials/{candidate_trial_id}/day_windows/control`
+- `POST /api/admin/candidate_trials/{candidate_trial_id}/reset`
 - `POST /api/admin/jobs/{job_id}/requeue`
 - `POST /api/admin/trials/{trial_id}/scenario/use_fallback`
 - `POST /api/admin/media/purge`
@@ -181,18 +181,31 @@ Canonical env keys are summarized below by primary group.
 - `PATCH /api/trials/{trial_id}/scenario/{scenario_version_id}`
 - `GET /api/submissions`
 - `GET /api/submissions/{submission_id}`
-- `GET /api/candidate_sessions/{candidate_session_id}/winoe_report`
-- `POST /api/candidate_sessions/{candidate_session_id}/winoe_report/generate`
+- `GET /api/candidate_trials/{candidate_trial_id}/winoe_report`
+- `POST /api/candidate_trials/{candidate_trial_id}/winoe_report/generate`
 
-### Candidate Session APIs
+### Candidate Trial APIs
 
+- `GET /api/candidate/trials/{token}`
+- `POST /api/candidate/trials/{token}/claim`
+- `POST /api/candidate/trials/{token}/schedule`
+- `GET /api/candidate/trials/{token}/review`
+- `GET /api/candidate/trials/{candidate_trial_id}/current_task`
+- `GET /api/candidate/invites`
+- `POST /api/candidate/trials/{candidate_trial_id}/privacy/consent`
+
+### Deprecated Candidate Trial Compatibility APIs
+
+- `POST /api/admin/candidate_sessions/{candidate_trial_id}/day_windows/control`
+- `POST /api/admin/candidate_sessions/{candidate_trial_id}/reset`
 - `GET /api/candidate/session/{token}`
 - `POST /api/candidate/session/{token}/claim`
 - `POST /api/candidate/session/{token}/schedule`
 - `GET /api/candidate/session/{token}/review`
-- `GET /api/candidate/session/{candidate_session_id}/current_task`
-- `GET /api/candidate/invites`
-- `POST /api/candidate/session/{candidate_session_id}/privacy/consent`
+- `GET /api/candidate/session/{candidate_trial_id}/current_task`
+- `POST /api/candidate/session/{candidate_trial_id}/privacy/consent`
+- `GET /api/candidate_sessions/{candidate_trial_id}/winoe_report`
+- `POST /api/candidate_sessions/{candidate_trial_id}/winoe_report/generate`
 
 ### Company Config / Media Storage
 

@@ -4,11 +4,13 @@ This document describes how winoe-report generation uses durable jobs and evalua
 
 ## Entry Points
 
-- API trigger: `POST /api/candidate_sessions/{candidate_session_id}/winoe_report/generate`
+- API trigger: `POST /api/candidate_trials/{candidate_trial_id}/winoe_report/generate`
   - route: `app/evaluations/routes/evaluations_routes_evaluations_winoe_report_routes.py`
   - service: `generate_winoe_report` in `app/evaluations/services/evaluations_services_evaluations_winoe_report_api_service.py`
-- API status/read: `GET /api/candidate_sessions/{candidate_session_id}/winoe_report`
+- API status/read: `GET /api/candidate_trials/{candidate_trial_id}/winoe_report`
   - service: `fetch_winoe_report` in the same module
+- Legacy `/api/candidate_sessions/...` report routes remain as deprecated compatibility
+  aliases during the migration window.
 
 ## Job Enqueue Path
 
@@ -27,7 +29,7 @@ This document describes how winoe-report generation uses durable jobs and evalua
 
 - `evaluation_runs` stores run lifecycle, model metadata, basis fingerprint, and final report fields.
 - `evaluation_day_scores` stores per-day score/rubric/evidence payloads.
-- `winoe_reports` stores generated marker rows per candidate session.
+- `winoe_reports` stores generated marker rows per Candidate Trial.
 - `jobs` tracks queue/runtime state and serialized payload/result/error for polling/debugging.
 
 ## Read Model Behavior
@@ -41,8 +43,8 @@ This document describes how winoe-report generation uses durable jobs and evalua
 
 ## Access and Safety Controls
 
-- Talent Partner/company ownership enforcement via candidate-session evaluation context lookup.
-- Candidate session not found -> 404.
+- Talent Partner/company ownership enforcement via Candidate Trial evaluation context lookup.
+- Candidate Trial not found -> 404.
 - Unauthorized company access -> 403.
 - Job payload includes candidate/company/requesting user IDs for auditability.
 

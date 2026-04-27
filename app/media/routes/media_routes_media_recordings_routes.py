@@ -39,13 +39,15 @@ router.include_router(fake_storage_router)
     summary="Delete Recording Route",
     description=(
         "Soft-delete a recording asset owned by the authenticated candidate"
-        " session and revoke access links."
+        " Trial and revoke access links."
     ),
     responses={
         status.HTTP_401_UNAUTHORIZED: {
             "description": "Candidate authentication required."
         },
-        status.HTTP_403_FORBIDDEN: {"description": "Candidate does not own session."},
+        status.HTTP_403_FORBIDDEN: {
+            "description": "Candidate does not own Candidate Trial."
+        },
         status.HTTP_404_NOT_FOUND: {"description": "Recording asset not found."},
     },
 )

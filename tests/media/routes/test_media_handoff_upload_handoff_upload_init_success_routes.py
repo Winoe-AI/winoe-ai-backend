@@ -56,5 +56,8 @@ async def test_handoff_upload_init_success(
         assert recording.status == RECORDING_ASSET_STATUS_UPLOADING
         assert recording.candidate_session_id == candidate_session.id
         assert recording.content_type == "video/mp4"
+        assert recording.storage_key.startswith(
+            f"candidate-trials/{candidate_session.id}/tasks/{task.id}/recordings/"
+        )
     finally:
         get_storage_media_provider.cache_clear()

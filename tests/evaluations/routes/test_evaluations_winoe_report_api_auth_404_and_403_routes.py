@@ -41,3 +41,25 @@ async def test_winoe_report_auth_404_and_403(
         headers=auth_header_factory(outsider),
     )
     assert forbidden_get.status_code == 403
+    assert forbidden_get.json()["detail"] == "Candidate Trial access forbidden"
+    assert "Candidate session" not in forbidden_get.json()["detail"]
+    assert forbidden_get.headers["Deprecation"] == "true"
+    assert forbidden_get.headers["X-Winoe-Canonical-Resource"] == "candidate_trials"
+    assert forbidden_get.headers["Link"] == (
+        f"</api/candidate_trials/{candidate_session.id}/winoe_report>;"
+        ' rel="successor-version"'
+    )
+
+    canonical_forbidden_get = await async_client.get(
+        f"/api/candidate_trials/{candidate_session.id}/winoe_report",
+        headers=auth_header_factory(outsider),
+    )
+    assert canonical_forbidden_get.status_code == 403
+    detail = canonical_forbidden_get.json()["detail"]
+    assert detail == "Candidate Trial access forbidden"
+    assert "Candidate session" not in detail
+    assert "candidate session" not in detail
+    assert "Trial" in detail
+    assert "Deprecation" not in canonical_forbidden_get.headers
+    assert "X-Winoe-Canonical-Resource" not in canonical_forbidden_get.headers
+    assert "Link" not in canonical_forbidden_get.headers

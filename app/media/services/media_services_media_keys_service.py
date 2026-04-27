@@ -57,7 +57,7 @@ def build_recording_storage_key(
     ext = normalize_extension(extension)
     opaque = recording_uuid or uuid.uuid4().hex
     key = (
-        f"candidate-sessions/{candidate_session_id}/tasks/{task_id}/"
+        f"candidate-trials/{candidate_session_id}/tasks/{task_id}/"
         f"recordings/{opaque}.{ext}"
     )
     return ensure_safe_storage_key(key)

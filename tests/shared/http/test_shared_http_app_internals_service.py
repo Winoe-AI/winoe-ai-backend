@@ -133,7 +133,15 @@ def test_create_app_omits_dev_session_controls_without_admin_key(monkeypatch):
     assert (
         _has_route(
             app,
-            "/api/admin/candidate_sessions/{candidate_session_id}/day_windows/control",
+            "/api/admin/candidate_trials/{candidate_trial_id}/day_windows/control",
+            "POST",
+        )
+        is False
+    )
+    assert (
+        _has_route(
+            app,
+            "/api/admin/candidate_sessions/{candidate_trial_id}/day_windows/control",
             "POST",
         )
         is False
@@ -149,7 +157,12 @@ def test_create_app_includes_dev_session_controls_with_admin_key(monkeypatch):
 
     assert _has_route(
         app,
-        "/api/admin/candidate_sessions/{candidate_session_id}/day_windows/control",
+        "/api/admin/candidate_trials/{candidate_trial_id}/day_windows/control",
+        "POST",
+    )
+    assert _has_route(
+        app,
+        "/api/admin/candidate_sessions/{candidate_trial_id}/day_windows/control",
         "POST",
     )
 

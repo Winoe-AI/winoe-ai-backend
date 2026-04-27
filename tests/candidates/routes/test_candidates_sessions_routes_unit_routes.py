@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
-from fastapi import Request
+from fastapi import Request, Response
 
 from app.ai import build_ai_policy_snapshot
 from app.shared.auth import rate_limit
@@ -116,14 +116,23 @@ async def test_candidate_session_rate_limits(monkeypatch):
     )
 
     await candidate_sessions.resolve_candidate_session(
-        token="x" * 20, request=_fake_request(), principal=principal, db=db
+        token="x" * 20,
+        request=_fake_request(),
+        response=Response(),
+        principal=principal,
+        db=db,
     )
     await candidate_sessions.claim_candidate_session(
-        token="x" * 20, request=_fake_request(), db=db, principal=principal
+        token="x" * 20,
+        request=_fake_request(),
+        response=Response(),
+        db=db,
+        principal=principal,
     )
     await candidate_sessions.get_current_task(
-        candidate_session_id=1,
+        candidate_trial_id=1,
         request=_fake_request({"headers": [(b"x-candidate-session-id", b"1")]}),
+        response=Response(),
         principal=principal,
         db=db,
     )

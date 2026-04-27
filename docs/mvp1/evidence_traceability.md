@@ -74,12 +74,15 @@ Day 4 transcript data is persisted in `transcripts` (`text`, `segments_json`, `m
 
 ## 5. Winoe Report materialization model
 
-`winoe_reports` is a marker table (`candidate_session_id`, `generated_at`).
+`winoe_reports` is a marker table keyed to the Candidate Trial persistence row
+(`candidate_session_id`, `generated_at`).
 
 - Full winoe-report report content is composed from `evaluation_runs` + `evaluation_day_scores` (plus run metadata and report JSON), not from a large blob in `winoe_reports`.
 - API endpoints:
-  - `POST /api/candidate_sessions/{candidate_session_id}/winoe_report/generate`
-  - `GET /api/candidate_sessions/{candidate_session_id}/winoe_report`
+  - `POST /api/candidate_trials/{candidate_trial_id}/winoe_report/generate`
+  - `GET /api/candidate_trials/{candidate_trial_id}/winoe_report`
+  - Deprecated compatibility aliases remain available at the legacy
+    `candidate_sessions` route prefix.
 
 ## 6. Mapping to issue tracks
 

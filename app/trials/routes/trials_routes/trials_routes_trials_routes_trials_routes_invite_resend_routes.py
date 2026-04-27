@@ -32,12 +32,12 @@ router = APIRouter()
     summary="Resend Candidate Invite",
     description=(
         "Resend an existing candidate invite email for a Talent Partner-owned"
-        " trial session."
+        " Candidate Trial."
     ),
     responses={
         status.HTTP_403_FORBIDDEN: {"description": "Talent Partner access required."},
         status.HTTP_404_NOT_FOUND: {
-            "description": "Trial or candidate session not found."
+            "description": "Trial or Candidate Trial not found."
         },
     },
 )

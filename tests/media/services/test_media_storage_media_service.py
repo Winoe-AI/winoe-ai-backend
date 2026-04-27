@@ -20,7 +20,7 @@ def test_build_recording_storage_key_shape():
         extension="mp4",
         recording_uuid="abc123",
     )
-    assert key == "candidate-sessions/12/tasks/34/recordings/abc123.mp4"
+    assert key == "candidate-trials/12/tasks/34/recordings/abc123.mp4"
 
 
 def test_recording_public_id_round_trip():

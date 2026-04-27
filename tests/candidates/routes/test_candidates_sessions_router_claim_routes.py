@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
+from fastapi import Response
 
 from app.ai import build_ai_policy_snapshot
 from app.shared.http.routes import candidate_sessions
@@ -51,6 +52,7 @@ async def test_claim_route_uses_claim_service(monkeypatch):
     resp = await candidate_sessions.claim_candidate_session(
         token="t" * 24,
         request=_request(),
+        response=Response(),
         db=stub_db,
         principal=_principal("test@example.com"),
     )

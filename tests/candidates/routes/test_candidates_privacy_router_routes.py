@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from fastapi import Response
 
 from app.candidates.routes.candidate_sessions_routes import (
     candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_privacy_routes as privacy_route,
@@ -55,8 +56,12 @@ async def test_record_candidate_privacy_consent_route(monkeypatch):
     )
 
     response = await privacy_route.record_candidate_privacy_consent(
-        candidate_session_id=17,
+        candidate_trial_id=17,
         payload=CandidatePrivacyConsentRequest(noticeVersion="mvp1"),
+        request=SimpleNamespace(
+            url=SimpleNamespace(path="/api/candidate/trials/17/privacy/consent")
+        ),
+        response=Response(),
         principal=_principal(),
         db=None,
     )

@@ -17,6 +17,9 @@ from app.shared.utils.shared_utils_request_limits_utils import (
     RequestSizeLimitMiddleware,
 )
 
+from .shared_http_deprecation_headers import (
+    LegacyCandidateTrialCompatibilityHeadersMiddleware,
+)
 from .shared_http_middleware_http_config import (
     _cors_config,
     _csrf_allowed_origins,
@@ -102,3 +105,8 @@ def _media_allowed_origins() -> set[str]:
 def configure_security_headers(app: FastAPI) -> None:
     """Execute configure security headers."""
     app.add_middleware(SecurityHeadersMiddleware)
+
+
+def configure_legacy_candidate_trial_compatibility_headers(app: FastAPI) -> None:
+    """Attach legacy Candidate Trial headers after route and error handling."""
+    app.add_middleware(LegacyCandidateTrialCompatibilityHeadersMiddleware)

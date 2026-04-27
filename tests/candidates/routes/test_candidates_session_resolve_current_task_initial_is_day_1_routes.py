@@ -39,10 +39,10 @@ async def test_current_task_initial_is_day_1(async_client, async_session, monkey
     )
 
     res = await async_client.get(
-        f"/api/candidate/session/{cs_id}/current_task",
+        f"/api/candidate/trials/{cs_id}/current_task",
         headers={
             "Authorization": f"Bearer {token}",
-            "x-candidate-session-id": str(cs_id),
+            "x-candidate-trial-id": str(cs_id),
         },
     )
     assert res.status_code == 200, res.text
@@ -60,3 +60,28 @@ async def test_current_task_initial_is_day_1(async_client, async_session, monkey
     assert body["currentWindow"]["windowEndAt"] is not None
     assert isinstance(body["currentWindow"]["isOpen"], bool)
     assert body["currentWindow"]["now"] is not None
+    assert "Deprecation" not in res.headers
+    assert "Link" not in res.headers
+    assert "X-Winoe-Canonical-Resource" not in res.headers
+
+    legacy_res = await async_client.get(
+        f"/api/candidate/session/{cs_id}/current_task",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "x-candidate-session-id": str(cs_id),
+        },
+    )
+    assert legacy_res.status_code == 200, legacy_res.text
+    legacy_body = legacy_res.json()
+    assert legacy_body["currentWindow"].pop("now")
+    canonical_body = {
+        **body,
+        "currentWindow": {**body["currentWindow"]},
+    }
+    assert canonical_body["currentWindow"].pop("now")
+    assert legacy_body == canonical_body
+    assert legacy_res.headers["Deprecation"] == "true"
+    assert legacy_res.headers["X-Winoe-Canonical-Resource"] == "candidate_trials"
+    assert legacy_res.headers["Link"] == (
+        f'</api/candidate/trials/{cs_id}/current_task>; rel="successor-version"'
+    )
