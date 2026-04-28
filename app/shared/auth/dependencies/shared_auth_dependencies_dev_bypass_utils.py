@@ -45,7 +45,8 @@ async def dev_bypass_user(request: Request, db: AsyncSession | None):
         "::1",
         "localhost",
     } or client_host.startswith("::ffff:127.0.0.1")
-    if not is_localhost:
+    has_dev_identity_header = bool(dev_email)
+    if not is_localhost and not (not client_host and has_dev_identity_header):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="DEV_AUTH_BYPASS only allowed from localhost",
