@@ -1,13 +1,22 @@
+from contextlib import asynccontextmanager
+
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
 from app.main import app
 from app.shared.http import shared_http_readiness_service as readiness_service
 
 
+@asynccontextmanager
+async def _client_for(app):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+
 @pytest.mark.asyncio
 async def test_health():
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with _client_for(app) as ac:
         res = await ac.get("/health")
         assert res.status_code == 200
         assert res.json() == {"status": "ok"}
@@ -16,6 +25,7 @@ async def test_health():
 @pytest.mark.asyncio
 async def test_ready_returns_200_when_all_checks_pass(monkeypatch):
     payload = {
+        "demoMode": False,
         "status": "ready",
         "checkedAt": "2026-01-01T00:00:00Z",
         "checks": {
@@ -67,7 +77,7 @@ async def test_ready_returns_200_when_all_checks_pass(monkeypatch):
         fake_build_readiness_payload,
     )
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with _client_for(app) as ac:
         res = await ac.get("/ready")
         assert res.status_code == 200
         assert res.json() == payload
@@ -76,6 +86,7 @@ async def test_ready_returns_200_when_all_checks_pass(monkeypatch):
 @pytest.mark.asyncio
 async def test_ready_returns_503_when_any_check_fails(monkeypatch):
     payload = {
+        "demoMode": False,
         "status": "not_ready",
         "checkedAt": "2026-01-01T00:00:00Z",
         "checks": {
@@ -97,7 +108,7 @@ async def test_ready_returns_503_when_any_check_fails(monkeypatch):
         fake_build_readiness_payload,
     )
 
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+    async with _client_for(app) as ac:
         res = await ac.get("/ready")
         assert res.status_code == 503
         assert res.json() == payload

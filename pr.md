@@ -1,236 +1,193 @@
+## Title
+
+Add deterministic demo provisioning mode with fake GitHub provider for local/YC rehearsal
+
 ## Summary
 
-Implement policy-driven media retention and purge scheduling for Day 4 media artifacts.
+Added production-safe `DEMO_MODE` support for deterministic fake GitHub provisioning used for Winoe AI local and YC rehearsal flows.
 
-This PR adds configurable retention metadata, an expired-media purge path, privacy-safe purge audit records, and a scoped data-request deletion hook. The purge flow redacts transcript content while preserving auditability and Evidence Trail shape.
+The real GitHub provider remains the default and is unchanged. Demo mode is blocked in production, and the fake provider returns stable repo URLs, Codespace URLs, workflow metadata, commit SHAs, compare data, and artifact outputs so Candidate Day 2/3 workspace views and Evidence Trail paths can render without touching real GitHub.
 
-## What changed
+The original issue’s template-generation wording is retired by the v4 pivot. This implementation simulates empty-repo from-scratch provisioning instead.
 
-- Added configurable media retention via `MEDIA_RETENTION_DAYS`.
-- Added retention expiration and purge metadata to recording assets.
-- Added media purge audit records for retention and data-request purges.
-- Added expired-media purge service behavior.
-- Registered the `media_retention_purge` shared worker handler.
-- Added script/operator paths for triggering retention purge.
-- Added scoped data-request media purge support for Candidate sessions.
-- Redacted transcript text/segments during purge instead of silently hard-deleting transcript rows.
-- Preserved idempotency for already-purged media and missing storage objects.
-- Added tests for config, retention selection, purge behavior, audit records, worker registration, operator route behavior, missing storage, and data-request scoping.
+## Why this matters
 
-## Acceptance criteria
+Winoe AI rehearsals need to be fast, repeatable, and safe. Before this change, demo runs could create real repositories, Codespaces, and workflow runs, which made rehearsals slow, expensive, and fragile.
 
-- [x] Configurable retention period
-  - `MEDIA_RETENTION_DAYS` is configurable.
-  - Default remains `45`, matching the existing repo convention.
-  - Invalid values such as `0` are rejected.
+This update makes it possible to rehearse a full Trial, Project Brief, Candidate workspace, and Evidence Trail flow locally or in YC-facing demo environments without external GitHub side effects.
 
-- [x] Purge job for expired media
-  - Expired media is selected by retention metadata.
-  - Purge runs through the media privacy service.
-  - `media_retention_purge` is registered with the shared worker runtime.
-  - Admin/operator and script trigger paths are available.
-  - Purge is idempotent and safe to rerun.
+## Implementation Details
 
-- [x] Audit log for purge events
-  - `media_purge_audits` records purge attempts.
-  - Audit rows include media, Candidate session, Trial, actor, reason, outcome, and safe error summary where applicable.
-  - Worker/system purges use `actor_type=system`.
-  - Operator-triggered purges use `actor_type=operator`.
-  - Audit records do not include signed URLs, credentials, tokens, or raw transcript body.
+- Added `DEMO_MODE` config support in `app/config/`.
+- Added a fake GitHub provider alongside the real provider in `app/integrations/github/`.
+- Wired provisioning through a provider factory so workspace bootstrap, workflow artifact parsing, and readiness checks all respect demo mode.
+- Kept the real `GithubClient` as the default path.
+- Added safe production override behavior so `WINOE_ENV=production` disables demo mode even if `DEMO_MODE=true`.
+- Added deterministic demo data generation for:
+  - empty repository creation
+  - devcontainer/workspace bootstrap
+  - collaborator add
+  - Codespace create/get
+  - workflow dispatch
+  - workflow run metadata
+  - artifact list/download
+  - compare/diff metadata
 
-- [x] Deletion workflows for data requests
-  - Added `purge_candidate_session_media_for_data_request(...)`.
-  - Data-request purge is scoped to the requested Candidate session.
-  - Unrelated Candidate/Trial media is not touched.
-  - Reruns are idempotent.
-  - Audit reason is `data_request`.
+## Production Safety
 
-## QA evidence
+- `DEMO_MODE=true` only activates the fake provider outside production.
+- `ENV=production` or `WINOE_ENV=production` overrides `DEMO_MODE` and keeps the real provider active.
+- Readiness exposes a safe `demoMode` state and skips GitHub readiness in demo mode.
+- The demo-mode warning is logged without exposing secrets.
 
-### Migration / schema
+## Demo Behavior
 
-- `poetry run alembic upgrade head` passed.
-- `poetry run alembic heads` returned `202604200001 (head)`.
-- Verified schema:
-  - `recording_assets.retention_expires_at`
-  - `recording_assets.purge_reason`
-  - `recording_assets.purge_status`
-  - existing `recording_assets.purged_at`
-  - `media_purge_audits`
-- Verified indexes:
-  - `ix_recording_assets_retention_expires_purged`
-  - `ix_media_purge_audits_media_created_at`
-  - `ix_media_purge_audits_reason_created_at`
-  - `ix_media_purge_audits_candidate_session_created_at`
+The fake provider is deterministic for stable demo inputs. The same candidate/session inputs produce the same repo URL, Codespace URL, workflow run metadata, fake SHAs, and artifact names.
 
-### Config verification
+Representative QA samples:
 
-- `poetry run pytest --no-cov -q tests/config/test_config_storage_media_settings_utils.py`
-  - `11 passed in 0.59s`
-- Runtime checks:
-  - default `MEDIA_RETENTION_DAYS = 45`
-  - override `MEDIA_RETENTION_DAYS=7` works
-  - invalid `MEDIA_RETENTION_DAYS=0` is rejected
+- Candidate `7`
+  - repo: `winoe-workspaces/candidate-7`
+  - Codespace URL: `https://codespaces.demo.winoe.ai/candidate-7?ref=main`
+  - bootstrap SHA: `b2ebae120faea7c5b6f4d24f1679331c2180d4d6`
+- Candidate `8`
+  - repo: `winoe-workspaces/candidate-8`
+  - Codespace URL: `https://codespaces.demo.winoe.ai/candidate-8?ref=main`
+  - bootstrap SHA: `7d61e3332aa39d289027ea5bcc0e88e02fafbc37`
+- Candidate `11`
+  - repo: `winoe-workspaces/candidate-11`
+  - Codespace URL: `https://codespaces.demo.winoe.ai/candidate-11?ref=main`
+  - bootstrap SHA: `1d01f9a8daff9e31c5e2164a61235393abb35131`
+  - workflow run: `97838170`
+  - workflow run URL: `https://github.com/winoe-workspaces/candidate-11/actions/runs/97838170`
 
-### Focused automated tests
+Different candidate/session inputs produce distinct stable values, so separate rehearsals remain plausible while still being repeatable.
 
-- `poetry run pytest --no-cov -q tests/config tests/media tests/shared/jobs tests/talent_partners/routes/test_talent_partners_admin_media_purge_routes.py tests/integrations/storage_media/test_integrations_storage_media_s3_provider_delete_object_handles_success_and_missing_service.py`
-  - `332 passed in 19.34s`
+## Evidence Trail Behavior
 
-- Previously failing direct test:
-  - `poetry run pytest --no-cov -q tests/media/repositories/test_media_repositories_recordings_repository_retention_helpers_repository.py`
-  - `2 passed in 0.33s`
+Demo mode produces realistic Evidence Trail artifacts for a from-scratch workspace build, including commit history, file creation timeline, repo tree summary, dependency manifests, test detection, test results, lint detection, lint results, and the evidence manifest.
 
-### Full regression / precommit
+Evidence artifact examples:
 
-- `./precommit.sh`
-  - `1857 passed, 13 warnings`
-  - coverage `96.02%`
-  - required coverage `96%` reached
-  - all precommit checks passed
+- `winoe-commit-metadata`
+- `winoe-file-creation-timeline`
+- `winoe-repo-tree-summary`
+- `winoe-dependency-manifests`
+- `winoe-test-detection`
+- `winoe-test-results`
+- `winoe-lint-detection`
+- `winoe-lint-results`
+- `winoe-evidence-manifest`
 
-- `git diff --check`
-  - passed
+Representative evidence snippets:
 
-## Manual QA evidence
+- first commit message: `Initialize empty Trial workspace`
+- first commit files:
+  - `.devcontainer/devcontainer.json`
+  - `README.md`
+  - `.gitignore`
+  - `.github/workflows/winoe-evidence-capture.yml`
+- repo tree sample:
+  - `.devcontainer/devcontainer.json`
+  - `.gitignore`
+  - `.github/workflows/winoe-evidence-capture.yml`
+  - `README.md`
+  - `docs/runbook.md`
+- test results summary:
+  - `status: passed`
+  - `suite: demo-rehearsal`
+- lint results summary:
+  - `status: passed`
+  - `suite: lint`
 
-### Retention purge success path
+The workflow artifact parse path now uses the provider factory, so demo mode does not bypass fake GitHub when parsing Evidence Trail artifacts.
 
-Seeded:
-- Talent Partner
-- Trial
-- Candidate session
-- Day 4 handoff task
-- ready media asset
-- transcript with text/segments
-- fake storage object
-- expired `retention_expires_at`
+## Tests / QA
 
-Observed:
-- `scanned_count=1`
-- `purged_count=1`
-- `failed_count=0`
-- media `status=purged`
-- `purge_reason=retention_expired`
-- `purge_status=purged`
-- `purged_at` set
-- transcript row still exists
-- transcript `text=null`
-- transcript `segments_json=null`
-- transcript `deleted_at` set
-- storage object removed
-- audit row written with `outcome=success`
-- audit actor type `system`
-- audit actor id `null`
-- Candidate session and Trial context present
+### Full quality gate
 
-### Day 4 upload retention metadata
+- `python3 -m pytest ; echo "PYTEST_EXIT_CODE=$?"`
+  - Exit code: `0`
+  - Result: `1876 passed, 1 skipped`
+  - Coverage: `96.46%`
+  - `coverage.xml` written
+  - Shell printed `PYTEST_EXIT_CODE=0`
 
-Verified Day 4 upload completion sets retention metadata:
-- `status=uploaded`
-- `retention_expires_at` set
-- retention delta matches `45` days
+### Wrapper / precommit-equivalent
 
-### Idempotent rerun
+- `./precommit.sh ; echo "PRECOMMIT_EXIT_CODE=$?"`
+  - Exit code: `0`
+  - Result: `✅ All pre-commit checks passed!`
 
-Second purge against already-purged media:
-- `scanned_count=0`
-- `purged_count=0`
-- `failed_count=0`
-- media stayed purged
-- transcript stayed redacted
-- audit count remained stable
+### Lint / format
 
-### Missing storage object behavior
+- `.venv/bin/ruff check . ; echo "RUFF_CHECK_EXIT_CODE=$?"`
+  - Exit code: `0`
+- `.venv/bin/ruff format --check . ; echo "RUFF_FORMAT_EXIT_CODE=$?"`
+  - Exit code: `0`
 
-Seeded two expired assets:
-- one missing from storage
-- one present in storage
+### Focused #307 tests
 
-Observed:
-- `scanned_count=2`
-- `purged_count=2`
-- `failed_count=0`
-- both media records became purged
-- both transcripts redacted
-- audit rows written with `outcome=success`
-- missing object did not fail the batch
+```bash
+python3 -m pytest --no-cov \
+  tests/integrations/github/test_integrations_github_fake_provider_client.py \
+  tests/submissions/services/test_submissions_workspace_bootstrap_service.py \
+  tests/shared/http/test_shared_http_readiness_service.py \
+  tests/config/test_config_demo_mode_env_values_utils.py \
+  tests/shared/http/dependencies/test_shared_http_dependencies_github_native_service.py \
+  tests/shared/jobs/handlers/test_shared_jobs_handlers_github_workflow_artifact_parse_build_actions_runner_returns_configured_runner_and_client_handler.py \
+  ; echo "FOCUSED_EXIT_CODE=$?"
+```
 
-### Operator-triggered purge
+- Exit code: `0`
+- `36 passed`
 
-Direct admin route invocation returned:
-- `status=ok`
-- `scannedCount=1`
-- `purgedCount=1`
-- `skippedCount=0`
-- `failedCount=0`
+### Manual QA evidence
 
-Audit verified:
-- `actor_type=operator`
-- `actor_id=admin-qa-306`
-- `purge_reason=retention_expired`
+- Local non-production + `DEMO_MODE=true` returns `FakeGithubClient`.
+- Local non-production + `DEMO_MODE=false` returns real `GithubClient`.
+- Production / `WINOE_ENV=production` + `DEMO_MODE=true` suppresses the fake provider and returns real `GithubClient`.
+- Demo-mode warning is safe and does not expose secrets.
+- Same stable inputs return the same repo URL, Codespace URL, workflow metadata, fake SHAs, and artifact names.
+- Different candidate/session inputs produce distinct stable values.
+- Day 2/3 workspace bootstrap works using the fake provider without real GitHub calls.
+- Artifact parse / Evidence Trail path uses the fake provider in demo mode.
+- Readiness payload exposes `demoMode: true` in local demo mode and `demoMode: false` under the production override.
 
-### Shared worker/system purge
+## Grep Verification
 
-Verified:
-- `media_retention_purge` handler is registered.
-- Payload maps `batchLimit` and `retentionDays`.
-- Worker result:
-  - `scannedCount=1`
-  - `purgedCount=1`
-  - `skippedCount=0`
-  - `failedCount=0`
+Commands run:
 
-Audit verified:
-- `actor_type=system`
-- `actor_id=null`
-- `purge_reason=retention_expired`
+```bash
+grep -RniE --exclude-dir='__pycache__' "template_catalog|specializor|precommit|codespace_spec" app tests || true
+grep -RniE --exclude-dir='__pycache__' "Tenon|SimuHire|recruiter|simulation|Fit Profile|Fit Score" app tests || true
+grep -RniE --exclude-dir='__pycache__' "GithubClient\\(|from app.integrations.github.client import GithubClient|app.integrations.github.client" app tests || true
+```
 
-### Data-request deletion hook
+Summary:
 
-Seeded Candidate session A and B under the same Trial.
+- Retired-term hits remain in pre-existing migrations, schema compatibility code, and test assertions.
+- Negative assertion tests intentionally mention retired terms to prove absence.
+- No new active #307 demo path uses retired Winoe v3 or template-era concepts.
+- `GithubClient` hits are expected in the real provider, factory, runners, and tests.
 
-Ran `purge_candidate_session_media_for_data_request(...)` for Candidate session A only.
+## Risks / Follow-Ups
 
-Observed:
-- Candidate session A media purged.
-- Candidate session A transcript redacted.
-- Candidate session A audit reason `data_request`.
-- Candidate session A audit actor `operator`.
-- Candidate session A audit actor id `privacy-qa-operator`.
-- Candidate session B media remained uploaded.
-- Candidate session B transcript remained untouched.
-- Candidate session B had no audit row.
-- Rerun for Candidate session A returned no additional purge work.
+- Demo mode is deterministic by design, so it is appropriate for rehearsals but not for validating live GitHub behavior.
+- The fake provider covers the empty-repo from-scratch flow required for the v4 pivot, not the retired template-generation path.
+- Future changes to the real GitHub provisioning contract should be reflected in the fake provider to keep demo and production behavior aligned.
 
-## Security / privacy
+## Acceptance Criteria Checklist
 
-Verified #306 manual QA logs and audit rows do not contain:
-- signed URLs
-- access tokens
-- storage credentials
-- raw transcript body
-- raw transcript segments
-- full exception traces in operator-facing output
+- [x] `DEMO_MODE=true` switches GitHub integration to a fake provider outside production.
+- [x] Fake provider returns deterministic repo URLs, Codespace URLs, and workflow run metadata.
+- [x] Fake provider simulates empty repo creation, devcontainer commit, collaborator add, Codespace create, workflow dispatch, and artifact download.
+- [x] Candidate Day 2/3 can render a plausible workspace view in demo mode without hitting real GitHub.
+- [x] Evidence Trail in demo mode shows realistic fake commit SHAs, diff summaries, and test results.
+- [x] Demo mode is clearly distinguished from production.
+- [x] Demo mode cannot be enabled in production.
+- [x] Existing real GitHub provider remains the default and is unmodified.
+- [x] The original issue’s template-generation wording is retired by the v4 pivot.
+- [x] The implemented scope is empty-repo from-scratch provisioning.
 
-## Terminology check
-
-Changed-file terminology scan passed with zero hits for retired terms.
-
-## Notes / limitations
-
-- No app-level periodic scheduler/cron cadence exists in this repo.
-- This PR provides the registered shared worker handler, operator/admin trigger path, and script trigger path.
-- Deployment cadence for invoking the idempotent purge job remains an ops concern.
-
-## Risk
-
-Low-to-medium.
-
-The purge path touches privacy-sensitive media and Evidence Trail artifacts, so the risk is primarily around data deletion correctness and auditability. Manual QA covered success, rerun idempotency, missing storage, operator/system actor semantics, and scoped data-request deletion.
-
-## Rollback
-
-Revert this PR and run Alembic downgrade according to repo migration conventions if needed. Existing media records are only purged when the purge job/operator path runs; the migration itself adds metadata/audit structures and backfills retention timestamps.
-
-Fixes #306
+Fixes #307

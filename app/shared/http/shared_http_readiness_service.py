@@ -311,8 +311,7 @@ def _check_github_readiness() -> ReadinessCheck:
     github_cfg = settings.github
     token = str(github_cfg.GITHUB_TOKEN or "").strip()
     org = str(github_cfg.GITHUB_ORG or "").strip()
-    template_owner = str(github_cfg.GITHUB_TEMPLATE_OWNER or "").strip()
-    if settings.DEMO_MODE and not token and not org and not template_owner:
+    if settings.demo_mode_enabled:
         return _readiness_check(
             status="skipped",
             code="demo_mode",
@@ -324,11 +323,11 @@ def _check_github_readiness() -> ReadinessCheck:
             code="no_provider_configured",
             detail="GitHub token is missing.",
         )
-    if not org and not template_owner:
+    if not org:
         return _readiness_check(
             status="not_ready",
             code="missing_github_org",
-            detail="GitHub org or template owner is missing.",
+            detail="GitHub org is missing.",
         )
     return _readiness_check(
         status="ready",
@@ -337,7 +336,6 @@ def _check_github_readiness() -> ReadinessCheck:
         data={
             "apiBase": github_cfg.GITHUB_API_BASE,
             "orgConfigured": bool(org),
-            "templateOwnerConfigured": bool(template_owner),
         },
     )
 
@@ -488,6 +486,7 @@ async def build_readiness_payload(
         else "not_ready"
     )
     return {
+        "demoMode": settings.demo_mode_enabled,
         "status": overall_status,
         "checkedAt": resolved_now.isoformat().replace("+00:00", "Z"),
         "checks": checks,

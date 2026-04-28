@@ -36,3 +36,4 @@ class ReadinessPayload(APIModel):
     status: ReadinessPayloadStatus
     checkedAt: str
     checks: ReadinessChecks
+    demoMode: bool = False

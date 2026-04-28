@@ -30,7 +30,7 @@ async def require_demo_mode_admin(
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> DemoAdminActor:
     """Require demo mode admin."""
-    if not bool(settings.DEMO_MODE):
+    if not settings.demo_mode_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
     principal = await get_principal(credentials, request)

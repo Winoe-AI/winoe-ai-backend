@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import ASGITransport
+from httpx import AsyncClient as _AsyncClient
 
 import app.shared.http.shared_http_middleware_http_middleware as middleware_http
 from app.config import settings
@@ -55,6 +57,17 @@ def _csrf_app() -> FastAPI:
     configure_csrf_protection(app)
     configure_cors(app)
     return app
+
+
+@asynccontextmanager
+async def AsyncClient(*, app: FastAPI, base_url: str = "http://testserver", **kwargs):
+    transport = ASGITransport(app=app)
+    async with _AsyncClient(
+        transport=transport,
+        base_url=base_url,
+        **kwargs,
+    ) as client:
+        yield client
 
 
 __all__ = [name for name in globals() if not name.startswith("__")]

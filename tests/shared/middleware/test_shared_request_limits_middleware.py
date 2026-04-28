@@ -1,6 +1,8 @@
+from contextlib import asynccontextmanager
+
 import pytest
 from fastapi import FastAPI, Request
-from httpx import AsyncByteStream, AsyncClient
+from httpx import ASGITransport, AsyncByteStream, AsyncClient
 
 from app.shared.utils.shared_utils_request_limits_utils import (
     RequestSizeLimitMiddleware,
@@ -19,6 +21,13 @@ class ChunkStream(AsyncByteStream):
         return None
 
 
+@asynccontextmanager
+async def _client_for(app):
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
+        yield client
+
+
 def _limit_test_app(max_body_bytes: int) -> FastAPI:
     app = FastAPI()
 
@@ -34,7 +43,7 @@ def _limit_test_app(max_body_bytes: int) -> FastAPI:
 @pytest.mark.asyncio
 async def test_request_size_limit_blocks_large_body_with_content_length():
     app = _limit_test_app(max_body_bytes=10)
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
+    async with _client_for(app) as client:
         resp = await client.post("/upload", content=b"x" * 20)
     assert resp.status_code == 413
     assert resp.json()["detail"] == "Request body too large"
@@ -44,7 +53,7 @@ async def test_request_size_limit_blocks_large_body_with_content_length():
 async def test_request_size_limit_blocks_streaming_body_without_content_length():
     app = _limit_test_app(max_body_bytes=10)
     stream = ChunkStream([b"x" * 8, b"y" * 8])
-    async with AsyncClient(app=app, base_url="http://testserver") as client:
+    async with _client_for(app) as client:
         resp = await client.post("/upload", content=stream)
     assert resp.status_code == 413
     assert resp.json()["detail"] == "Request body too large"
