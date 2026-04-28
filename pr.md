@@ -1,193 +1,239 @@
-## Title
-
-Add deterministic demo provisioning mode with fake GitHub provider for local/YC rehearsal
-
 ## Summary
 
-Added production-safe `DEMO_MODE` support for deterministic fake GitHub provisioning used for Winoe AI local and YC rehearsal flows.
+This PR adds a deterministic YC demo seed/reset path that creates a complete golden-path Winoe dataset:
 
-The real GitHub provider remains the default and is unchanged. Demo mode is blocked in production, and the fake provider returns stable repo URLs, Codespace URLs, workflow metadata, commit SHAs, compare data, and artifact outputs so Candidate Day 2/3 workspace views and Evidence Trail paths can render without touching real GitHub.
+- one demo Talent Partner
+- one demo company
+- one from-scratch Tech Trial
+- a realistic Project Brief
+- two completed Candidate sessions
+- all 5 Trial days submitted for both Candidates
+- a fake GitHub empty-repo/devcontainer/README bootstrap path
+- Winoe Reports with Winoe Scores, day scores, reviewer reports, strengths, concerns, and Evidence Trail citations
+- candidate comparison / Benchmarks readiness
+- founder-facing `YC_DEMO_CHECKLIST.md`
 
-The original issue’s template-generation wording is retired by the v4 pivot. This implementation simulates empty-repo from-scratch provisioning instead.
+Final commands:
 
-## Why this matters
+```bash
+poetry run python -m scripts.seed_demo --github-provider fake --reset-db
+./scripts/seed_demo.sh --github-provider fake --reset-db
+```
 
-Winoe AI rehearsals need to be fast, repeatable, and safe. Before this change, demo runs could create real repositories, Codespaces, and workflow runs, which made rehearsals slow, expensive, and fragile.
+## Why
 
-This update makes it possible to rehearse a full Trial, Project Brief, Candidate workspace, and Evidence Trail flow locally or in YC-facing demo environments without external GitHub side effects.
+This closes the YC/demo gap by making demo data regenerable deterministically. Live rehearsals no longer require manual setup, which reduces the risk of stale data, missing reports, or terminology leaks and gives the team a repeatable way to show the full Winoe loop end to end.
 
 ## Implementation Details
 
-- Added `DEMO_MODE` config support in `app/config/`.
-- Added a fake GitHub provider alongside the real provider in `app/integrations/github/`.
-- Wired provisioning through a provider factory so workspace bootstrap, workflow artifact parsing, and readiness checks all respect demo mode.
-- Kept the real `GithubClient` as the default path.
-- Added safe production override behavior so `WINOE_ENV=production` disables demo mode even if `DEMO_MODE=true`.
-- Added deterministic demo data generation for:
-  - empty repository creation
-  - devcontainer/workspace bootstrap
-  - collaborator add
-  - Codespace create/get
-  - workflow dispatch
-  - workflow run metadata
-  - artifact list/download
-  - compare/diff metadata
+- New demo seed service: `app/demo/services/yc_demo_seed_service.py`
+- CLI entrypoint: `scripts/seed_demo.py`
+- Shell wrapper: `scripts/seed_demo.sh`
+- Checklist: `YC_DEMO_CHECKLIST.md`
+- Tests: `tests/demo/services/test_demo_yc_seed_service.py`
 
-## Production Safety
+Important behavior:
 
-- `DEMO_MODE=true` only activates the fake provider outside production.
-- `ENV=production` or `WINOE_ENV=production` overrides `DEMO_MODE` and keeps the real provider active.
-- Readiness exposes a safe `demoMode` state and skips GitHub readiness in demo mode.
-- The demo-mode warning is logged without exposing secrets.
+- fake provider works without real GitHub credentials
+- real provider validates required config and fails before reset when config is missing
+- normal reruns refresh only demo-scoped records
+- `--reset-db` performs explicit full database reset
+- production-like destructive reset is blocked
+- non-demo rows are preserved on normal reruns
+- wrapper forwards CLI args
+- seed reports are persisted through the normal Winoe Report/report-fetch shape
 
-## Demo Behavior
+## QA Evidence
 
-The fake provider is deterministic for stable demo inputs. The same candidate/session inputs produce the same repo URL, Codespace URL, workflow run metadata, fake SHAs, and artifact names.
-
-Representative QA samples:
-
-- Candidate `7`
-  - repo: `winoe-workspaces/candidate-7`
-  - Codespace URL: `https://codespaces.demo.winoe.ai/candidate-7?ref=main`
-  - bootstrap SHA: `b2ebae120faea7c5b6f4d24f1679331c2180d4d6`
-- Candidate `8`
-  - repo: `winoe-workspaces/candidate-8`
-  - Codespace URL: `https://codespaces.demo.winoe.ai/candidate-8?ref=main`
-  - bootstrap SHA: `7d61e3332aa39d289027ea5bcc0e88e02fafbc37`
-- Candidate `11`
-  - repo: `winoe-workspaces/candidate-11`
-  - Codespace URL: `https://codespaces.demo.winoe.ai/candidate-11?ref=main`
-  - bootstrap SHA: `1d01f9a8daff9e31c5e2164a61235393abb35131`
-  - workflow run: `97838170`
-  - workflow run URL: `https://github.com/winoe-workspaces/candidate-11/actions/runs/97838170`
-
-Different candidate/session inputs produce distinct stable values, so separate rehearsals remain plausible while still being repeatable.
-
-## Evidence Trail Behavior
-
-Demo mode produces realistic Evidence Trail artifacts for a from-scratch workspace build, including commit history, file creation timeline, repo tree summary, dependency manifests, test detection, test results, lint detection, lint results, and the evidence manifest.
-
-Evidence artifact examples:
-
-- `winoe-commit-metadata`
-- `winoe-file-creation-timeline`
-- `winoe-repo-tree-summary`
-- `winoe-dependency-manifests`
-- `winoe-test-detection`
-- `winoe-test-results`
-- `winoe-lint-detection`
-- `winoe-lint-results`
-- `winoe-evidence-manifest`
-
-Representative evidence snippets:
-
-- first commit message: `Initialize empty Trial workspace`
-- first commit files:
-  - `.devcontainer/devcontainer.json`
-  - `README.md`
-  - `.gitignore`
-  - `.github/workflows/winoe-evidence-capture.yml`
-- repo tree sample:
-  - `.devcontainer/devcontainer.json`
-  - `.gitignore`
-  - `.github/workflows/winoe-evidence-capture.yml`
-  - `README.md`
-  - `docs/runbook.md`
-- test results summary:
-  - `status: passed`
-  - `suite: demo-rehearsal`
-- lint results summary:
-  - `status: passed`
-  - `suite: lint`
-
-The workflow artifact parse path now uses the provider factory, so demo mode does not bypass fake GitHub when parsing Evidence Trail artifacts.
-
-## Tests / QA
-
-### Full quality gate
-
-- `python3 -m pytest ; echo "PYTEST_EXIT_CODE=$?"`
-  - Exit code: `0`
-  - Result: `1876 passed, 1 skipped`
-  - Coverage: `96.46%`
-  - `coverage.xml` written
-  - Shell printed `PYTEST_EXIT_CODE=0`
-
-### Wrapper / precommit-equivalent
-
-- `./precommit.sh ; echo "PRECOMMIT_EXIT_CODE=$?"`
-  - Exit code: `0`
-  - Result: `✅ All pre-commit checks passed!`
-
-### Lint / format
-
-- `.venv/bin/ruff check . ; echo "RUFF_CHECK_EXIT_CODE=$?"`
-  - Exit code: `0`
-- `.venv/bin/ruff format --check . ; echo "RUFF_FORMAT_EXIT_CODE=$?"`
-  - Exit code: `0`
-
-### Focused #307 tests
+### Migration
 
 ```bash
-python3 -m pytest --no-cov \
-  tests/integrations/github/test_integrations_github_fake_provider_client.py \
-  tests/submissions/services/test_submissions_workspace_bootstrap_service.py \
-  tests/shared/http/test_shared_http_readiness_service.py \
-  tests/config/test_config_demo_mode_env_values_utils.py \
-  tests/shared/http/dependencies/test_shared_http_dependencies_github_native_service.py \
-  tests/shared/jobs/handlers/test_shared_jobs_handlers_github_workflow_artifact_parse_build_actions_runner_returns_configured_runner_and_client_handler.py \
-  ; echo "FOCUSED_EXIT_CODE=$?"
+./runBackend.sh migrate
 ```
 
-- Exit code: `0`
-- `36 passed`
+Result: passed.
 
-### Manual QA evidence
-
-- Local non-production + `DEMO_MODE=true` returns `FakeGithubClient`.
-- Local non-production + `DEMO_MODE=false` returns real `GithubClient`.
-- Production / `WINOE_ENV=production` + `DEMO_MODE=true` suppresses the fake provider and returns real `GithubClient`.
-- Demo-mode warning is safe and does not expose secrets.
-- Same stable inputs return the same repo URL, Codespace URL, workflow metadata, fake SHAs, and artifact names.
-- Different candidate/session inputs produce distinct stable values.
-- Day 2/3 workspace bootstrap works using the fake provider without real GitHub calls.
-- Artifact parse / Evidence Trail path uses the fake provider in demo mode.
-- Readiness payload exposes `demoMode: true` in local demo mode and `demoMode: false` under the production override.
-
-## Grep Verification
-
-Commands run:
+### Seed Runs
 
 ```bash
-grep -RniE --exclude-dir='__pycache__' "template_catalog|specializor|precommit|codespace_spec" app tests || true
-grep -RniE --exclude-dir='__pycache__' "Tenon|SimuHire|recruiter|simulation|Fit Profile|Fit Score" app tests || true
-grep -RniE --exclude-dir='__pycache__' "GithubClient\\(|from app.integrations.github.client import GithubClient|app.integrations.github.client" app tests || true
+poetry run python -m scripts.seed_demo --github-provider fake --reset-db
+poetry run python -m scripts.seed_demo --github-provider fake --reset-db
+./scripts/seed_demo.sh --github-provider fake --reset-db
+poetry run python -m scripts.seed_demo --github-provider fake
 ```
 
-Summary:
+Result: passed.
 
-- Retired-term hits remain in pre-existing migrations, schema compatibility code, and test assertions.
-- Negative assertion tests intentionally mention retired terms to prove absence.
-- No new active #307 demo path uses retired Winoe v3 or template-era concepts.
-- `GithubClient` hits are expected in the real provider, factory, runners, and tests.
+Deterministic output:
 
-## Risks / Follow-Ups
+```text
+YC demo seed ready: company_id=1, trial_id=1, candidate_session_ids=[1, 2], repos=['winoe-ai-demo/yc-demo-candidate-avery-chen', 'winoe-ai-demo/yc-demo-candidate-jordan-patel']
+```
 
-- Demo mode is deterministic by design, so it is appropriate for rehearsals but not for validating live GitHub behavior.
-- The fake provider covers the empty-repo from-scratch flow required for the v4 pivot, not the retired template-generation path.
-- Future changes to the real GitHub provisioning contract should be reflected in the fake provider to keep demo and production behavior aligned.
+The normal non-reset rerun preserved the non-demo sentinel company/user.
 
-## Acceptance Criteria Checklist
+### Database Verification
 
-- [x] `DEMO_MODE=true` switches GitHub integration to a fake provider outside production.
-- [x] Fake provider returns deterministic repo URLs, Codespace URLs, and workflow run metadata.
-- [x] Fake provider simulates empty repo creation, devcontainer commit, collaborator add, Codespace create, workflow dispatch, and artifact download.
-- [x] Candidate Day 2/3 can render a plausible workspace view in demo mode without hitting real GitHub.
-- [x] Evidence Trail in demo mode shows realistic fake commit SHAs, diff summaries, and test results.
-- [x] Demo mode is clearly distinguished from production.
-- [x] Demo mode cannot be enabled in production.
-- [x] Existing real GitHub provider remains the default and is unmodified.
-- [x] The original issue’s template-generation wording is retired by the v4 pivot.
-- [x] The implemented scope is empty-repo from-scratch provisioning.
+Final verified counts:
 
-Fixes #307
+- 1 demo company
+- 1 demo Talent Partner
+- 1 Trial
+- 2 candidate sessions
+- 10 submissions
+- 2 Winoe Reports
+- 2 evaluation runs
+- 10 day scores
+- 10 reviewer reports
+- 2 recordings
+- 2 transcripts
+- 2 workspaces
+- 2 workspace groups
+
+Additional verification:
+
+- both Candidate sessions are completed
+- both have `completed_at`
+- both are tied to the same Trial
+- Candidate A score is higher than Candidate B score
+
+### Winoe Report Verification
+
+Service path used:
+
+```text
+fetch_winoe_report(...)
+```
+
+Candidate A:
+
+- name: Avery Chen
+- report status: ready
+- Winoe Score: 0.91
+- day scores: 5
+- reviewer reports: 5
+- evidence citations: 10
+- citations point to persisted artifacts: yes
+
+Candidate B:
+
+- name: Jordan Patel
+- report status: ready
+- Winoe Score: 0.74
+- day scores: 5
+- reviewer reports: 5
+- evidence citations: 10
+- citations point to persisted artifacts: yes
+
+### Candidate Comparison / Benchmarks Verification
+
+Service used:
+
+```text
+list_candidates_compare_summary(...)
+```
+
+Verified:
+
+- `cohortSize=2`
+- both candidates present
+- both evaluated
+- both `winoeReportStatus=ready`
+- scores: `0.91` and `0.74`
+- result stayed scoped to the seeded Trial
+
+### GitHub Provider Safety
+
+Fake provider:
+
+- passed
+- works with `WINOE_GITHUB_ORG` and `WINOE_GITHUB_TOKEN` blanked
+- deterministic repo names
+- no fallback to real provider
+- uses `FakeGithubClient`
+
+Real provider blank-config check:
+
+```bash
+WINOE_GITHUB_ORG= WINOE_GITHUB_TOKEN= poetry run python -m scripts.seed_demo --github-provider real --reset-db
+```
+
+Result: failed as expected before reset with:
+
+```text
+RuntimeError: Real GitHub provider mode requires WINOE_GITHUB_ORG and WINOE_GITHUB_TOKEN.
+```
+
+No silent fallback was observed.
+
+### Terminology Verification
+
+Denylist grep command:
+
+```bash
+rg -n -i 'tenon|simuhire|recruiter|simulation|fit profile|fit_profile|fit score|fit_score|template_catalog|precommit|specializor|codespace specification|codespace_spec|starter code|pre-populated codebase' app/demo/services/yc_demo_seed_service.py scripts/seed_demo.py scripts/seed_demo.sh tests/demo/services/test_demo_yc_seed_service.py YC_DEMO_CHECKLIST.md
+```
+
+Result: no matches.
+
+Compatibility references that remain are limited to existing schema fields:
+
+- `scenario_template = ""`
+- `template_key`
+- `template_repo_full_name=None`
+
+No seeded narrative content, checklist text, Project Brief text, Winoe Report text, Evidence Trail text, or Candidate artifact text uses retired terminology.
+
+### Focused Tests
+
+```bash
+poetry run ruff check app/demo/services/yc_demo_seed_service.py scripts/seed_demo.py tests/demo/services/test_demo_yc_seed_service.py
+poetry run pytest -q tests/core/test_core_migration_preservation_utils.py -o addopts=""
+poetry run pytest -q tests/demo/services/test_demo_yc_seed_service.py -o addopts=""
+```
+
+Results:
+
+- ruff passed
+- core migration preservation checks passed
+- demo seed service tests passed: `10 passed`
+
+### Quality Gate
+
+```bash
+bash precommit.sh
+```
+
+Result:
+
+```text
+1887 passed, 14 warnings
+Required test coverage of 96% reached. Total coverage: 96.07%
+✅ All pre-commit checks passed!
+```
+
+## Risks / Follow-ups
+
+- Real GitHub provider live repo creation was not fully exercised with valid credentials in this QA pass.
+- Real provider now fails before reset when required config is blank or missing, but invalid non-empty GitHub access can still fail later during repo creation; a stronger repo-access dry-run can be a future hardening item.
+- Existing legacy schema fields such as `template_key` remain because removing them is outside #308 and belongs to the broader rebrand/pivot cleanup.
+
+## Acceptance Checklist
+
+- [x] Single seed command creates complete demo dataset
+- [x] Wrapper command works
+- [x] Full reset path works
+- [x] Normal demo-scoped rerun works
+- [x] Non-demo data preserved on normal rerun
+- [x] Talent Partner seeded
+- [x] Trial seeded
+- [x] Two candidate sessions seeded
+- [x] All five days submitted for both candidates
+- [x] Winoe Reports generated
+- [x] Winoe Scores populated
+- [x] Evidence Trail citations linked
+- [x] Fake GitHub provider works
+- [x] Real provider missing-config path fails safely
+- [x] `YC_DEMO_CHECKLIST.md` added
+- [x] Retired terminology denied in seeded/demo files
+- [x] Precommit passes
