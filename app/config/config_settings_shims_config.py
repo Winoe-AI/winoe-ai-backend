@@ -5,6 +5,10 @@ from __future__ import annotations
 import os
 
 
+def _is_truthy(value: object) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
 class SettingsShimMixin:
     """Represent settings shim mixin data and behavior."""
 
@@ -57,3 +61,23 @@ class SettingsShimMixin:
         env_val = os.getenv("DEV_AUTH_BYPASS") or os.getenv("WINOE_DEV_AUTH_BYPASS")
         value = (env_val if env_val is not None else self.DEV_AUTH_BYPASS) or ""
         return value.strip() == "1"
+
+    def is_production_environment(self) -> bool:
+        """Return whether the configured runtime environment is production."""
+        env_candidates = (
+            os.getenv("WINOE_ENV"),
+            os.getenv("ENV"),
+            getattr(self, "ENV", None),
+        )
+        return any(
+            str(env).strip().lower() in {"prod", "production"}
+            for env in env_candidates
+            if env is not None and str(env).strip()
+        )
+
+    @property
+    def demo_mode_enabled(self) -> bool:
+        """Return whether demo mode is active outside production."""
+        return _is_truthy(getattr(self, "DEMO_MODE", None)) and not (
+            self.is_production_environment()
+        )

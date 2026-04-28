@@ -8,6 +8,9 @@ from typing import Any
 from app.config import settings
 from app.integrations.github import GithubClient
 from app.integrations.github.actions_runner import GithubActionsRunner
+from app.integrations.github.integrations_github_factory_client import (
+    get_github_provisioning_client,
+)
 from app.integrations.github.webhooks.handlers.integrations_github_webhooks_handlers_workflow_run_handler import (
     GITHUB_WORKFLOW_ARTIFACT_PARSE_JOB_TYPE,
 )
@@ -44,11 +47,7 @@ def _normalized_text(value: Any) -> str | None:
 
 
 def _build_actions_runner() -> tuple[GithubActionsRunner, GithubClient]:
-    github_client = GithubClient(
-        base_url=settings.github.GITHUB_API_BASE,
-        token=settings.github.GITHUB_TOKEN,
-        default_org=settings.github.GITHUB_ORG or None,
-    )
+    github_client = get_github_provisioning_client()
     runner = GithubActionsRunner(
         github_client,
         workflow_file=settings.github.GITHUB_ACTIONS_WORKFLOW_FILE,

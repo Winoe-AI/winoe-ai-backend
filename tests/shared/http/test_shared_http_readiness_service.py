@@ -110,6 +110,93 @@ def test_inspect_schema_reports_missing_table_and_fk(monkeypatch):
     assert "candidate_sessions" in result.data["missingTables"]
 
 
+def test_inspect_schema_reports_missing_foreign_keys_when_tables_exist(monkeypatch):
+    inspector = _FakeSchemaInspector(
+        [
+            "candidate_sessions",
+            "jobs",
+            "scenario_versions",
+            "tasks",
+            "trials",
+            "worker_heartbeats",
+        ],
+        {
+            "candidate_sessions": [
+                {
+                    "constrained_columns": ["trial_id"],
+                    "referred_table": "trials",
+                    "referred_columns": ["id"],
+                }
+            ],
+            "scenario_versions": [],
+            "tasks": [],
+        },
+    )
+    monkeypatch.setattr(readiness_service, "inspect", lambda _conn: inspector)
+
+    result = readiness_service._inspect_schema(object())
+
+    assert result.status == "not_ready"
+    assert result.code == "schema_mismatch"
+    assert "missingForeignKeys" in result.data
+    assert "candidate_sessions" in result.data["missingForeignKeys"]
+    assert "scenario_versions" in result.data["missingForeignKeys"]
+    assert "tasks" in result.data["missingForeignKeys"]
+
+
+def test_utc_now_and_aggregate_status_normalize_inputs():
+    naive_now = datetime(2026, 4, 27, 12, 0)
+    aware_now = datetime(2026, 4, 27, 12, 0, tzinfo=UTC)
+
+    normalized_naive = readiness_service._utc_now(naive_now)
+    normalized_aware = readiness_service._utc_now(aware_now)
+    all_skipped = readiness_service._aggregate_status(
+        [
+            readiness_service.ReadinessCheck(status="skipped", code="a", detail="a"),
+            readiness_service.ReadinessCheck(status="skipped", code="b", detail="b"),
+        ]
+    )
+    mixed_status = readiness_service._aggregate_status(
+        [
+            readiness_service.ReadinessCheck(status="ready", code="a", detail="a"),
+            readiness_service.ReadinessCheck(status="skipped", code="b", detail="b"),
+        ]
+    )
+
+    assert normalized_naive.tzinfo is UTC
+    assert normalized_aware.tzinfo is UTC
+    assert all_skipped == "skipped"
+    assert mixed_status == "ready"
+
+
+@pytest.mark.asyncio
+async def test_check_ai_readiness_aggregates_resolvers_and_status(monkeypatch):
+    monkeypatch.setattr(readiness_service.settings, "OPENAI_API_KEY", "test-openai")
+    monkeypatch.setattr(
+        readiness_service.settings, "ANTHROPIC_API_KEY", "test-anthropic"
+    )
+    monkeypatch.setattr(
+        readiness_service,
+        "_AI_FEATURE_RESOLVERS",
+        {
+            "scenarioGeneration": lambda: SimpleNamespace(
+                runtime_mode="demo", provider="openai"
+            ),
+            "transcription": lambda: SimpleNamespace(
+                runtime_mode="real", provider="anthropic"
+            ),
+        },
+    )
+
+    result = await readiness_service.check_ai_readiness()
+
+    assert result.status == "ready"
+    assert result.code == "ai_providers_ready"
+    assert set(result.data["checks"]) == {"scenarioGeneration", "transcription"}
+    assert result.data["checks"]["scenarioGeneration"]["status"] == "skipped"
+    assert result.data["checks"]["transcription"]["status"] == "ready"
+
+
 @pytest.mark.asyncio
 async def test_check_database_readiness_returns_specific_schema_failure(monkeypatch):
     class _BrokenConnection:
@@ -188,7 +275,7 @@ def test_check_github_readiness_covers_demo_and_configured_modes(monkeypatch):
     github_cfg = SimpleNamespace(
         GITHUB_TOKEN="",
         GITHUB_ORG="",
-        GITHUB_TEMPLATE_OWNER="",
+        GITHUB_TEMPLATE_OWNER="legacy-template-owner",
         GITHUB_API_BASE="https://api.github.com",
     )
     monkeypatch.setattr(readiness_service.settings, "DEMO_MODE", True)
@@ -212,6 +299,24 @@ def test_check_github_readiness_covers_demo_and_configured_modes(monkeypatch):
     ready = readiness_service._check_github_readiness()
     assert ready.status == "ready"
     assert ready.code == "provider_ready"
+
+
+def test_check_github_readiness_skips_demo_mode_even_with_legacy_template_owner(
+    monkeypatch,
+):
+    github_cfg = SimpleNamespace(
+        GITHUB_TOKEN="token",
+        GITHUB_ORG="winoe-ai",
+        GITHUB_TEMPLATE_OWNER="legacy-template-owner",
+        GITHUB_API_BASE="https://api.github.com",
+    )
+    monkeypatch.setattr(readiness_service.settings, "DEMO_MODE", True)
+    monkeypatch.setattr(readiness_service.settings, "github", github_cfg)
+
+    skipped = readiness_service._check_github_readiness()
+
+    assert skipped.status == "skipped"
+    assert skipped.code == "demo_mode"
 
 
 def test_check_email_readiness_covers_all_provider_modes(monkeypatch):
@@ -448,6 +553,7 @@ async def test_build_readiness_payload_aggregates_status_and_checked_at(monkeypa
     )
 
     assert payload["status"] == "not_ready"
+    assert payload["demoMode"] is False
     assert payload["checkedAt"] == "2026-01-01T00:00:00Z"
     assert payload["checks"]["worker"]["status"] == "not_ready"
     assert payload["checks"]["worker"]["data"] == {"ageSeconds": 200}
@@ -491,6 +597,7 @@ async def test_build_readiness_payload_returns_ready_when_all_checks_ready(monke
     )
 
     assert payload["status"] == "ready"
+    assert payload["demoMode"] is False
     assert set(payload["checks"]) == {
         "database",
         "worker",

@@ -10,15 +10,14 @@ from fastapi import Depends
 from app.config import settings
 from app.integrations.github import GithubClient
 from app.integrations.github.actions_runner import GithubActionsRunner
+from app.integrations.github.integrations_github_factory_client import (
+    get_github_provisioning_client,
+)
 
 
 @lru_cache(maxsize=1)
 def _github_client_singleton() -> GithubClient:
-    return GithubClient(
-        base_url=settings.github.GITHUB_API_BASE,
-        token=settings.github.GITHUB_TOKEN,
-        default_org=settings.github.GITHUB_ORG or None,
-    )
+    return get_github_provisioning_client()
 
 
 def get_github_client() -> GithubClient:
@@ -40,7 +39,8 @@ def get_actions_runner(
     github_client: Annotated[GithubClient, Depends(get_github_client)],
 ) -> GithubActionsRunner:
     """Actions runner dependency with configured workflow file."""
-    if github_client is not _github_client_singleton():
+    current_client = _github_client_singleton()
+    if github_client is not current_client:
         return GithubActionsRunner(
             github_client,
             workflow_file=settings.github.GITHUB_ACTIONS_WORKFLOW_FILE,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import httpx
@@ -64,6 +65,16 @@ def _assert_safe_error(response, *forbidden_values: str | None) -> None:
     for value in forbidden_values:
         if value:
             assert value not in body
+
+
+@asynccontextmanager
+async def _client_for(app):
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://testserver",
+    ) as client:
+        yield client
 
 
 @pytest.mark.asyncio
@@ -448,7 +459,7 @@ async def test_cors_allows_configured_frontend_origin(monkeypatch):
     _configure_security_settings(monkeypatch, env="prod")
     cors_app = _csrf_app()
 
-    async with httpx.AsyncClient(app=cors_app, base_url="http://testserver") as client:
+    async with _client_for(cors_app) as client:
         response = await client.get(
             "/api/demo",
             headers={"Origin": "https://frontend.winoe.ai"},
@@ -466,7 +477,7 @@ async def test_cors_rejects_untrusted_origin(monkeypatch):
     _configure_security_settings(monkeypatch, env="prod")
     cors_app = _csrf_app()
 
-    async with httpx.AsyncClient(app=cors_app, base_url="http://testserver") as client:
+    async with _client_for(cors_app) as client:
         response = await client.get(
             "/api/demo",
             headers={"Origin": "https://evil.example"},
@@ -482,7 +493,7 @@ async def test_cors_preflight_is_not_permissive_for_untrusted_origin(monkeypatch
     _configure_security_settings(monkeypatch, env="prod")
     cors_app = _csrf_app()
 
-    async with httpx.AsyncClient(app=cors_app, base_url="http://testserver") as client:
+    async with _client_for(cors_app) as client:
         response = await client.options(
             "/api/demo",
             headers={
@@ -512,7 +523,7 @@ async def test_cross_origin_state_changing_cookie_request_is_rejected(monkeypatc
     _configure_security_settings(monkeypatch, env="prod")
     csrf_app = _csrf_app()
 
-    async with httpx.AsyncClient(app=csrf_app, base_url="http://testserver") as client:
+    async with _client_for(csrf_app) as client:
         response = await client.post(
             "/api/demo",
             headers={"Origin": "https://evil.example", "Cookie": "session=abc"},
@@ -531,7 +542,7 @@ async def test_same_origin_state_changing_cookie_request_is_allowed(monkeypatch)
     _configure_security_settings(monkeypatch, env="prod")
     csrf_app = _csrf_app()
 
-    async with httpx.AsyncClient(app=csrf_app, base_url="http://testserver") as client:
+    async with _client_for(csrf_app) as client:
         response = await client.post(
             "/api/demo",
             headers={

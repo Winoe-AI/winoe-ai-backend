@@ -23,9 +23,11 @@ def _is_truthy(value) -> bool:
 
 def is_demo_mode_enabled() -> bool:
     """Return whether demo mode enabled."""
-    if _is_truthy(getattr(settings, "DEMO_MODE", False)):
+    if settings.demo_mode_enabled:
         return True
-    if any(_is_truthy(os.getenv(key)) for key in DEMO_MODE_ENV_KEYS):
+    if not settings.is_production_environment() and any(
+        _is_truthy(os.getenv(key)) for key in DEMO_MODE_ENV_KEYS
+    ):
         return True
     return allow_demo_or_test_mode(resolve_scenario_generation_config().runtime_mode)
 
