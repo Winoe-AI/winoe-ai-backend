@@ -70,9 +70,7 @@ async def get_principal(
                 _is_local_client(request)
                 or (
                     not (getattr(request.client, "host", "") or "").strip()
-                    and bool(
-                        (request.headers.get("x-dev-user-email") or "").strip()
-                    )
+                    and bool((request.headers.get("x-dev-user-email") or "").strip())
                 )
             )
         ):
