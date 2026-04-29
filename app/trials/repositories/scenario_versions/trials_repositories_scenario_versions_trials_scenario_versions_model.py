@@ -74,6 +74,8 @@ class ScenarioVersion(Base, TimestampMixin):
         nullable=False,
         default=dict,
     )
+    # Legacy DB column name retained for historical rows; this stores the
+    # generated Project Brief markdown and is not a codespace spec artifact.
     project_brief_md: Mapped[str | None] = mapped_column(
         "codespace_spec_json",
         JSON,
