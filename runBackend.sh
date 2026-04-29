@@ -35,7 +35,11 @@ load_environment() {
 apply_local_defaults() {
   if [[ -z "${WINOE_ENV:-}" || "${WINOE_ENV:-}" == "local" ]]; then
     export WINOE_ENV="${WINOE_ENV:-local}"
-    export DEV_AUTH_BYPASS="${DEV_AUTH_BYPASS:-1}"
+    if [[ "${CONTRACT_LIVE_DEV_AUTH_BYPASS:-}" == "1" || "${WINOE_DEV_AUTH_BYPASS:-}" == "1" ]]; then
+      export DEV_AUTH_BYPASS=1
+    else
+      export DEV_AUTH_BYPASS="${DEV_AUTH_BYPASS:-1}"
+    fi
     # Local runs should exercise the real provider path by default, but only
     # when the caller did not already choose the runtime/provider explicitly.
     export WINOE_SCENARIO_GENERATION_RUNTIME_MODE="${WINOE_SCENARIO_GENERATION_RUNTIME_MODE:-real}"

@@ -66,7 +66,13 @@ async def get_principal(
         elif (
             env == "local"
             and settings.dev_auth_bypass_enabled
-            and _is_local_client(request)
+            and (
+                _is_local_client(request)
+                or (
+                    not (getattr(request.client, "host", "") or "").strip()
+                    and bool((request.headers.get("x-dev-user-email") or "").strip())
+                )
+            )
         ):
             prefix, email = parsed_dev
             claims = {
