@@ -9,6 +9,7 @@ from typing import Any
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
     EvaluationRun,
 )
+from app.shared.branding import sanitize_legacy_github_payload
 
 from .evaluations_services_evaluations_winoe_report_composer_day_scores_service import (
     _compose_day_scores,
@@ -120,11 +121,12 @@ def build_ready_payload(run: EvaluationRun) -> dict[str, Any]:
     generated_at = _normalize_datetime(
         run.generated_at or run.completed_at or run.started_at
     )
-    return {
+    payload = {
         "status": "ready",
         "generatedAt": generated_at,
         "report": compose_report(run),
     }
+    return sanitize_legacy_github_payload(payload)
 
 
 __all__ = [

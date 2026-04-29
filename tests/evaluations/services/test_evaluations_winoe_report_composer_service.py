@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from copy import deepcopy
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
@@ -108,6 +110,7 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
     serialized = WinoeReportStatusResponse(**payload).model_dump()
     serialized_evidence = serialized["report"]["dayScores"][0]["evidence"][0]
     assert serialized_evidence["dimensionKey"] == "development_process"
+    assert serialized_evidence["url"] == "https://github.com/acme/repo/commit/abc123"
 
     transcript_evidence = report["dayScores"][1]["evidence"][0]
     assert transcript_evidence["kind"] == "transcript"
@@ -143,6 +146,86 @@ def test_build_ready_payload_translates_persisted_lean_hire_recommendation():
 
     payload = build_ready_payload(run)
     assert payload["report"]["recommendation"] == "mixed_signal"
+
+
+def test_build_ready_payload_sanitizes_legacy_github_refs_without_mutating_raw_report():
+    raw_report_json = {
+        "overallWinoeScore": 0.58,
+        "note": "https://github.com/tenon-hire-dev/tenon-ws-9-coding",
+        "template": "tenon-template-legacy",
+        "nested": [
+            {
+                "repo": "tenon-hire-dev/tenon-ws-9-coding",
+                "url": "https://github.com/tenon-hire-dev/tenon-template-legacy",
+            }
+        ],
+    }
+    run = SimpleNamespace(
+        overall_winoe_score=0.58,
+        recommendation="hire",
+        confidence=0.61,
+        raw_report_json=deepcopy(raw_report_json),
+        scenario_version_id=1,
+        day_scores=[
+            SimpleNamespace(
+                day_index=2,
+                score=0.58,
+                rubric_results_json={"signal": 0.58},
+                evidence_pointers_json=[
+                    {
+                        "kind": "commit",
+                        "ref": "abc123",
+                        "url": "https://github.com/tenon-hire-dev/tenon-ws-9-coding/commit/abc123",
+                    },
+                    {
+                        "kind": "commit",
+                        "ref": "abc123",
+                        "url": "https://github.com/tenon-hire-dev/tenon-template-legacy",
+                    },
+                ],
+            )
+        ],
+        reviewer_reports=[
+            SimpleNamespace(
+                id=1,
+                day_index=2,
+                reviewer_agent_key="codeImplementationReviewer",
+                submission_kind="code",
+                score=0.58,
+                dimensional_scores_json={"quality": 0.58},
+                evidence_citations_json=[
+                    {
+                        "kind": "commit",
+                        "ref": "abc123",
+                        "url": "https://github.com/tenon-hire-dev/tenon-ws-9-coding/commit/abc123",
+                    }
+                ],
+                assessment_text="legacy repo evidence",
+                strengths_json=[],
+                risks_json=[],
+                raw_output_json={"summary": "tenon-template-legacy"},
+            )
+        ],
+        metadata_json={"rubricSnapshots": []},
+        model_name="fit-evaluator",
+        model_version="2026-03-12",
+        prompt_version="winoe-report-v1",
+        rubric_version="rubric-v3",
+        generated_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
+        completed_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
+        started_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
+    )
+
+    payload = build_ready_payload(run)
+    assert "tenon-hire-dev" not in json.dumps(payload, default=str)
+    assert "tenon-ws-" not in json.dumps(payload, default=str)
+    assert "tenon-template-" not in json.dumps(payload, default=str)
+    assert run.raw_report_json == raw_report_json
+    assert payload["report"]["dayScores"][0]["evidence"][0]["url"] is None
+    assert payload["report"]["dayScores"][0]["evidence"][1]["url"] is None
+    assert (
+        payload["report"]["reviewerReports"][0]["evidenceCitations"][0]["url"] is None
+    )
 
 
 @pytest.mark.asyncio

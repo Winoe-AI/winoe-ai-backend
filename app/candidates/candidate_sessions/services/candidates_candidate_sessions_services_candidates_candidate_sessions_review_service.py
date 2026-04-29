@@ -28,6 +28,7 @@ from app.integrations.storage_media import (
 from app.media.repositories.recordings import repository as recordings_repo
 from app.media.repositories.transcripts import repository as transcripts_repo
 from app.shared.auth.principal import Principal
+from app.shared.branding import sanitize_legacy_github_payload
 from app.shared.database.shared_database_models_model import Submission, Task
 from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.submissions.presentation import present_detail
@@ -99,6 +100,7 @@ async def build_candidate_completed_review(
             transcript=transcript,
             recording_download_url=recording_download_url,
         )
+        payload = sanitize_legacy_github_payload(payload)
         artifacts.append(_build_artifact(task=task, payload=payload))
 
     completed_at = candidate_session.completed_at or resolved_now

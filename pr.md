@@ -1,239 +1,153 @@
 ## Summary
 
-This PR adds a deterministic YC demo seed/reset path that creates a complete golden-path Winoe dataset:
+- Added centralized backend sanitization for legacy Tenon GitHub references in demo-visible evidence payloads.
+- Sanitized submission detail/list, candidate review, and Winoe Report / Evidence Trail response boundaries.
+- Preserved raw/internal stored evidence while ensuring demo-visible payloads do not expose `tenon-hire-dev`, `tenon-ws-*`, or `tenon-template-*`.
+- Avoided unsafe GitHub link rewriting: legacy URL-like fields are returned as `null`/`None` instead of guessed Winoe URLs, while non-legacy URLs are preserved.
 
-- one demo Talent Partner
-- one demo company
-- one from-scratch Tech Trial
-- a realistic Project Brief
-- two completed Candidate sessions
-- all 5 Trial days submitted for both Candidates
-- a fake GitHub empty-repo/devcontainer/README bootstrap path
-- Winoe Reports with Winoe Scores, day scores, reviewer reports, strengths, concerns, and Evidence Trail citations
-- candidate comparison / Benchmarks readiness
-- founder-facing `YC_DEMO_CHECKLIST.md`
+## Strategy
 
-Final commands:
+This PR uses centralized response-boundary sanitization.
 
-```bash
-poetry run python -m scripts.seed_demo --github-provider fake --reset-db
-./scripts/seed_demo.sh --github-provider fake --reset-db
-```
+Chosen strategy:
+- No destructive database backfill.
+- No demo-seed-only assumption.
+- No scattered manual `.replace()` calls.
+- No invented Winoe GitHub URLs.
 
-## Why
-
-This closes the YC/demo gap by making demo data regenerable deterministically. Live rehearsals no longer require manual setup, which reduces the risk of stale data, missing reports, or terminology leaks and gives the team a repeatable way to show the full Winoe loop end to end.
+Why:
+- Existing raw evidence may still contain historical legacy GitHub references.
+- Blindly rewriting stored GitHub URLs could break links if replacement repos do not exist.
+- Centralized response-boundary sanitization protects demo-visible surfaces while preserving internal evidence integrity.
 
 ## Implementation Details
 
-- New demo seed service: `app/demo/services/yc_demo_seed_service.py`
-- CLI entrypoint: `scripts/seed_demo.py`
-- Shell wrapper: `scripts/seed_demo.sh`
-- Checklist: `YC_DEMO_CHECKLIST.md`
-- Tests: `tests/demo/services/test_demo_yc_seed_service.py`
+- Added centralized sanitizer under `app/shared/branding`.
+- Sanitizer recursively walks JSON-like payloads without mutating the source object.
+- Display repo labels are rebranded:
+  - `tenon-hire-dev/tenon-ws-*` → `winoe-ai-repos/winoe-ws-*`
+- Retired template references are removed/redacted.
+- Legacy GitHub URLs in URL-like fields are nulled instead of converted to fake links.
+- Non-legacy URLs remain unchanged.
+- Sanitization is applied at demo-visible response boundaries:
+  - submission detail presenter
+  - submission list presenter
+  - candidate completed review service
+  - Winoe Report ready payload composer
 
-Important behavior:
+## Link Safety
 
-- fake provider works without real GitHub credentials
-- real provider validates required config and fails before reset when config is missing
-- normal reruns refresh only demo-scoped records
-- `--reset-db` performs explicit full database reset
-- production-like destructive reset is blocked
-- non-demo rows are preserved on normal reruns
-- wrapper forwards CLI args
-- seed reports are persisted through the normal Winoe Report/report-fetch shape
-
-## QA Evidence
-
-### Migration
-
-```bash
-./runBackend.sh migrate
-```
-
-Result: passed.
-
-### Seed Runs
-
-```bash
-poetry run python -m scripts.seed_demo --github-provider fake --reset-db
-poetry run python -m scripts.seed_demo --github-provider fake --reset-db
-./scripts/seed_demo.sh --github-provider fake --reset-db
-poetry run python -m scripts.seed_demo --github-provider fake
-```
-
-Result: passed.
-
-Deterministic output:
+This PR intentionally does **not** convert legacy URLs like:
 
 ```text
-YC demo seed ready: company_id=1, trial_id=1, candidate_session_ids=[1, 2], repos=['winoe-ai-demo/yc-demo-candidate-avery-chen', 'winoe-ai-demo/yc-demo-candidate-jordan-patel']
+https://github.com/tenon-hire-dev/tenon-ws-1-coding
 ```
 
-The normal non-reset rerun preserved the non-demo sentinel company/user.
-
-### Database Verification
-
-Final verified counts:
-
-- 1 demo company
-- 1 demo Talent Partner
-- 1 Trial
-- 2 candidate sessions
-- 10 submissions
-- 2 Winoe Reports
-- 2 evaluation runs
-- 10 day scores
-- 10 reviewer reports
-- 2 recordings
-- 2 transcripts
-- 2 workspaces
-- 2 workspace groups
-
-Additional verification:
-
-- both Candidate sessions are completed
-- both have `completed_at`
-- both are tied to the same Trial
-- Candidate A score is higher than Candidate B score
-
-### Winoe Report Verification
-
-Service path used:
+into guessed URLs like:
 
 ```text
-fetch_winoe_report(...)
+https://github.com/winoe-ai-repos/winoe-ws-1-coding
 ```
 
-Candidate A:
+unless existence can be proven.
 
-- name: Avery Chen
-- report status: ready
-- Winoe Score: 0.91
-- day scores: 5
-- reviewer reports: 5
-- evidence citations: 10
-- citations point to persisted artifacts: yes
+Instead:
 
-Candidate B:
+- URL-like fields containing legacy GitHub references become `null`.
+- Display fields still show Winoe-branded repo names.
+- Non-legacy GitHub URLs are preserved.
 
-- name: Jordan Patel
-- report status: ready
-- Winoe Score: 0.74
-- day scores: 5
-- reviewer reports: 5
-- evidence citations: 10
-- citations point to persisted artifacts: yes
+This prevents demo-visible legacy branding without creating broken clickable links.
 
-### Candidate Comparison / Benchmarks Verification
+## QA
 
-Service used:
-
-```text
-list_candidates_compare_summary(...)
-```
-
-Verified:
-
-- `cohortSize=2`
-- both candidates present
-- both evaluated
-- both `winoeReportStatus=ready`
-- scores: `0.91` and `0.74`
-- result stayed scoped to the seeded Trial
-
-### GitHub Provider Safety
-
-Fake provider:
-
-- passed
-- works with `WINOE_GITHUB_ORG` and `WINOE_GITHUB_TOKEN` blanked
-- deterministic repo names
-- no fallback to real provider
-- uses `FakeGithubClient`
-
-Real provider blank-config check:
+### Focused tests
 
 ```bash
-WINOE_GITHUB_ORG= WINOE_GITHUB_TOKEN= poetry run python -m scripts.seed_demo --github-provider real --reset-db
-```
-
-Result: failed as expected before reset with:
-
-```text
-RuntimeError: Real GitHub provider mode requires WINOE_GITHUB_ORG and WINOE_GITHUB_TOKEN.
-```
-
-No silent fallback was observed.
-
-### Terminology Verification
-
-Denylist grep command:
-
-```bash
-rg -n -i 'tenon|simuhire|recruiter|simulation|fit profile|fit_profile|fit score|fit_score|template_catalog|precommit|specializor|codespace specification|codespace_spec|starter code|pre-populated codebase' app/demo/services/yc_demo_seed_service.py scripts/seed_demo.py scripts/seed_demo.sh tests/demo/services/test_demo_yc_seed_service.py YC_DEMO_CHECKLIST.md
-```
-
-Result: no matches.
-
-Compatibility references that remain are limited to existing schema fields:
-
-- `scenario_template = ""`
-- `template_key`
-- `template_repo_full_name=None`
-
-No seeded narrative content, checklist text, Project Brief text, Winoe Report text, Evidence Trail text, or Candidate artifact text uses retired terminology.
-
-### Focused Tests
-
-```bash
-poetry run ruff check app/demo/services/yc_demo_seed_service.py scripts/seed_demo.py tests/demo/services/test_demo_yc_seed_service.py
-poetry run pytest -q tests/core/test_core_migration_preservation_utils.py -o addopts=""
-poetry run pytest -q tests/demo/services/test_demo_yc_seed_service.py -o addopts=""
-```
-
-Results:
-
-- ruff passed
-- core migration preservation checks passed
-- demo seed service tests passed: `10 passed`
-
-### Quality Gate
-
-```bash
-bash precommit.sh
+poetry run pytest --no-cov -q \
+  tests/shared/branding/test_shared_branding_legacy_github_reference_sanitizer.py \
+  tests/submissions/presentation/test_submissions_detail_presenter_utils.py \
+  tests/submissions/presentation/test_submissions_list_presenter_utils.py \
+  tests/candidates/candidate_sessions/services/test_candidates_candidate_sessions_review_service.py \
+  tests/evaluations/services/test_evaluations_winoe_report_composer_service.py
 ```
 
 Result:
 
 ```text
-1887 passed, 14 warnings
-Required test coverage of 96% reached. Total coverage: 96.07%
+15 passed
+```
+
+### Grep verification
+
+```bash
+grep -RIn --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ \
+  "tenon-hire-dev\|tenon-ws-\|tenon-template-" app || true
+```
+
+Result:
+
+- only intentional matches remain in the centralized sanitizer module.
+
+### Sanitizer direct verification
+
+Direct script verified:
+
+- `tenon-hire-dev/tenon-ws-1-coding` displays as `winoe-ai-repos/winoe-ws-1-coding`
+- legacy URL-like fields become `None`
+- non-legacy URLs are preserved
+- nested payloads are sanitized recursively
+- no source payload mutation occurs
+
+### Full precommit / regression
+
+```bash
+bash ./precommit.sh
+```
+
+Result:
+
+```text
+================ 1896 passed, 13 warnings in 1124.60s (0:18:44) ================
 ✅ All pre-commit checks passed!
 ```
 
+## Manual QA Coverage
+
+Verified through focused service/presenter tests and direct sanitizer execution:
+
+- Submission detail payload:
+  - no `tenon-hire-dev`
+  - no `tenon-ws-`
+  - no `tenon-template-`
+  - legacy URL fields are `null`
+  - display repo names are Winoe-branded
+
+- Submission list payload:
+  - no legacy GitHub org/repo names
+  - nested test result URL fields are nulled when legacy
+  - display repo names are Winoe-branded
+
+- Candidate review payload:
+  - sanitizer applied directly at the response boundary
+  - no legacy GitHub org/repo names
+  - raw submission data remains unchanged
+
+- Winoe Report / Evidence Trail payload:
+  - no legacy GitHub org/repo names
+  - legacy evidence URL fields are nulled
+  - non-legacy evidence URLs are preserved
+  - raw report JSON is not mutated
+
+## Not Performed
+
+- Live authenticated backend endpoint walkthrough was not performed.
+- This is acceptable for this PR because the affected response builders/services are covered directly, and full regression passed.
+
 ## Risks / Follow-ups
 
-- Real GitHub provider live repo creation was not fully exercised with valid credentials in this QA pass.
-- Real provider now fails before reset when required config is blank or missing, but invalid non-empty GitHub access can still fail later during repo creation; a stronger repo-access dry-run can be a future hardening item.
-- Existing legacy schema fields such as `template_key` remain because removing them is outside #308 and belongs to the broader rebrand/pivot cleanup.
+- Any future response path that exposes GitHub repo metadata must use the centralized sanitizer or another shared response-boundary mechanism.
+- Broader removal of retired template/Specializor/precommit code remains scoped to #316.
+- Broader rebrand cleanup remains scoped to #302.
 
-## Acceptance Checklist
-
-- [x] Single seed command creates complete demo dataset
-- [x] Wrapper command works
-- [x] Full reset path works
-- [x] Normal demo-scoped rerun works
-- [x] Non-demo data preserved on normal rerun
-- [x] Talent Partner seeded
-- [x] Trial seeded
-- [x] Two candidate sessions seeded
-- [x] All five days submitted for both candidates
-- [x] Winoe Reports generated
-- [x] Winoe Scores populated
-- [x] Evidence Trail citations linked
-- [x] Fake GitHub provider works
-- [x] Real provider missing-config path fails safely
-- [x] `YC_DEMO_CHECKLIST.md` added
-- [x] Retired terminology denied in seeded/demo files
-- [x] Precommit passes
+Fixes #309

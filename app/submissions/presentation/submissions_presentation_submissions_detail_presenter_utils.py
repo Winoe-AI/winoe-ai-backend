@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.shared.branding import sanitize_legacy_github_payload
 from app.submissions.presentation.submissions_presentation_submissions_commit_basis_utils import (
     resolve_commit_basis,
 )
@@ -67,7 +68,7 @@ def present_detail(
     transcript_payload = build_transcript_payload(
         transcript, transcript_job=transcript_job
     )
-    return {
+    payload = {
         "submissionId": sub.id,
         "candidateSessionId": cs.id,
         "task": build_task_payload(task),
@@ -95,3 +96,4 @@ def present_detail(
             supplemental_materials=supplemental_materials,
         ),
     }
+    return sanitize_legacy_github_payload(payload)
