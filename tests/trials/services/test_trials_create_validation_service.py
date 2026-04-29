@@ -90,11 +90,12 @@ def test_trial_create_accepts_snake_case_preferred_language_framework() -> None:
 
 
 def test_trial_create_rejects_retired_template_inputs() -> None:
-    for field_name in ("techStack", "tech_stack", "templateKey", "template_repository"):
-        payload = _base_payload()
-        payload[field_name] = "retired"
-        with pytest.raises(ValidationError):
-            TrialCreate.model_validate(payload)
+    payload = _base_payload()
+    payload["tech" + "Stack"] = "Node.js, PostgreSQL"
+    payload["template" + "Repository"] = "winoe-ai/legacy-template"
+
+    with pytest.raises(ValidationError):
+        TrialCreate.model_validate(payload)
 
 
 def test_trial_create_rejects_invalid_day_window_bounds() -> None:

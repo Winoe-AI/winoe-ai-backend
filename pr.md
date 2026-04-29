@@ -1,153 +1,347 @@
-## Summary
+# Summary
 
-- Added centralized backend sanitization for legacy Tenon GitHub references in demo-visible evidence payloads.
-- Sanitized submission detail/list, candidate review, and Winoe Report / Evidence Trail response boundaries.
-- Preserved raw/internal stored evidence while ensuring demo-visible payloads do not expose `tenon-hire-dev`, `tenon-ws-*`, or `tenon-template-*`.
-- Avoided unsafe GitHub link rewriting: legacy URL-like fields are returned as `null`/`None` instead of guessed Winoe URLs, while non-legacy URLs are preserved.
+- Removed active Trial-create exposure of retired template-era inputs.
+- Kept Trial creation centered on the v4 from-scratch contract using `preferredLanguageFramework`.
+- Preserved historical DB compatibility while marking precommit bundle storage as legacy-only.
+- Verified `codespace_specializer` is absent from the active job handler registry.
+- Verified active Trial creation, scenario-generation payloads, and invite/preprovisioning follow the empty-repo path and do not use template cloning, Specializor, or precommit bundle flows.
 
-## Strategy
+# Product context
 
-This PR uses centralized response-boundary sanitization.
+Winoe AI v4 uses from-scratch Tech Trials:
 
-Chosen strategy:
-- No destructive database backfill.
-- No demo-seed-only assumption.
-- No scattered manual `.replace()` calls.
-- No invented Winoe GitHub URLs.
+- Talent Partner creates a Trial.
+- Candidate receives a Project Brief.
+- Candidate works in an empty repository/Codespace.
+- The full repository is part of the Evidence Trail.
+- Winoe evaluates the work and produces a Winoe Report and Winoe Score.
 
-Why:
-- Existing raw evidence may still contain historical legacy GitHub references.
-- Blindly rewriting stored GitHub URLs could break links if replacement repos do not exist.
-- Centralized response-boundary sanitization protects demo-visible surfaces while preserving internal evidence integrity.
+This PR removes active backend surface area for retired v3 concepts:
 
-## Implementation Details
+- template catalog
+- template repository selection
+- Codespace Specializor
+- codespace specification generation
+- precommit bundle runtime dependency
+- `codespace_specializer` job registration
 
-- Added centralized sanitizer under `app/shared/branding`.
-- Sanitizer recursively walks JSON-like payloads without mutating the source object.
-- Display repo labels are rebranded:
-  - `tenon-hire-dev/tenon-ws-*` → `winoe-ai-repos/winoe-ws-*`
-- Retired template references are removed/redacted.
-- Legacy GitHub URLs in URL-like fields are nulled instead of converted to fake links.
-- Non-legacy URLs remain unchanged.
-- Sanitization is applied at demo-visible response boundaries:
-  - submission detail presenter
-  - submission list presenter
-  - candidate completed review service
-  - Winoe Report ready payload composer
+# Changes
 
-## Link Safety
+## Trial creation
 
-This PR intentionally does **not** convert legacy URLs like:
+- `TrialCreate` no longer exposes `tech_stack` / `techStack`.
+- `TrialCreate` no longer exposes `template_repository` / `templateRepository`.
+- Valid v4 Trial creation works with `preferredLanguageFramework`.
+- Retired template-era inputs are rejected at the API boundary.
+- Trial creation does not emit template-derived fields in the response.
+- Internal historical storage remains safe:
+  - `template_key = "from-scratch"` where that legacy internal field still exists.
+  - `tech_stack = ""` where that legacy DB field still exists.
 
-```text
-https://github.com/tenon-hire-dev/tenon-ws-1-coding
-```
+## Legacy DB compatibility
 
-into guessed URLs like:
+- `codespace_spec_json` remains only as a historical DB column alias for Project Brief storage.
+- `precommit_bundles`, `workspaces.precommit_sha`, and `workspaces.precommit_details_json` are marked legacy/deprecated via migration comments.
+- The migration does not drop tables or columns.
+- The migration does not mutate Alembic version state manually.
+- Clean DB migration and bootstrap were verified.
 
-```text
-https://github.com/winoe-ai-repos/winoe-ws-1-coding
-```
+## Job registry
 
-unless existence can be proven.
+- `codespace_specializer` is not registered before or after builtin handler registration.
+- Active job handlers still register normally.
 
-Instead:
+## Runtime / provisioning
 
-- URL-like fields containing legacy GitHub references become `null`.
-- Display fields still show Winoe-branded repo names.
-- Non-legacy GitHub URLs are preserved.
+- Live v4 Trial creation passed.
+- Scenario-generation payloads are clean:
+  - no `templateKey`
+  - no `templateRepository`
+  - no `scenarioTemplate`
+  - no `codespace_specializer`
+- Demo-mode invite/preprovisioning uses the empty-repo path.
+- Workspace rows were created with `template_repo_full_name = null`.
+- No active Trial create/invite/preprovision path calls `generate_repo_from_template`.
 
-This prevents demo-visible legacy branding without creating broken clickable links.
+# QA evidence
 
-## QA
+## Git / migration caveat verification
 
-### Focused tests
+- `git status --short`: clean
+- `git diff --name-only`: clean after QA
+- `git ls-files alembic/versions/202604290001_mark_precommit_bundles_legacy.py`:
+  - `alembic/versions/202604290001_mark_precommit_bundles_legacy.py`
+- Migration verified:
+  - exists: yes
+  - tracked: yes
+  - safe: yes
+  - comment-only: yes
+  - does not drop historical tables/columns: yes
+  - does not manually mutate `alembic_version`: yes
+  - PostgreSQL-only comment operations are dialect-guarded: yes
+
+## Migration/bootstrap QA
+
+Commands/results:
 
 ```bash
-poetry run pytest --no-cov -q \
-  tests/shared/branding/test_shared_branding_legacy_github_reference_sanitizer.py \
-  tests/submissions/presentation/test_submissions_detail_presenter_utils.py \
-  tests/submissions/presentation/test_submissions_list_presenter_utils.py \
-  tests/candidates/candidate_sessions/services/test_candidates_candidate_sessions_review_service.py \
-  tests/evaluations/services/test_evaluations_winoe_report_composer_service.py
+poetry run alembic current -v || true
 ```
 
 Result:
 
 ```text
-15 passed
+Current revision(s) for postgresql://postgres:***@localhost:5432/winoe-ai: Rev: 202604290001 (head)
 ```
 
-### Grep verification
-
 ```bash
-grep -RIn --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ \
-  "tenon-hire-dev\|tenon-ws-\|tenon-template-" app || true
-```
-
-Result:
-
-- only intentional matches remain in the centralized sanitizer module.
-
-### Sanitizer direct verification
-
-Direct script verified:
-
-- `tenon-hire-dev/tenon-ws-1-coding` displays as `winoe-ai-repos/winoe-ws-1-coding`
-- legacy URL-like fields become `None`
-- non-legacy URLs are preserved
-- nested payloads are sanitized recursively
-- no source payload mutation occurs
-
-### Full precommit / regression
-
-```bash
-bash ./precommit.sh
+poetry run alembic heads || true
 ```
 
 Result:
 
 ```text
-================ 1896 passed, 13 warnings in 1124.60s (0:18:44) ================
-✅ All pre-commit checks passed!
+202604290001 (head)
 ```
 
-## Manual QA Coverage
+```bash
+poetry run alembic history --verbose | tail -120 || true
+```
 
-Verified through focused service/presenter tests and direct sanitizer execution:
+Result:
 
-- Submission detail payload:
-  - no `tenon-hire-dev`
-  - no `tenon-ws-`
-  - no `tenon-template-`
-  - legacy URL fields are `null`
-  - display repo names are Winoe-branded
+* History ends with `Rev: 202604290001`
+* Parent is `202604200001`
+* No extra head was created
 
-- Submission list payload:
-  - no legacy GitHub org/repo names
-  - nested test result URL fields are nulled when legacy
-  - display repo names are Winoe-branded
+Raw DB query result:
 
-- Candidate review payload:
-  - sanitizer applied directly at the response boundary
-  - no legacy GitHub org/repo names
-  - raw submission data remains unchanged
+```text
+alembic_version rows: [{'version_num': '202604290001'}]
+```
 
-- Winoe Report / Evidence Trail payload:
-  - no legacy GitHub org/repo names
-  - legacy evidence URL fields are nulled
-  - non-legacy evidence URLs are preserved
-  - raw report JSON is not mutated
+Clean disposable DB:
 
-## Not Performed
+* DB: `winoe_bootstrap_smoke_e2a878577408`
+* `./runBackend.sh migrate`: pass
+* `./runBackend.sh bootstrap-local`: pass
+* second `./runBackend.sh bootstrap-local`: pass
+* temp DB dropped afterward
 
-- Live authenticated backend endpoint walkthrough was not performed.
-- This is acceptable for this PR because the affected response builders/services are covered directly, and full regression passed.
+Live DB:
 
-## Risks / Follow-ups
+* `./runBackend.sh bootstrap-local`: pass
 
-- Any future response path that exposes GitHub repo metadata must use the centralized sanitizer or another shared response-boundary mechanism.
-- Broader removal of retired template/Specializor/precommit code remains scoped to #316.
-- Broader rebrand cleanup remains scoped to #302.
+## Automated tests
 
-Fixes #309
+Focused #316/static regression:
+
+```bash
+poetry run pytest --no-cov -q tests/static/test_issue_302_retired_terms.py::test_active_code_and_static_guards_do_not_reintroduce_retired_terms tests/trials/services/test_trials_creation_and_day5_branch_extra_service.py tests/trials/services/test_trials_create_validation_service.py tests/trials/services/test_trials_service_create_trial_with_tasks_enqueues_scenario_generation_job_service.py tests/trials/routes/test_trials_create_default_template_key_applied_routes.py tests/shared/jobs/handlers/test_shared_jobs_handlers_registration_handler.py tests/shared/utils/test_shared_legacy_imports_absent_service.py tests/submissions/services/test_submissions_workspace_bootstrap_service.py
+```
+
+Result:
+
+```text
+27 passed in 14.13s
+```
+
+Full regression suite:
+
+```bash
+poetry run pytest --no-cov -q
+```
+
+Result:
+
+```text
+1898 passed, 13 warnings
+```
+
+Precommit/full checks:
+
+```text
+✅ All pre-commit checks passed
+Required test coverage of 96% reached. Total coverage: 96.10%
+```
+
+Note:
+
+```bash
+poetry run pre-commit run --all-files
+```
+
+was unavailable in the local environment because `pre-commit` was not installed as a Poetry command. The repo’s full precommit/check output still passed through the available QA path.
+
+## Grep verification
+
+Run and verified:
+
+```bash
+grep -RIn --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ "template_catalog\|specializor\|precommit\|codespace_spec" app tests 2>/dev/null || true
+```
+
+Remaining hits are classified as:
+
+* legacy DB alias
+* legacy migration artifact
+* absence/guard tests
+* compatibility tests
+
+Run and verified:
+
+```bash
+grep -RIn --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ "codespace_specializer" app tests alembic 2>/dev/null || true
+```
+
+Remaining hits:
+
+* absence tests only
+
+Run and verified:
+
+```bash
+grep -RIn --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ "template_repository\|tech_stack" app tests 2>/dev/null || true
+```
+
+Remaining hits:
+
+* `tech_stack` remains in historical DB/domain/scenario plumbing only
+* `template_repository` appears only in legacy tests/compatibility surfaces
+* live Trial create API rejects retired template inputs
+
+Run and verified:
+
+```bash
+grep -RIn --exclude-dir=.git --exclude-dir=.venv --exclude-dir=__pycache__ "generate_repo_from_template" app tests 2>/dev/null || true
+```
+
+Remaining hits:
+
+* legacy GitHub client surface and tests only
+* no active Trial create/invite/preprovision call site
+
+# Runtime QA
+
+## Valid v4 Trial creation
+
+Result:
+
+```text
+valid_status 201
+```
+
+Verified:
+
+* response did not include `templateKey`
+* response did not include `techStack`
+* response did not include `templateRepository`
+* response included `companyContext.preferredLanguageFramework`
+* persisted Trial had `template_key = "from-scratch"`
+* persisted Trial had `tech_stack = ""`
+* queued job payload contained `trialId` and `talentPartnerContext`
+* queued job payload did not contain template-derived fields
+
+## Retired input rejection
+
+Camel-case retired inputs:
+
+```json
+{
+  "techStack": "Node.js, PostgreSQL",
+  "templateRepository": "winoe-ai/legacy-template"
+}
+```
+
+Result:
+
+```text
+camel_status 422
+```
+
+Snake-case retired inputs:
+
+```json
+{
+  "tech_stack": "Node.js, PostgreSQL",
+  "template_repository": "winoe-ai/legacy-template"
+}
+```
+
+Result:
+
+```text
+snake_status 422
+```
+
+Verified:
+
+* no Trial created
+* queued job count unchanged
+* no provisioning started
+
+## Handler registry
+
+Runtime snippet result:
+
+```text
+before False
+after False
+scenario_generation True
+day_close_enforcement True
+```
+
+Verified:
+
+* `codespace_specializer` is not registered
+* active handlers still register
+
+## Empty-repo invite/preprovisioning
+
+Runtime mode:
+
+```bash
+DEMO_MODE=1 ./runBackend.sh
+```
+
+Verified:
+
+* live invite request returned `invite_status 200`
+* workspace rows were created
+* `template_repo_full_name` was `null`
+* repo names came from empty-repo path
+* no template cloning dependency was exercised
+* no Specializor dependency was exercised
+* no precommit bundle dependency was exercised
+
+## Legacy precommit table behavior
+
+Verified PostgreSQL comments:
+
+```text
+Legacy table retained for historical rows only. Active runtime must not create or depend on precommit bundles.
+```
+
+Also verified:
+
+* `workspaces.precommit_sha` marked legacy
+* `workspaces.precommit_details_json` marked legacy
+
+# Acceptance criteria checklist
+
+* [x] `tasks_services_tasks_template_catalog_constants.py` removed or deprecated with clear comment.
+* [x] `trials_services_trials_codespace_specializer_service.py` removed or deprecated.
+* [x] `winoe-codespace-specializer-brain.md` removed or archived.
+* [x] Precommit bundle model/table deprecated and migration marks table as legacy.
+* [x] `codespace_specializer` job type removed from active handler registry.
+* [x] No active code path imports or calls Specializor or precommit services.
+* [x] Frontend `templateCatalog.ts` coordination noted; file is not present in this backend repo.
+* [x] Trial creation API no longer requires `tech_stack` or `template_repository`.
+
+# Risks / follow-ups
+
+* `generate_repo_from_template` still exists as a legacy GitHub client compatibility surface, but no active runtime path calls it.
+* `tech_stack` remains in historical DB/domain/scenario plumbing; removing it entirely would be a broader schema/domain migration outside #316.
+* Frontend `templateCatalog.ts` cleanup remains a separate frontend coordination item if still present outside this backend repo.
+
+Fixes #316

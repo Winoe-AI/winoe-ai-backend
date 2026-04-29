@@ -40,7 +40,7 @@ def _resolve_preferred_language_framework(payload: Any) -> str | None:
 
 
 def _resolve_tech_stack(payload: Any, preferred_language_framework: str | None) -> str:
-    _ = (payload, preferred_language_framework)
+    del payload, preferred_language_framework
     return ""
 
 

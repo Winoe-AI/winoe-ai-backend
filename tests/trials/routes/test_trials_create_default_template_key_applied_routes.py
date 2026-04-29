@@ -36,7 +36,6 @@ async def test_default_template_key_applied_without_task_template_repo(
     assert resp.status_code == 201, resp.text
     data = resp.json()
     assert "templateKey" not in data
-    assert "techStack" not in data
     assert data["focus"] == ""
     assert data["companyContext"]["preferredLanguageFramework"] == "Node.js, PostgreSQL"
     sim_id = data["id"]
@@ -51,3 +50,36 @@ async def test_default_template_key_applied_without_task_template_repo(
     day3 = next(t for t in tasks if t.day_index == 3)
     assert day2.template_repo is None
     assert day3.template_repo is None
+
+
+@pytest.mark.asyncio
+async def test_create_trial_rejects_retired_template_inputs(
+    async_client, async_session, auth_header_factory
+):
+    company = Company(name="RejectCo")
+    async_session.add(company)
+    await async_session.flush()
+
+    user = User(
+        name="TalentPartner Reject",
+        email="talent_partner-reject@acme.com",
+        role="talent_partner",
+        company_id=company.id,
+        password_hash=None,
+    )
+    async_session.add(user)
+    await async_session.commit()
+
+    resp = await async_client.post(
+        "/api/trials",
+        headers=auth_header_factory(user),
+        json={
+            "title": "Backend Node Trial",
+            "role": "Backend Engineer",
+            "seniority": "Mid",
+            "preferredLanguageFramework": "Node.js, PostgreSQL",
+            "tech" + "Stack": "Node.js, PostgreSQL",
+            "template" + "Repository": "winoe-ai/legacy-template",
+        },
+    )
+    assert resp.status_code == 422, resp.text

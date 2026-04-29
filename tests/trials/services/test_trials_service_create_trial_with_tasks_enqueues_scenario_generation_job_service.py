@@ -83,6 +83,8 @@ async def test_create_trial_with_tasks_enqueues_scenario_generation_job(
             },
         },
     }
+    assert sim.tech_stack == ""
+    assert sim.template_key == "from-scratch"
 
 
 @pytest.mark.asyncio
