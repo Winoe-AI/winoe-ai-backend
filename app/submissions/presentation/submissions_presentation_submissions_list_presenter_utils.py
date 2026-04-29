@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.shared.branding import sanitize_legacy_github_payload
 from app.submissions.presentation.submissions_presentation_submissions_commit_basis_utils import (
     resolve_commit_basis,
 )
@@ -58,7 +59,7 @@ def present_list_item(sub, task, *, day_audit=None):
         and not test_results.get("workflowUrl")
     ):
         test_results["workflowUrl"] = workflow_url
-    return {
+    payload = {
         "submissionId": sub.id,
         "candidateSessionId": sub.candidate_session_id,
         "taskId": sub.task_id,
@@ -78,3 +79,4 @@ def present_list_item(sub, task, *, day_audit=None):
         "diffSummary": diff_summary,
         "testResults": test_results,
     }
+    return sanitize_legacy_github_payload(payload)
