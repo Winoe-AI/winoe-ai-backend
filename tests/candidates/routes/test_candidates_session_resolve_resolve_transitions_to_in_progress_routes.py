@@ -43,6 +43,7 @@ async def test_resolve_transitions_to_in_progress(async_client, async_session):
     assert body["aiNoticeVersion"] == "mvp1"
     assert isinstance(body["aiNoticeText"], str)
     assert body["aiNoticeText"]
+    assert body["trial"]["company"] == "TestCo"
     assert body["evalEnabledByDay"] == {
         "1": True,
         "2": True,

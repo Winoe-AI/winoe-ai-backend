@@ -65,6 +65,7 @@ def build_current_task_response(
     return CurrentTaskResponse(
         candidateSessionId=cs.id,
         status=cs.status,
+        completedAt=cs.completed_at if is_complete else None,
         currentDayIndex=None if is_complete else current_task.day_index,
         currentTask=None
         if is_complete

@@ -25,6 +25,7 @@ class CurrentTaskResponse(APIModel):
 
     candidateSessionId: int
     status: CandidateSessionStatus
+    completedAt: datetime | None = None
     currentDayIndex: int | None
     currentTask: TaskPublic | None
     completedTaskIds: list[int]

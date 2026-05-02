@@ -41,6 +41,7 @@ async def test_current_task_marks_complete_when_all_tasks_done(
 
     body = res.json()
     assert body["isComplete"] is True
+    assert body["completedAt"] is not None
     assert body["currentDayIndex"] is None
     assert body["currentTask"] is None
     assert body["progress"]["completed"] == len(tasks)

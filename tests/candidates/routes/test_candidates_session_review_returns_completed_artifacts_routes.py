@@ -34,7 +34,9 @@ async def test_candidate_session_review_returns_completed_artifacts(
     async_client, async_session
 ):
     talent_partner = await create_talent_partner(
-        async_session, email="review-route@test.com"
+        async_session,
+        email="review-route@test.com",
+        company_name="Review Route Co",
     )
     sim, tasks = await create_trial(async_session, created_by=talent_partner)
     completed_at = datetime.now(UTC).replace(microsecond=0)
@@ -145,6 +147,7 @@ async def test_candidate_session_review_returns_completed_artifacts(
     body = response.json()
     assert body["candidateSessionId"] == candidate_session.id
     assert body["status"] == "completed"
+    assert body["trial"]["company"] == "Review Route Co"
     assert len(body["artifacts"]) == 5
 
     artifacts = {artifact["dayIndex"]: artifact for artifact in body["artifacts"]}
@@ -163,6 +166,58 @@ async def test_candidate_session_review_returns_completed_artifacts(
     )
     assert artifacts[5]["kind"] == "markdown"
     assert "Reflection" in artifacts[5]["markdown"]
+
+
+@pytest.mark.asyncio
+async def test_candidate_session_review_derives_day_windows_when_json_is_incomplete(
+    async_client, async_session
+):
+    talent_partner = await create_talent_partner(
+        async_session,
+        email="review-derived-windows@test.com",
+        company_name="Review Derived Co",
+    )
+    sim, tasks = await create_trial(async_session, created_by=talent_partner)
+    completed_at = datetime.now(UTC).replace(microsecond=0)
+    candidate_session = await create_candidate_session(
+        async_session,
+        trial=sim,
+        status="completed",
+        completed_at=completed_at,
+        invite_email="review-derived@example.com",
+        candidate_email="review-derived@example.com",
+        with_default_schedule=True,
+    )
+    candidate_session.day_windows_json = [
+        {"dayIndex": day_index, "status": "submitted"} for day_index in range(1, 6)
+    ]
+
+    await create_submission(
+        async_session,
+        candidate_session=candidate_session,
+        task=_task(tasks, 1),
+        content_text="# Architecture\n\nFinal plan.",
+        submitted_at=completed_at - timedelta(days=4),
+    )
+    await create_submission(
+        async_session,
+        candidate_session=candidate_session,
+        task=_task(tasks, 5),
+        content_text="## Reflection\n\nWhat I would improve next.",
+        submitted_at=completed_at,
+    )
+    await async_session.commit()
+
+    response = await async_client.get(
+        f"/api/candidate/session/{candidate_session.token}/review",
+        headers={"Authorization": "Bearer candidate:review-derived@example.com"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["trial"]["company"] == "Review Derived Co"
+    assert len(body["dayWindows"]) == 5
+    assert all("windowStartAt" in window for window in body["dayWindows"])
+    assert all("windowEndAt" in window for window in body["dayWindows"])
 
 
 @pytest.mark.asyncio

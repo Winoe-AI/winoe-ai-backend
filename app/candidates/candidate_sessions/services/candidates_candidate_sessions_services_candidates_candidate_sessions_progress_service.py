@@ -88,6 +88,18 @@ async def progress_snapshot(
             trial_id=candidate_session.trial_id,
             candidate_session_id=candidate_session.id,
         )
+
+    # Ignore any Day 5 submission records until the Day 5 window is actually open.
+    # This keeps the session from jumping straight to completion when stale or
+    # prematurely created reflection rows already exist in the database.
+    for task in task_list:
+        if int(task.day_index) != 5 or task.id not in completed_ids:
+            continue
+        task_window = compute_task_window(candidate_session, task, now_utc=now)
+        if task_window.is_open:
+            continue
+        completed_ids.discard(task.id)
+
     current = compute_current_task(task_list, completed_ids)
     resolved_now = (now or shared_utcnow()).astimezone(UTC)
     current = _handoff_revisit_task(
