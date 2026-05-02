@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import pytest
 
+from tests.candidates.routes.candidates_session_api_utils import (
+    _set_day4_day5_transition_windows,
+)
 from tests.candidates.routes.candidates_session_resolve_api_utils import *
 from tests.trials.routes.trials_scenario_versions_api_utils import _approve_trial
 
@@ -39,6 +42,13 @@ async def test_current_task_completed_after_all_tasks(
         ),
         candidate_timezone="America/New_York",
     )
+    cs = (
+        await async_session.execute(
+            select(CandidateSession).where(CandidateSession.id == cs_id)
+        )
+    ).scalar_one()
+    _set_day4_day5_transition_windows(cs, day5_open=True)
+    await async_session.commit()
 
     tasks = (
         (await async_session.execute(select(Task).where(Task.trial_id == sim_id)))

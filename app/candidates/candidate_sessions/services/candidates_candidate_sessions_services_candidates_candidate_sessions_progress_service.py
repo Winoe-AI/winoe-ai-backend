@@ -89,19 +89,22 @@ async def progress_snapshot(
             candidate_session_id=candidate_session.id,
         )
 
-    # Ignore any Day 5 submission records until the Day 5 window is actually open.
+    # Ignore any Day 5 submission records until the Day 5 window has started.
     # This keeps the session from jumping straight to completion when stale or
-    # prematurely created reflection rows already exist in the database.
+    # prematurely created reflection rows already exist in the database, while
+    # still allowing a completed Day 5 submission to count after cutoff.
+    resolved_now = (now or shared_utcnow()).astimezone(UTC)
     for task in task_list:
         if int(task.day_index) != 5 or task.id not in completed_ids:
             continue
         task_window = compute_task_window(candidate_session, task, now_utc=now)
-        if task_window.is_open:
-            continue
-        completed_ids.discard(task.id)
+        if (
+            task_window.window_start_at is not None
+            and resolved_now < task_window.window_start_at
+        ):
+            completed_ids.discard(task.id)
 
     current = compute_current_task(task_list, completed_ids)
-    resolved_now = (now or shared_utcnow()).astimezone(UTC)
     current = _handoff_revisit_task(
         task_list,
         completed_ids,
