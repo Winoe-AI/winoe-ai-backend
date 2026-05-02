@@ -23,7 +23,12 @@ def _resolve_trial_summary(
     cs, *, include_content_sections: bool
 ) -> CandidateTrialSummary:
     sim = cs.trial
-    summary = CandidateTrialSummary(id=sim.id, title=sim.title, role=sim.role)
+    summary = CandidateTrialSummary(
+        id=sim.id,
+        title=sim.title,
+        role=sim.role,
+        company=getattr(getattr(sim, "company", None), "name", None),
+    )
     if include_content_sections:
         return summary
     return summary

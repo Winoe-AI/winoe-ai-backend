@@ -22,6 +22,7 @@ def _not_terminated_trial_clause():
 
 
 def _build_get_by_token_stmt(token: str) -> Select:
+    trial_loader = joinedload(CandidateSession.trial)
     return (
         select(CandidateSession)
         .join(CandidateSession.trial)
@@ -30,7 +31,8 @@ def _build_get_by_token_stmt(token: str) -> Select:
             _not_terminated_trial_clause(),
         )
         .options(
-            joinedload(CandidateSession.trial),
+            trial_loader,
+            trial_loader.selectinload(Trial.company),
             joinedload(CandidateSession.scenario_version),
         )
     )

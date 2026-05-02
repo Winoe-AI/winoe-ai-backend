@@ -14,6 +14,7 @@ class CandidateTrialSummary(APIModel):
     id: int
     title: str
     role: str
+    company: str | None = None
 
 
 class DayWindow(APIModel):

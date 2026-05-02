@@ -23,7 +23,11 @@ async def test_build_candidate_completed_review_sanitizes_workspace_artifacts(
         day_windows_json=[],
         trial_id=2,
         trial=SimpleNamespace(
-            id=2, title="Winoe Trial", role="Backend Engineer", company_id=3
+            id=2,
+            title="Winoe Trial",
+            role="Backend Engineer",
+            company_id=3,
+            company=SimpleNamespace(name="Winoe"),
         ),
         scenario_version=SimpleNamespace(),
     )
@@ -87,3 +91,4 @@ async def test_build_candidate_completed_review_sanitizes_workspace_artifacts(
     assert artifact["workflowUrl"] is None
     assert artifact["commitUrl"] is None
     assert artifact["diffUrl"] is None
+    assert result.trial.company == "Winoe"

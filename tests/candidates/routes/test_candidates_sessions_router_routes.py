@@ -113,6 +113,7 @@ async def test_get_current_task_marks_completed(monkeypatch):
         principal=_principal("user@example.com"),
     )
     assert resp.isComplete is True
+    assert resp.completedAt is not None
     assert resp.currentDayIndex is None
     assert cs.status == "completed"
     assert stub_db.committed is True

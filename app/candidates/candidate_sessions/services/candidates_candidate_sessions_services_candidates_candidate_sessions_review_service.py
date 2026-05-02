@@ -15,6 +15,9 @@ from app.candidates.candidate_sessions.services.candidates_candidate_sessions_se
 from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_ownership_service import (
     ensure_candidate_ownership,
 )
+from app.candidates.candidate_sessions.services.candidates_candidate_sessions_services_candidates_candidate_sessions_schedule_gates_service import (
+    _load_or_derive_day_windows,
+)
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_review_schema import (
     CandidateCompletedReviewResponse,
     CandidateReviewHandoffArtifact,
@@ -29,7 +32,7 @@ from app.media.repositories.recordings import repository as recordings_repo
 from app.media.repositories.transcripts import repository as transcripts_repo
 from app.shared.auth.principal import Principal
 from app.shared.branding import sanitize_legacy_github_payload
-from app.shared.database.shared_database_models_model import Submission, Task
+from app.shared.database.shared_database_models_model import Company, Submission, Task
 from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
 from app.submissions.presentation import present_detail
 
@@ -107,6 +110,15 @@ async def build_candidate_completed_review(
     if completed_at.tzinfo is None:
         completed_at = completed_at.replace(tzinfo=UTC)
 
+    company = candidate_session.trial.__dict__.get("company")
+    company_name = getattr(company, "name", None) if company is not None else None
+    if company_name is None:
+        company_id = getattr(candidate_session.trial, "company_id", None)
+        if isinstance(company_id, int):
+            company_name = await db.scalar(
+                select(Company.name).where(Company.id == company_id)
+            )
+
     return CandidateCompletedReviewResponse(
         candidateSessionId=candidate_session.id,
         status=candidate_session.status,
@@ -115,9 +127,12 @@ async def build_candidate_completed_review(
             "id": candidate_session.trial.id,
             "title": candidate_session.trial.title,
             "role": candidate_session.trial.role,
+            "company": company_name,
         },
         candidateTimezone=getattr(candidate_session, "candidate_timezone", None),
-        dayWindows=(getattr(candidate_session, "day_windows_json", None) or []),
+        dayWindows=_load_or_derive_day_windows(
+            candidate_session, minimum_total_days=max(5, len(tasks))
+        ),
         artifacts=artifacts,
     )
 
