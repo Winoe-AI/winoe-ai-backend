@@ -108,17 +108,15 @@ def _is_retryable_scenario_generation_error(exc: Exception) -> bool:
 def build_deterministic_template_scenario(
     *,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     company_context: dict[str, Any] | None = None,
     focus: str | None = None,
-    preferred_language_framework: str | None = None,
     ai_policy_snapshot_json: dict[str, Any] | None = None,
 ) -> GeneratedScenarioPayload:
     """Build deterministic scenario."""
     return _build_deterministic_impl(
         role=role,
-        tech_stack=tech_stack,
         template_key=template_key,
         company_context=company_context,
         focus=focus,
@@ -229,7 +227,7 @@ def _generate_with_llm(
 def generate_scenario_payload(
     *,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     focus: str | None = None,
     company_context: dict[str, Any] | None = None,
@@ -240,7 +238,7 @@ def generate_scenario_payload(
     """Generate scenario payload."""
     return _generate_payload_impl(
         role=role,
-        tech_stack=tech_stack,
+        preferred_language_framework=preferred_language_framework,
         template_key=template_key,
         choose_source=choose_generation_source,
         generate_with_llm=_generate_with_llm,

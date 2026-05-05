@@ -25,7 +25,7 @@ async def test_list_trials_does_not_show_other_users(authed_client, async_sessio
     other_sim = Trial(
         title="Other User Sim",
         role="Backend Engineer",
-        tech_stack="Node.js, PostgreSQL",
+        preferred_language_framework="Node.js, PostgreSQL",
         seniority="Mid",
         focus="Should not appear",
         scenario_template="default-5day-node-postgres",

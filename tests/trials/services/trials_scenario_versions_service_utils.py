@@ -29,7 +29,7 @@ async def _create_bare_trial(async_session, talent_partner):
         company_id=talent_partner.company_id,
         title="Scenario Service Sim",
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="mid",
         focus="Scenario focus",
         scenario_template="default-5day-node-postgres",

@@ -32,7 +32,7 @@ def _trial(status: str) -> Trial:
         company_id=1,
         title="Lifecycle",
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="Mid",
         focus="Test",
         scenario_template="default-5day-node-postgres",
@@ -57,7 +57,7 @@ async def _attach_active_scenario(async_session, trial: Trial) -> None:
         rubric_json={},
         focus_notes=trial.focus or "",
         template_key=trial.template_key,
-        tech_stack=trial.tech_stack,
+        preferred_language_framework=trial.preferred_language_framework,
         seniority=trial.seniority,
         ai_policy_snapshot_json=build_ai_policy_snapshot(
             trial=SimpleNamespace(

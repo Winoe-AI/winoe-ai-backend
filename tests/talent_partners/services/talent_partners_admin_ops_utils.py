@@ -92,7 +92,7 @@ async def _create_scenario_version(
         rubric_json=base.rubric_json,
         focus_notes=base.focus_notes,
         template_key=base.template_key,
-        tech_stack=base.tech_stack,
+        preferred_language_framework=base.preferred_language_framework,
         seniority=base.seniority,
     )
     async_session.add(scenario_version)

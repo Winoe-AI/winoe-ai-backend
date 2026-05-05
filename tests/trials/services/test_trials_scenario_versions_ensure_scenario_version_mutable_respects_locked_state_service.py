@@ -15,7 +15,7 @@ def test_ensure_scenario_version_mutable_respects_locked_state():
         rubric_json={},
         focus_notes="",
         template_key="python-fastapi",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="mid",
     )
     scenario_service.ensure_scenario_version_mutable(unlocked)
@@ -29,7 +29,7 @@ def test_ensure_scenario_version_mutable_respects_locked_state():
         rubric_json={},
         focus_notes="",
         template_key="python-fastapi",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="mid",
     )
     with pytest.raises(ApiError) as excinfo:

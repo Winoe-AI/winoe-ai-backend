@@ -59,7 +59,7 @@ class Trial(Base, TimestampMixin):
     company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"))
     title: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(255))
-    tech_stack: Mapped[str] = mapped_column(String(255))
+    preferred_language_framework: Mapped[str] = mapped_column(String(255))
     seniority: Mapped[str] = mapped_column(String(100))
     scenario_template: Mapped[str] = mapped_column(String(255))
     template_key: Mapped[str] = mapped_column(

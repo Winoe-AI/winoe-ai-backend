@@ -16,7 +16,6 @@ def test_creation_builder_preferred_language_helper_ignores_blank_values():
     )
 
     assert creation_builder._resolve_preferred_language_framework(payload) is None
-    assert creation_builder._resolve_tech_stack(payload, "Python") == ""
 
 
 def test_day_five_contract_noops_when_tasks_omitted():

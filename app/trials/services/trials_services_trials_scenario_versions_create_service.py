@@ -62,7 +62,7 @@ async def create_initial_scenario_version(
         rubric_json={},
         focus_notes=trial.focus or "",
         template_key=trial.template_key,
-        tech_stack=trial.tech_stack,
+        preferred_language_framework=trial.preferred_language_framework,
         seniority=trial.seniority,
         ai_policy_snapshot_json=validate_current_ai_policy_snapshot_contract(
             build_ai_policy_snapshot(

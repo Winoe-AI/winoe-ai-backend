@@ -2,7 +2,7 @@
 
 Generated from FastAPI OpenAPI plus dependency-based auth mapping.
 Generated at: deterministic
-Total endpoints: 62
+Total endpoints: 64
 
 ## Endpoint Index
 
@@ -10,7 +10,9 @@ Total endpoints: 62
 - `POST /api/admin/candidate_sessions/{candidate_trial_id}/reset`: Reset Candidate Trial Legacy Route
 - `POST /api/admin/candidate_trials/{candidate_trial_id}/day_windows/control`: Control Candidate Trial Day Windows
 - `POST /api/admin/candidate_trials/{candidate_trial_id}/reset`: Reset Candidate Trial
+- `GET /api/admin/jobs/failed`: List Failed Jobs
 - `POST /api/admin/jobs/{job_id}/requeue`: Requeue Job
+- `POST /api/admin/jobs/{job_id}/retry`: Retry Failed Job
 - `POST /api/admin/media/purge`: Purge Media Retention
 - `POST /api/admin/trials/{trial_id}/scenario/use_fallback`: Use Trial Fallback
 - `POST /api/auth/logout`: Logout
@@ -77,13 +79,13 @@ Total endpoints: 62
 - Auth: Admin API key via `X-Admin-Key` header
 - Operation ID: `control_candidate_trial_day_windows_legacy`
 - Dependency auth signals: `app.shared.auth.shared_auth_admin_api_key_utils.require_admin_key`, `app.shared.database.get_session`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `X-Admin-Key` | no | `X-Admin-Key` | `-` | - |
@@ -126,13 +128,13 @@ Total endpoints: 62
 - Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `reset_candidate_trial_legacy`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CandidateSessionResetRequest`
 - Request example:
@@ -164,13 +166,13 @@ Total endpoints: 62
 - Auth: Admin API key via `X-Admin-Key` header
 - Operation ID: `control_candidate_trial_day_windows`
 - Dependency auth signals: `app.shared.auth.shared_auth_admin_api_key_utils.require_admin_key`, `app.shared.database.get_session`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `X-Admin-Key` | no | `X-Admin-Key` | `-` | - |
@@ -213,13 +215,13 @@ Total endpoints: 62
 - Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `reset_candidate_trial`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CandidateSessionResetRequest`
 - Request example:
@@ -245,19 +247,63 @@ Total endpoints: 62
 }
 ```
 
+### `GET /api/admin/jobs/failed`
+- Summary: List Failed Jobs
+- Description: List dead-letter durable jobs with safe metadata.
+- Auth: None
+- Operation ID: `list_failed_operator_jobs_api_admin_jobs_failed_get`
+- Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_operator_utils.require_operator_admin`, `fastapi.security.http.unknown`
+- Path params: 
+  - None
+- Query params: 
+  - | Name | Required | Type | Default | Description |
+  - |---|---:|---|---|---|
+  - | `limit` | no | `integer` | `50` | - |
+  - | `offset` | no | `integer` | `0` | - |
+- Header params: 
+  - None
+- Request schema: None
+- Success responses:
+  - `200`: Successful Response (schema: `FailedJobsListResponse`)
+- Error responses:
+  - `401`: Authentication required. (schema: `-`)
+  - `403`: Admin access required. (schema: `-`)
+  - `422`: Validation Error (schema: `HTTPValidationError`)
+- Success example (`200`):
+```json
+{
+  "items": [
+    {
+      "jobId": "example",
+      "jobType": "example",
+      "status": "example",
+      "attempts": 1,
+      "maxAttempts": 1,
+      "createdAt": "2026-01-01T00:00:00Z",
+      "updatedAt": "2026-01-01T00:00:00Z",
+      "failureReason": "example",
+      "failureCode": "example"
+    }
+  ],
+  "limit": 1,
+  "offset": 1,
+  "total": 1
+}
+```
+
 ### `POST /api/admin/jobs/{job_id}/requeue`
 - Summary: Requeue Job
 - Description: Force a durable background job back to queued state for demo-mode recovery/testing.
 - Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `requeue_job_api_admin_jobs__job_id__requeue_post`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `job_id` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `JobRequeueRequest`
 - Request example:
@@ -283,17 +329,55 @@ Total endpoints: 62
 }
 ```
 
+### `POST /api/admin/jobs/{job_id}/retry`
+- Summary: Retry Failed Job
+- Description: Retry one dead-letter durable job.
+- Auth: None
+- Operation ID: `retry_operator_job_api_admin_jobs__job_id__retry_post`
+- Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_operator_utils.require_operator_admin`, `fastapi.security.http.unknown`
+- Path params: 
+  - | Name | Required | Type | Default | Description |
+  - |---|---:|---|---|---|
+  - | `job_id` | yes | `string` | `-` | - |
+- Query params: 
+  - None
+- Header params: 
+  - None
+- Request schema: None
+- Success responses:
+  - `200`: Successful Response (schema: `SafeFailedJobSummary`)
+- Error responses:
+  - `401`: Authentication required. (schema: `-`)
+  - `403`: Admin access required. (schema: `-`)
+  - `404`: Job not found. (schema: `-`)
+  - `409`: Job is not retryable. (schema: `-`)
+  - `422`: Validation Error (schema: `HTTPValidationError`)
+- Success example (`200`):
+```json
+{
+  "jobId": "example",
+  "jobType": "example",
+  "status": "example",
+  "attempts": 1,
+  "maxAttempts": 1,
+  "createdAt": "2026-01-01T00:00:00Z",
+  "updatedAt": "2026-01-01T00:00:00Z",
+  "failureReason": "example",
+  "failureCode": "example"
+}
+```
+
 ### `POST /api/admin/media/purge`
 - Summary: Purge Media Retention
 - Description: Run retention cleanup for recording assets and mark expired media as purged in demo environments.
 - Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `purge_media_retention_api_admin_media_purge_post`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `MediaRetentionPurgeRequest`
 - Request example:
@@ -329,13 +413,13 @@ Total endpoints: 62
 - Auth: Bearer token for demo admin allowlist (requires `WINOE_DEMO_MODE=true`)
 - Operation ID: `use_trial_fallback_api_admin_trials__trial_id__scenario_use_fallback_post`
 - Dependency auth signals: `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_admin_demo_utils.require_demo_mode_admin`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `TrialFallbackRequest`
 - Request example:
@@ -367,11 +451,11 @@ Total endpoints: 62
 - Auth: None
 - Operation ID: `logout_api_auth_logout_post`
 - Dependency auth signals: None
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -385,11 +469,11 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `read_me_api_auth_me_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_authenticated_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -413,11 +497,11 @@ Total endpoints: 62
 - Auth: Bearer token
 - Operation ID: `complete_talent_partner_onboarding_api_auth_talent_partner_onboarding_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `TalentPartnerOnboardingWrite`
 - Request example:
@@ -449,13 +533,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `list_candidate_invites_api_candidate_invites_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `includeTerminated` | no | `boolean` | `False` | - |
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -490,13 +574,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `get_current_task_api_candidate_session__candidate_trial_id__current_task_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -533,13 +617,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `record_candidate_privacy_consent_api_candidate_session__candidate_trial_id__privacy_consent_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CandidatePrivacyConsentRequest`
 - Request example:
@@ -568,13 +652,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `resolve_candidate_session_api_candidate_session__token__get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -609,13 +693,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `claim_candidate_session_api_candidate_session__token__claim_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -650,13 +734,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `review_candidate_session_api_candidate_session__token__review_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -683,13 +767,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `schedule_candidate_session_api_candidate_session__token__schedule_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_notifications_utils.get_email_service`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CandidateSessionScheduleRequest`
 - Request example:
@@ -731,13 +815,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `get_current_task_api_candidate_trials__candidate_trial_id__current_task_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -774,13 +858,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `record_candidate_privacy_consent_api_candidate_trials__candidate_trial_id__privacy_consent_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CandidatePrivacyConsentRequest`
 - Request example:
@@ -809,13 +893,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `resolve_candidate_session_api_candidate_trials__token__get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -850,13 +934,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `claim_candidate_session_api_candidate_trials__token__claim_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -891,13 +975,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `review_candidate_session_api_candidate_trials__token__review_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -924,13 +1008,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `schedule_candidate_session_api_candidate_trials__token__schedule_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_notifications_utils.get_email_service`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `token` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CandidateSessionScheduleRequest`
 - Request example:
@@ -972,13 +1056,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `get_winoe_report_route_api_candidate_sessions__candidate_trial_id__winoe_report_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1000,13 +1084,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `generate_winoe_report_route_api_candidate_sessions__candidate_trial_id__winoe_report_generate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1029,13 +1113,13 @@ Total endpoints: 62
 - Auth: Bearer token
 - Operation ID: `get_winoe_report_route_api_candidate_trials__candidate_trial_id__winoe_report_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1057,13 +1141,13 @@ Total endpoints: 62
 - Auth: Bearer token
 - Operation ID: `generate_winoe_report_route_api_candidate_trials__candidate_trial_id__winoe_report_generate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidate_trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1086,11 +1170,11 @@ Total endpoints: 62
 - Auth: Bearer token
 - Operation ID: `read_company_ai_config_api_companies_me_ai_config_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1112,11 +1196,11 @@ Total endpoints: 62
 - Auth: Bearer token
 - Operation ID: `update_company_ai_config_api_companies_me_ai_config_put`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CompanyAIConfigWrite`
 - Request example:
@@ -1157,11 +1241,11 @@ Total endpoints: 62
 - Auth: GitHub webhook signature (`X-Hub-Signature-256`) when configured
 - Operation ID: `receive_github_webhook_api_github_webhooks_post`
 - Dependency auth signals: `app.shared.database.get_session`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1183,13 +1267,13 @@ Total endpoints: 62
 - Auth: Bearer token (principal-scoped access)
 - Operation ID: `get_job_status_api_jobs__job_id__get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `job_id` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1216,15 +1300,15 @@ Total endpoints: 62
 - Auth: None
 - Operation ID: `fake_storage_download_route_api_recordings_storage_fake_download_get`
 - Dependency auth signals: `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `key` | yes | `string` | `-` | - |
   - | `expiresAt` | yes | `integer` | `-` | - |
   - | `sig` | yes | `string` | `-` | - |
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1244,9 +1328,9 @@ Total endpoints: 62
 - Auth: None
 - Operation ID: `fake_storage_upload_route_api_recordings_storage_fake_upload_put`
 - Dependency auth signals: `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `key` | yes | `string` | `-` | - |
@@ -1255,7 +1339,7 @@ Total endpoints: 62
   - | `expiresAt` | yes | `integer` | `-` | - |
   - | `sig` | yes | `string` | `-` | - |
   - | `durationSeconds` | no | `Durationseconds` | `-` | - |
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1271,13 +1355,13 @@ Total endpoints: 62
 - Auth: Candidate bearer token with `candidate:access`
 - Operation ID: `delete_recording_route_api_recordings__recording_id__delete_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `recording_id` | yes | `string` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1300,16 +1384,16 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `list_submissions_route_api_submissions_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `candidateSessionId` | no | `Candidatesessionid` | `-` | - |
   - | `taskId` | no | `Taskid` | `-` | - |
   - | `limit` | no | `Limit` | `-` | - |
   - | `offset` | no | `integer` | `0` | - |
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1338,13 +1422,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `get_submission_detail_route_api_submissions__submission_id__get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `submission_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1368,16 +1452,16 @@ Total endpoints: 62
 ### `POST /api/tasks/{task_id}/codespace/init`
 - Summary: Init Codespace Route
 - Description: Provision or return a GitHub Codespace workspace for a task.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `init_codespace_route_api_tasks__task_id__codespace_init_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_github_client`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1405,16 +1489,16 @@ Total endpoints: 62
 ### `GET /api/tasks/{task_id}/codespace/status`
 - Summary: Codespace Status Route
 - Description: Return Codespace details and last known test status for a task.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `codespace_status_route_api_tasks__task_id__codespace_status_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_github_client`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1435,16 +1519,16 @@ Total endpoints: 62
 ### `GET /api/tasks/{task_id}/draft`
 - Summary: Get Task Draft Route
 - Description: Return the saved draft payload for a candidate task in the current session context.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `get_task_draft_route_api_tasks__task_id__draft_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1467,16 +1551,16 @@ Total endpoints: 62
 ### `PUT /api/tasks/{task_id}/draft`
 - Summary: Put Task Draft Route
 - Description: Create or update a candidate task draft while enforcing active-window and finalization constraints.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `put_task_draft_route_api_tasks__task_id__draft_put`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1506,16 +1590,16 @@ Total endpoints: 62
 ### `GET /api/tasks/{task_id}/handoff/status`
 - Summary: Handoff Status Route
 - Description: Return the current recording/transcript status for handoff tasks in the Candidate Trial.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `handoff_status_route_api_tasks__task_id__handoff_status_get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1549,16 +1633,16 @@ Total endpoints: 62
 ### `POST /api/tasks/{task_id}/handoff/upload/complete`
 - Summary: Complete Handoff Upload Route
 - Description: Finalize a previously initialized handoff upload and bind recording metadata to the submission.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `complete_handoff_upload_route_api_tasks__task_id__handoff_upload_complete_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1587,16 +1671,16 @@ Total endpoints: 62
 ### `POST /api/tasks/{task_id}/handoff/upload/init`
 - Summary: Init Handoff Upload Route
 - Description: Initialize candidate handoff recording upload and return signed upload instructions.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `init_handoff_upload_route_api_tasks__task_id__handoff_upload_init_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_storage_media_utils.get_media_storage_provider`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1627,16 +1711,16 @@ Total endpoints: 62
 ### `POST /api/tasks/{task_id}/run`
 - Summary: Run Task Tests Route
 - Description: Dispatch GitHub Actions tests for a candidate task.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `run_task_tests_route_api_tasks__task_id__run_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_actions_runner`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_github_client`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1663,17 +1747,17 @@ Total endpoints: 62
 ### `GET /api/tasks/{task_id}/run/{run_id}`
 - Summary: Get Run Result Route
 - Description: Poll a previously-triggered workflow run.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `get_run_result_route_api_tasks__task_id__run__run_id__get`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_actions_runner`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_github_client`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
   - | `run_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1693,16 +1777,16 @@ Total endpoints: 62
 ### `POST /api/tasks/{task_id}/submit`
 - Summary: Submit Task Route
 - Description: Submit a task, optionally running GitHub tests for code tasks.
-- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-trial-id`; legacy `x-candidate-session-id` is accepted during the compatibility window.
+- Auth: Candidate bearer token (`candidate:access`) plus `x-candidate-session-id`
 - Operation ID: `submit_task_route_api_tasks__task_id__submit_post`
 - Dependency auth signals: `app.shared.auth.principal.shared_auth_principal_dependencies_utils.get_principal`, `app.shared.auth.shared_auth_candidate_access_utils.require_candidate_principal`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_candidate_sessions_utils.candidate_session_from_headers`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_actions_runner`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_github_client`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `task_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `x-candidate-trial-id` | no | `X-Candidate-Trial-Id` | `-` | - |
@@ -1741,13 +1825,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `list_trials_api_trials_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `includeTerminated` | no | `boolean` | `False` | - |
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1774,11 +1858,11 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `create_trial_api_trials_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `TrialCreate`
 - Request example:
@@ -1820,13 +1904,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `get_trial_detail_api_trials__trial_id__get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1852,13 +1936,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `update_trial_api_trials__trial_id__put`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `TrialUpdate`
 - Request example:
@@ -1896,13 +1980,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `activate_trial_api_trials__trial_id__activate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `TrialLifecycleRequest`
 - Request example:
@@ -1932,15 +2016,15 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `list_trial_candidates_api_trials__trial_id__candidates_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `includeTerminated` | no | `boolean` | `False` | - |
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1968,13 +2052,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `list_trial_candidates_compare_api_trials__trial_id__candidates_compare_get`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -1996,14 +2080,14 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `resend_candidate_invite_api_trials__trial_id__candidates__candidate_session_id__invite_resend_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_notifications_utils.get_email_service`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
   - | `candidate_session_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -2023,13 +2107,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `create_candidate_invite_api_trials__trial_id__invite_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `app.shared.http.dependencies.shared_http_dependencies_github_native_utils.get_github_client`, `app.shared.http.dependencies.shared_http_dependencies_notifications_utils.get_email_service`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `CandidateInviteRequest`
 - Request example:
@@ -2060,13 +2144,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `update_active_scenario_version_api_trials__trial_id__scenario_active_patch`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `ScenarioActiveUpdateRequest`
 - Request example:
@@ -2101,13 +2185,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `regenerate_scenario_version_api_trials__trial_id__scenario_regenerate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -2132,14 +2216,14 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `patch_scenario_version_api_trials__trial_id__scenario__scenario_version_id__patch`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
   - | `scenario_version_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `ScenarioVersionPatchRequest`
 - Request example:
@@ -2176,14 +2260,14 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `approve_scenario_version_api_trials__trial_id__scenario__scenario_version_id__approve_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
   - | `scenario_version_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -2212,13 +2296,13 @@ Total endpoints: 62
 - Auth: TalentPartner bearer token
 - Operation ID: `terminate_trial_api_trials__trial_id__terminate_post`
 - Dependency auth signals: `app.shared.auth.dependencies.shared_auth_dependencies_current_user_utils.get_current_user`, `app.shared.database.get_session`, `fastapi.security.http.unknown`
-- Path params:
+- Path params: 
   - | Name | Required | Type | Default | Description |
   - |---|---:|---|---|---|
   - | `trial_id` | yes | `integer` | `-` | - |
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: `TrialLifecycleRequest`
 - Request example:
@@ -2248,11 +2332,11 @@ Total endpoints: 62
 - Auth: None
 - Operation ID: `health_check_health_get`
 - Dependency auth signals: None
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -2270,11 +2354,11 @@ Total endpoints: 62
 - Auth: None
 - Operation ID: `readiness_check_ready_get`
 - Dependency auth signals: None
-- Path params:
+- Path params: 
   - None
-- Query params:
+- Query params: 
   - None
-- Header params:
+- Header params: 
   - None
 - Request schema: None
 - Success responses:
@@ -2320,3 +2404,4 @@ Total endpoints: 62
   }
 }
 ```
+

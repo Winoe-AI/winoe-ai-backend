@@ -39,11 +39,6 @@ def _resolve_preferred_language_framework(payload: Any) -> str | None:
     return None
 
 
-def _resolve_tech_stack(payload: Any, preferred_language_framework: str | None) -> str:
-    del payload, preferred_language_framework
-    return ""
-
-
 def _resolve_day_window_overrides(
     *,
     day_window_overrides_enabled: bool,
@@ -124,7 +119,7 @@ def build_trial_for_create(
     sim = Trial(
         title=payload.title,
         role=payload.role,
-        tech_stack=_resolve_tech_stack(payload, preferred_language_framework),
+        preferred_language_framework=preferred_language_framework or "",
         seniority=normalized_seniority or raw_seniority,
         focus=getattr(payload, "focus", None) or "",
         company_context=company_context,

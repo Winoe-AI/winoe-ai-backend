@@ -25,7 +25,7 @@ async def test_activate_and_terminate_service_idempotency(async_session):
         company_id=company.id,
         title="Lifecycle",
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="Mid",
         focus="Service idempotency",
         scenario_template="default-5day-node-postgres",

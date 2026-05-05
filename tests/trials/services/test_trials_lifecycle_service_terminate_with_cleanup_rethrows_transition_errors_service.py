@@ -27,7 +27,7 @@ async def test_terminate_with_cleanup_rethrows_transition_errors(
         company_id=company.id,
         title="Terminate Error",
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="Mid",
         focus="Transition failure",
         scenario_template="default-5day-node-postgres",

@@ -27,7 +27,7 @@ async def test_create_trial(async_session: AsyncSession):
         company_id=company.id,
         title="Backend Hiring Trial",
         role="Backend Engineer",
-        tech_stack="Node.js, Postgres",
+        preferred_language_framework="Node.js, Postgres",
         seniority="mid",
         scenario_template="backend_v1",
         created_by=user.id,

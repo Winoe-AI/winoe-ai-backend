@@ -40,7 +40,7 @@ async def test_require_owner_for_lifecycle_not_found_and_forbidden(async_session
         company_id=company.id,
         title="Lifecycle Guard",
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="Mid",
         focus="Guard coverage",
         scenario_template="default-5day-node-postgres",

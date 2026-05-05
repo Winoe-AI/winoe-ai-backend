@@ -30,7 +30,7 @@ async def create_trial(async_session, *, user_id: int, company_id: int, title: s
     sim = Trial(
         title=title,
         role="Backend Engineer",
-        tech_stack="Node.js + Postgres",
+        preferred_language_framework="Node.js + Postgres",
         seniority="Mid",
         focus="",
         scenario_template="default-5day-node-postgres",
@@ -55,7 +55,7 @@ async def attach_active_scenario(async_session, sim: Trial):
         rubric_json={},
         focus_notes="",
         template_key=sim.template_key,
-        tech_stack=sim.tech_stack,
+        preferred_language_framework=sim.preferred_language_framework,
         seniority=sim.seniority,
     )
     async_session.add(scenario)

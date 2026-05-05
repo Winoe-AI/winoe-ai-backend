@@ -82,7 +82,7 @@ class DemoSeedConfig:
     trial_focus: str = (
         "Design and ship a from-scratch backend API for a B2B operations workflow."
     )
-    trial_tech_stack: str = "Python, FastAPI, PostgreSQL"
+    trial_preferred_language_framework: str = "Python, FastAPI, PostgreSQL"
     git_owner: str = "winoe-ai-demo"
     repo_prefix: str = "yc-demo-candidate-"
     codespace_workspace_key: str = "coding"
@@ -1009,12 +1009,12 @@ async def seed_yc_demo_dataset(
         company_id=company.id,
         title=config.trial_title,
         role=config.trial_role,
-        tech_stack=config.trial_tech_stack,
+        preferred_language_framework=config.trial_preferred_language_framework,
         seniority=config.trial_seniority,
         focus=config.trial_focus,
         company_context={
             "companyName": config.company_name,
-            "preferredLanguageFramework": config.trial_tech_stack,
+            "preferredLanguageFramework": config.trial_preferred_language_framework,
             "demoMode": "yc-demo",
         },
         company_rubric_json={
@@ -1063,7 +1063,9 @@ async def seed_yc_demo_dataset(
     }
     scenario_version.project_brief_md = _demo_trial_brief_markdown(config)
     scenario_version.focus_notes = config.trial_focus
-    scenario_version.tech_stack = config.trial_tech_stack
+    scenario_version.preferred_language_framework = (
+        config.trial_preferred_language_framework
+    )
     scenario_version.seniority = config.trial_seniority
     scenario_version.locked_at = _now()
     trial.status = TRIAL_STATUS_READY_FOR_REVIEW

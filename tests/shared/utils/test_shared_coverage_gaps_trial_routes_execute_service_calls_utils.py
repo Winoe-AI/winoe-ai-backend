@@ -13,7 +13,7 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
         id=1,
         title="Sim",
         role="Backend",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="Mid",
         focus="API",
         company_id=7,

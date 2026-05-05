@@ -94,7 +94,7 @@ async def _restore_placeholder_scenario_version(
             rubric_json={},
             focus_notes=trial.focus or "",
             template_key=trial.template_key,
-            tech_stack=trial.tech_stack,
+            preferred_language_framework=trial.preferred_language_framework,
             seniority=trial.seniority,
         )
         db.add(existing)
@@ -107,7 +107,7 @@ async def _restore_placeholder_scenario_version(
         existing.rubric_json = {}
         existing.focus_notes = trial.focus or ""
         existing.template_key = trial.template_key
-        existing.tech_stack = trial.tech_stack
+        existing.preferred_language_framework = trial.preferred_language_framework
         existing.seniority = trial.seniority
         existing.locked_at = None
         await db.flush()

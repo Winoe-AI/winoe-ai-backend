@@ -78,7 +78,7 @@ def _build_scenario_version(
         rubric_json={},
         focus_notes=sim.focus or "",
         template_key=sim.template_key,
-        tech_stack=sim.tech_stack,
+        preferred_language_framework=sim.preferred_language_framework,
         seniority=sim.seniority,
     )
 

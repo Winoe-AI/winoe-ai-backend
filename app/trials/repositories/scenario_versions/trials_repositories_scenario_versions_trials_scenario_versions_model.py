@@ -74,10 +74,8 @@ class ScenarioVersion(Base, TimestampMixin):
         nullable=False,
         default=dict,
     )
-    # Legacy DB column name retained for historical rows; this stores the
-    # generated Project Brief markdown and is not a codespace spec artifact.
     project_brief_md: Mapped[str | None] = mapped_column(
-        "codespace_spec_json",
+        "project_brief_md",
         JSON,
         nullable=True,
     )
@@ -87,7 +85,9 @@ class ScenarioVersion(Base, TimestampMixin):
     )
     focus_notes: Mapped[str] = mapped_column(Text, nullable=False, default="")
     template_key: Mapped[str] = mapped_column(String(255), nullable=False)
-    tech_stack: Mapped[str] = mapped_column(String(255), nullable=False)
+    preferred_language_framework: Mapped[str] = mapped_column(
+        String(255), nullable=False
+    )
     seniority: Mapped[str] = mapped_column(String(100), nullable=False)
     model_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     model_version: Mapped[str | None] = mapped_column(String(255), nullable=True)

@@ -21,7 +21,7 @@ def _invalid_trial() -> SimpleNamespace:
         id=1,
         title="Invalid Sim",
         role="Backend Engineer",
-        tech_stack="Python, FastAPI",
+        preferred_language_framework="Python, FastAPI",
         seniority="Mid",
         focus="API quality",
         template_key="python-fastapi",
