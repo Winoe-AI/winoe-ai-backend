@@ -42,7 +42,7 @@ def clone_pending_scenario(
         ai_policy_snapshot_json=copy.deepcopy(active.ai_policy_snapshot_json),
         focus_notes=active.focus_notes,
         template_key=active.template_key,
-        tech_stack=active.tech_stack,
+        preferred_language_framework=active.preferred_language_framework,
         seniority=active.seniority,
         model_name=active.model_name,
         model_version=active.model_version,

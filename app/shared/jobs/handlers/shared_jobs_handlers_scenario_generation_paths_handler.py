@@ -23,7 +23,7 @@ def _apply_generated_fields(target_scenario, *, trial, generated):
     target_scenario.ai_policy_snapshot_json = generated.ai_policy_snapshot_json
     target_scenario.focus_notes = trial.focus or ""
     target_scenario.template_key = trial.template_key
-    target_scenario.tech_stack = trial.tech_stack
+    target_scenario.preferred_language_framework = trial.preferred_language_framework
     target_scenario.seniority = trial.seniority
     target_scenario.model_name = generated.metadata.model_name
     target_scenario.model_version = generated.metadata.model_version
@@ -101,7 +101,7 @@ async def _apply_default_scenario_version(
             rubric_json={},
             focus_notes=trial.focus or "",
             template_key=trial.template_key,
-            tech_stack=trial.tech_stack,
+            preferred_language_framework=trial.preferred_language_framework,
             seniority=trial.seniority,
         )
         db.add(scenario_v1)

@@ -76,7 +76,7 @@ async def _resolve_candidate_session_scenario_version_id(
             rubric_json={},
             focus_notes=trial.focus or "",
             template_key=trial.template_key,
-            tech_stack=trial.tech_stack,
+            preferred_language_framework=trial.preferred_language_framework,
             seniority=trial.seniority,
             ai_policy_snapshot_json=build_ai_policy_snapshot(trial=trial),
         )

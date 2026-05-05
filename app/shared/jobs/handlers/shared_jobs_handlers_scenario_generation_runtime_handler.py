@@ -117,7 +117,7 @@ async def handle_scenario_generation_impl(
         try:
             generated = generate_scenario_payload(
                 role=trial.role,
-                tech_stack=trial.tech_stack,
+                preferred_language_framework=trial.preferred_language_framework,
                 template_key=trial.template_key,
                 focus=trial.focus,
                 company_context=trial.company_context,

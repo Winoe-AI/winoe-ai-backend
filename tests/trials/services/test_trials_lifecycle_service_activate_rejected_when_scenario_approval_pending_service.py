@@ -25,7 +25,7 @@ async def test_activate_rejected_when_scenario_approval_pending(async_session):
         company_id=company.id,
         title="Pending Approval",
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="Mid",
         focus="Reject lifecycle activate while pending scenario approval",
         scenario_template="default-5day-node-postgres",
@@ -45,7 +45,7 @@ async def test_activate_rejected_when_scenario_approval_pending(async_session):
         rubric_json={},
         focus_notes=trial.focus or "",
         template_key=trial.template_key,
-        tech_stack=trial.tech_stack,
+        preferred_language_framework=trial.preferred_language_framework,
         seniority=trial.seniority,
     )
     async_session.add(pending)

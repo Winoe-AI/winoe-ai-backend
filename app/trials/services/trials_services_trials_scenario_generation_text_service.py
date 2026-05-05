@@ -10,12 +10,14 @@ def normalize_text(value: str | None) -> str:
     return " ".join((value or "").split()).strip()
 
 
-def seed_from_inputs(role: str, tech_stack: str, template_key: str) -> int:
+def seed_from_inputs(
+    role: str, preferred_language_framework: str, template_key: str
+) -> int:
     """Execute seed from inputs."""
     seed_source = "||".join(
         (
             normalize_text(role).lower(),
-            normalize_text(tech_stack).lower(),
+            normalize_text(preferred_language_framework).lower(),
             normalize_text(template_key).lower(),
         )
     )

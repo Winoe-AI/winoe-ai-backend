@@ -19,7 +19,7 @@ def _snapshot():
 def test_project_brief_generation_stays_open_ended():
     payload = scenario_generation.build_deterministic_template_scenario(
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         template_key="template-x",
         ai_policy_snapshot_json=_snapshot(),
     )

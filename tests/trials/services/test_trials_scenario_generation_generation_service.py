@@ -34,13 +34,13 @@ def _snapshot():
 def test_deterministic_template_generation_is_stable_for_same_inputs() -> None:
     first = scenario_generation.build_deterministic_template_scenario(
         role="Backend Engineer",
-        tech_stack="Python, FastAPI, PostgreSQL",
+        preferred_language_framework="Python, FastAPI, PostgreSQL",
         template_key="python-fastapi",
         ai_policy_snapshot_json=_snapshot(),
     )
     second = scenario_generation.build_deterministic_template_scenario(
         role="Backend Engineer",
-        tech_stack="Python, FastAPI, PostgreSQL",
+        preferred_language_framework="Python, FastAPI, PostgreSQL",
         template_key="python-fastapi",
         ai_policy_snapshot_json=_snapshot(),
     )
@@ -79,7 +79,7 @@ def test_generate_scenario_payload_uses_fallback_when_runtime_selects_fallback(
     )
     payload = scenario_generation.generate_scenario_payload(
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         template_key="python-fastapi",
         ai_policy_snapshot_json=_snapshot(),
     )
@@ -97,7 +97,7 @@ def test_generate_scenario_payload_uses_fallback_in_demo_mode(monkeypatch) -> No
     )
     payload = scenario_generation.generate_scenario_payload(
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         template_key="python-fastapi",
         ai_policy_snapshot_json=_snapshot(),
     )
@@ -134,7 +134,7 @@ def test_generate_scenario_payload_fails_closed_when_llm_generation_errors(
     with pytest.raises(RuntimeError, match="llm exploded"):
         scenario_generation.generate_scenario_payload(
             role="Backend Engineer",
-            tech_stack="Python",
+            preferred_language_framework="Python",
             template_key="python-fastapi",
             ai_policy_snapshot_json=_snapshot(),
         )
@@ -157,7 +157,7 @@ def test_generate_scenario_payload_raises_on_retryable_provider_error(
     with pytest.raises(RuntimeError, match="openai_request_failed:RateLimitError"):
         scenario_generation.generate_scenario_payload(
             role="Backend Engineer",
-            tech_stack="Python",
+            preferred_language_framework="Python",
             template_key="python-fastapi",
             ai_policy_snapshot_json=_snapshot(),
         )
@@ -173,7 +173,7 @@ def test_generate_scenario_payload_fails_closed_when_source_selection_fails(
     with pytest.raises(RuntimeError, match="scenario_generation_provider_unavailable"):
         scenario_generation.generate_scenario_payload(
             role="Backend Engineer",
-            tech_stack="Python",
+            preferred_language_framework="Python",
             template_key="python-fastapi",
             ai_policy_snapshot_json=_snapshot(),
         )
@@ -182,20 +182,20 @@ def test_generate_scenario_payload_fails_closed_when_source_selection_fails(
 def test_project_brief_stays_open_ended_for_context_changes() -> None:
     payload = scenario_generation.build_deterministic_template_scenario(
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         template_key="missing-template",
         ai_policy_snapshot_json=_snapshot(),
     )
     assert payload.project_brief_md.startswith("# Project Brief")
     assert "codespace" not in payload.project_brief_md.lower()
-    assert "python" not in payload.project_brief_md.lower()
+    assert "python" in payload.project_brief_md.lower()
     assert "template" not in payload.project_brief_md.lower()
 
 
 def test_deterministic_template_generation_uses_demo_and_reflection_language() -> None:
     payload = scenario_generation.build_deterministic_template_scenario(
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         template_key="python-fastapi",
         ai_policy_snapshot_json=_snapshot(),
     )
@@ -429,7 +429,7 @@ def test_generate_scenario_payload_requires_snapshot() -> None:
     ):
         scenario_generation.generate_scenario_payload(
             role="Backend Engineer",
-            tech_stack="Python",
+            preferred_language_framework="Python",
             template_key="python-fastapi",
         )
 

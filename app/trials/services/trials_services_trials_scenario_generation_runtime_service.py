@@ -47,7 +47,7 @@ FallbackBuilderFn = Callable[..., GeneratedScenarioPayload]
 def _task_description_for_day(
     day_index: int,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     *,
     pick: PickFn,
@@ -55,7 +55,7 @@ def _task_description_for_day(
     return build_task_description(
         day_index=day_index,
         role=role,
-        tech_stack=tech_stack,
+        preferred_language_framework=preferred_language_framework,
         template_key=template_key,
         code_priorities=CODE_PRIORITIES,
         implementation_wrap_up_signals=IMPLEMENTATION_WRAP_UP_SIGNALS,
@@ -86,11 +86,10 @@ def _preferred_language_framework(
 def build_deterministic_template_scenario(
     *,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     company_context: dict[str, Any] | None = None,
     focus: str | None = None,
-    preferred_language_framework: str | None = None,
     ai_policy_snapshot_json: dict[str, Any] | None,
     pick: PickFn,
 ) -> GeneratedScenarioPayload:
@@ -99,7 +98,7 @@ def build_deterministic_template_scenario(
     validate_ai_policy_snapshot_contract(ai_policy_snapshot_json)
     storyline_md = build_storyline_markdown(
         role=role,
-        tech_stack=tech_stack,
+        preferred_language_framework=preferred_language_framework,
         template_key=template_key,
         storyline_contexts=STORYLINE_CONTEXTS,
         storyline_constraints=STORYLINE_CONSTRAINTS,
@@ -107,7 +106,7 @@ def build_deterministic_template_scenario(
     )
     task_prompts_json = build_task_prompts_json(
         role=role,
-        tech_stack=tech_stack,
+        preferred_language_framework=preferred_language_framework,
         template_key=template_key,
         day_blueprint=DEFAULT_5_DAY_BLUEPRINT,
         task_description_builder=lambda day, r, t, k: _task_description_for_day(
@@ -147,7 +146,7 @@ def build_deterministic_template_scenario(
 def generate_scenario_payload(
     *,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     focus: str | None = None,
     company_context: dict[str, Any] | None = None,
@@ -166,15 +165,10 @@ def generate_scenario_payload(
     if source == SCENARIO_SOURCE_DETERMINISTIC_FALLBACK:
         return build_fallback(
             role=role,
-            tech_stack=tech_stack,
+            preferred_language_framework=preferred_language_framework,
             template_key=template_key,
             company_context=company_context,
             focus=focus,
-            preferred_language_framework=_preferred_language_framework(
-                company_context=company_context,
-                company_prompt_overrides_json=company_prompt_overrides_json,
-                trial_prompt_overrides_json=trial_prompt_overrides_json,
-            ),
             ai_policy_snapshot_json=ai_policy_snapshot_json,
         )
     preferred_language_framework = _preferred_language_framework(

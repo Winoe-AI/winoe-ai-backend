@@ -37,7 +37,7 @@ async def test_approve_scenario_version_without_pending_state_branches(async_ses
         rubric_json={},
         focus_notes=sim.focus,
         template_key=sim.template_key,
-        tech_stack=sim.tech_stack,
+        preferred_language_framework=sim.preferred_language_framework,
         seniority=sim.seniority,
         ai_policy_snapshot_json=build_ai_policy_snapshot(trial=sim),
     )

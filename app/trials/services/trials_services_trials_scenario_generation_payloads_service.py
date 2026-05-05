@@ -15,7 +15,7 @@ TaskDescriptionBuilder = Callable[[int, str, str, str], str]
 def build_task_prompts_json(
     *,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     day_blueprint: list[dict[str, Any]],
     task_description_builder: TaskDescriptionBuilder,
@@ -32,7 +32,7 @@ def build_task_prompts_json(
                 "description": task_description_builder(
                     day_index,
                     role,
-                    tech_stack,
+                    preferred_language_framework,
                     template_key,
                 ),
             }

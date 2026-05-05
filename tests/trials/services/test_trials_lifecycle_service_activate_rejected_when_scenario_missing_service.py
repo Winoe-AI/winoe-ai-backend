@@ -28,7 +28,7 @@ async def test_activate_rejected_when_scenario_missing(async_session):
         company_id=company.id,
         title="Missing Scenario",
         role="Backend Engineer",
-        tech_stack="Python",
+        preferred_language_framework="Python",
         seniority="Mid",
         focus="Reject lifecycle activate without a locked scenario",
         scenario_template="default-5day-node-postgres",

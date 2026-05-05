@@ -38,7 +38,7 @@ async def test_trial_fallback_updates_future_invites_only(
         rubric_json=scenario_v1.rubric_json,
         focus_notes=scenario_v1.focus_notes,
         template_key=scenario_v1.template_key,
-        tech_stack=scenario_v1.tech_stack,
+        preferred_language_framework=scenario_v1.preferred_language_framework,
         seniority=scenario_v1.seniority,
     )
     async_session.add(scenario_v2)

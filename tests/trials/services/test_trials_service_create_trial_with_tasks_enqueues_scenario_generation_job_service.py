@@ -83,7 +83,7 @@ async def test_create_trial_with_tasks_enqueues_scenario_generation_job(
             },
         },
     }
-    assert sim.tech_stack == ""
+    assert sim.preferred_language_framework == "Python"
     assert sim.template_key == "from-scratch"
 
 
@@ -115,7 +115,7 @@ async def test_create_trial_with_tasks_accepts_pivoted_payload(
         async_session, payload, talent_partner
     )
 
-    assert sim.tech_stack == ""
+    assert sim.preferred_language_framework == "Python/FastAPI"
     assert sim.focus == ""
     assert sim.company_context == {
         "domain": "social",

@@ -15,14 +15,14 @@ PickFn = Callable[[tuple[str, ...], int, int], str]
 def build_storyline_markdown(
     *,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     storyline_contexts: tuple[str, ...],
     storyline_constraints: tuple[str, ...],
     pick: PickFn,
 ) -> str:
     """Build storyline markdown."""
-    seed = seed_from_inputs(role, tech_stack, template_key)
+    seed = seed_from_inputs(role, preferred_language_framework, template_key)
     context = pick(storyline_contexts, seed, 1)
     constraint = pick(storyline_constraints, seed, 2)
     role_label = normalize_text(role) or "Software Engineer"
@@ -140,14 +140,14 @@ def build_task_description(
     *,
     day_index: int,
     role: str,
-    tech_stack: str,
+    preferred_language_framework: str,
     template_key: str,
     code_priorities: tuple[str, ...],
     implementation_wrap_up_signals: tuple[str, ...],
     pick: PickFn,
 ) -> str:
     """Build task description."""
-    seed = seed_from_inputs(role, tech_stack, template_key)
+    seed = seed_from_inputs(role, preferred_language_framework, template_key)
     priority = pick(code_priorities, seed, 10 + day_index)
     wrap_up_signal = pick(implementation_wrap_up_signals, seed, 20 + day_index)
     if day_index == 1:
