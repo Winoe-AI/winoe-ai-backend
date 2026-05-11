@@ -15,6 +15,9 @@ from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_TERMINATED,
     TRIAL_STATUSES,
 )
+from app.trials.repositories.trials_repositories_trials_trial_status_constants import (
+    TRIAL_STATUS_COMPLETED,
+)
 from app.trials.services.trials_services_trials_lifecycle_status_service import (
     _ALLOWED_TRANSITIONS,
     _allowed_targets,
@@ -33,6 +36,9 @@ def _touch_timestamp(trial: Trial, target_status: str, at: datetime) -> None:
         trial.ready_for_review_at = at
         return
     if target_status == TRIAL_STATUS_ACTIVE_INVITING and trial.activated_at is None:
+        trial.activated_at = at
+        return
+    if target_status == TRIAL_STATUS_COMPLETED and trial.activated_at is None:
         trial.activated_at = at
         return
     if target_status == TRIAL_STATUS_TERMINATED and trial.terminated_at is None:

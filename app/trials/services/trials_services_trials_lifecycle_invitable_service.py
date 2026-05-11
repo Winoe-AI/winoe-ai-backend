@@ -10,6 +10,9 @@ from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_ACTIVE_INVITING,
     TRIAL_STATUS_TERMINATED,
 )
+from app.trials.repositories.trials_repositories_trials_trial_status_constants import (
+    TRIAL_STATUS_COMPLETED,
+)
 from app.trials.services.trials_services_trials_lifecycle_status_service import (
     normalize_trial_status,
 )
@@ -23,6 +26,14 @@ def require_trial_invitable(trial: Trial) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="Trial has been terminated.",
             error_code="TRIAL_TERMINATED",
+            retryable=False,
+            details={"status": current_status},
+        )
+    if current_status == TRIAL_STATUS_COMPLETED:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Trial has completed.",
+            error_code="TRIAL_COMPLETED",
             retryable=False,
             details={"status": current_status},
         )

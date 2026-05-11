@@ -9,6 +9,7 @@ TrialStatus = Literal[
     "generating",
     "ready_for_review",
     "active_inviting",
+    "completed",
     "terminated",
 ]
 
