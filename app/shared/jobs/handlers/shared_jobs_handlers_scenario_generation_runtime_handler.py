@@ -26,6 +26,9 @@ from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_READY_FOR_REVIEW,
     TRIAL_STATUS_TERMINATED,
 )
+from app.trials.repositories.trials_repositories_trials_trial_status_constants import (
+    TRIAL_STATUS_COMPLETED,
+)
 
 
 async def handle_scenario_generation_impl(
@@ -73,7 +76,7 @@ async def handle_scenario_generation_impl(
         if trial is None:
             return {"status": "trial_not_found", "trialId": trial_id}
         current_status = normalize_trial_status(trial.status)
-        if current_status == TRIAL_STATUS_TERMINATED:
+        if current_status in {TRIAL_STATUS_TERMINATED, TRIAL_STATUS_COMPLETED}:
             return {
                 "status": "skipped_non_mutable_trial",
                 "trialId": trial_id,

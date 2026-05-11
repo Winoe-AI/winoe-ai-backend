@@ -173,6 +173,13 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
         async def scalar(self, *_args, **_kwargs):
             return None
 
+        async def execute(self, *_args, **_kwargs):
+            class _Rows:
+                def all(self):
+                    return []
+
+            return _Rows()
+
     db = _DbStub()
 
     created = await sim_create_route.create_trial(

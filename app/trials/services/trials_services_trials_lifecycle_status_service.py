@@ -14,12 +14,19 @@ from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_TERMINATED,
     TRIAL_STATUSES,
 )
+from app.trials.repositories.trials_repositories_trials_trial_status_constants import (
+    TRIAL_STATUS_COMPLETED,
+)
 
 _ALLOWED_TRANSITIONS: dict[str, set[str]] = {
     TRIAL_STATUS_DRAFT: {TRIAL_STATUS_GENERATING},
     TRIAL_STATUS_GENERATING: {TRIAL_STATUS_READY_FOR_REVIEW},
     TRIAL_STATUS_READY_FOR_REVIEW: {TRIAL_STATUS_ACTIVE_INVITING},
-    TRIAL_STATUS_ACTIVE_INVITING: {TRIAL_STATUS_READY_FOR_REVIEW},
+    TRIAL_STATUS_ACTIVE_INVITING: {
+        TRIAL_STATUS_READY_FOR_REVIEW,
+        TRIAL_STATUS_COMPLETED,
+    },
+    TRIAL_STATUS_COMPLETED: set(),
     TRIAL_STATUS_TERMINATED: set(),
 }
 

@@ -53,6 +53,7 @@ class TrialListItem(BaseModel):
     terminatedAt: datetime | None = None
     createdAt: datetime
     numCandidates: int
+    scoreRange: str | None = None
 
 
 __all__ = ["TrialCreateResponse", "TrialListItem"]

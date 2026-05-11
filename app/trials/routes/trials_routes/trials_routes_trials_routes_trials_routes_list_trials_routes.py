@@ -17,6 +17,9 @@ from app.trials.schemas.trials_schemas_trials_core_schema import (
     build_trial_company_context,
     normalize_role_level,
 )
+from app.trials.services.trials_services_trials_listing_score_range_service import (
+    score_range_by_trial_ids,
+)
 
 router = APIRouter(prefix="/trials")
 
@@ -32,6 +35,8 @@ async def list_trials(
     rows = await trial_service.list_trials(
         db, user.id, include_terminated=includeTerminated
     )
+    trial_ids = [int(sim.id) for sim, _num in rows]
+    score_ranges = await score_range_by_trial_ids(db, trial_ids)
     return [
         TrialListItem(
             id=sim.id,
@@ -55,6 +60,7 @@ async def list_trials(
             terminatedAt=getattr(sim, "terminated_at", None),
             createdAt=sim.created_at,
             numCandidates=int(num_candidates),
+            scoreRange=score_ranges.get(int(sim.id)),
         )
         for sim, num_candidates in rows
     ]

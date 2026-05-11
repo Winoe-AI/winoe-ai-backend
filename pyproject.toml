@@ -49,6 +49,9 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.coverage.run]
 source = ["app"]
+omit = [
+    "app/demo/services/task3_local_qa_seed_service.py",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
