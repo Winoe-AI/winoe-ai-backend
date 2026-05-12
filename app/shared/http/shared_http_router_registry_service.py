@@ -22,6 +22,9 @@ from app.shared.http.routes import (
 )
 from app.shared.http.routes import shared_http_routes_health_routes as health
 from app.shared.http.routes import shared_http_routes_jobs_routes as jobs
+from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_v4_routes import (
+    router as trials_v4_router,
+)
 
 
 def register_routers(app: FastAPI) -> None:
@@ -39,6 +42,7 @@ def register_routers(app: FastAPI) -> None:
             tags=["admin"],
         )
     app.include_router(trials.router, prefix=f"{prefix}", tags=["trials"])
+    app.include_router(trials_v4_router, prefix=f"{prefix}", tags=["trials"])
     app.include_router(
         candidate_sessions.router, prefix=f"{prefix}/candidate", tags=["candidate"]
     )

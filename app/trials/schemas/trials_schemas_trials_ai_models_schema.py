@@ -46,6 +46,22 @@ class TrialCompanyContext(BaseModel):
         min_length=1,
         max_length=MAX_COMPANY_CONTEXT_VALUE_CHARS,
     )
+    evaluation_focus_areas: list[str] | None = Field(
+        default=None,
+        alias="evaluationFocusAreas",
+    )
+
+    @field_validator("evaluation_focus_areas")
+    @classmethod
+    def _validate_evaluation_focus_areas(
+        cls, value: list[str] | None
+    ) -> list[str] | None:
+        if not value:
+            return None
+        cleaned = [str(item).strip() for item in value if str(item).strip()]
+        if not cleaned:
+            return None
+        return cleaned[:24]
 
     @model_serializer(mode="plain")
     def _serialize(self):
@@ -56,6 +72,8 @@ class TrialCompanyContext(BaseModel):
             data["productArea"] = self.product_area
         if self.preferred_language_framework is not None:
             data["preferredLanguageFramework"] = self.preferred_language_framework
+        if self.evaluation_focus_areas:
+            data["evaluationFocusAreas"] = list(self.evaluation_focus_areas)
         return data
 
 
