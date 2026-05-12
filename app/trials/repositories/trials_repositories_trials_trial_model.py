@@ -1,6 +1,7 @@
 """Application module for trials repositories trials trial model workflows."""
 
 from datetime import datetime, time
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -72,7 +73,7 @@ class Trial(Base, TimestampMixin):
     focus: Mapped[str] = mapped_column(
         Text, nullable=False, server_default="", default=""
     )
-    company_context: Mapped[dict[str, str] | None] = mapped_column(JSON, nullable=True)
+    company_context: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     company_rubric_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ai_prompt_overrides_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     ai_notice_version: Mapped[str] = mapped_column(
