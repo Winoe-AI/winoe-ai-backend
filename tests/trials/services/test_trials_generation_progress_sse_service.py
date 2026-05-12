@@ -22,8 +22,14 @@ from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_TERMINATED,
 )
 from app.trials.services.trials_services_trials_generation_progress_sse_service import (
+    _line_for_step,
     trial_generation_progress_events,
 )
+from app.trials.services.trials_services_trials_scenario_generation_constants import (
+    SCENARIO_GENERATION_JOB_TYPE,
+)
+from tests.shared.factories import create_job, create_talent_partner, create_trial
+from tests.shared.fixtures.shared_fixtures_session_patch_utils import _session_maker
 
 
 def _parse_sse(frame: bytes) -> tuple[str, dict]:
@@ -264,3 +270,143 @@ async def test_sse_requires_session_maker_when_loader_omitted():
             company_id=1,
         )
         await gen.__anext__()
+
+
+def test_line_for_step_unknown_step_uses_working_fallback():
+    assert _line_for_step(99, 0) == "Working…"
+
+
+@pytest.mark.asyncio
+async def test_sse_advances_steps_as_virtual_elapsed_time_grows():
+    clock = _VirtualClock()
+
+    async def loader(_t, _c):
+        return (
+            SimpleNamespace(id=1, company_id=1, status=TRIAL_STATUS_GENERATING),
+            SimpleNamespace(status=JOB_STATUS_RUNNING),
+        )
+
+    events: list[tuple[str, dict]] = []
+    async for frame in trial_generation_progress_events(
+        trial_id=1,
+        company_id=1,
+        load_trial_and_job=loader,
+        clock=clock.time,
+        sleep=clock.sleep,
+        poll_interval_seconds=0.5,
+        timeout_seconds=6.0,
+    ):
+        events.append(_parse_sse(frame))
+
+    active_steps = [
+        d["step"]
+        for e, d in events
+        if e == "step" and d.get("status") == "active" and "step" in d
+    ]
+    assert max(active_steps) >= 1
+
+
+@pytest.mark.asyncio
+async def test_sse_refreshes_context_line_for_active_step():
+    clock = _VirtualClock()
+
+    async def loader(_t, _c):
+        return (
+            SimpleNamespace(id=1, company_id=1, status=TRIAL_STATUS_GENERATING),
+            SimpleNamespace(status=JOB_STATUS_RUNNING),
+        )
+
+    lines: list[str] = []
+    async for frame in trial_generation_progress_events(
+        trial_id=1,
+        company_id=1,
+        load_trial_and_job=loader,
+        clock=clock.time,
+        sleep=clock.sleep,
+        poll_interval_seconds=0.4,
+        line_refresh_seconds=1.0,
+        timeout_seconds=3.5,
+    ):
+        event, data = _parse_sse(frame)
+        if (
+            event == "step"
+            and data.get("step") == 0
+            and data.get("status") == "active"
+            and "context_line" in data
+        ):
+            lines.append(data["context_line"])
+
+    assert len(lines) >= 2
+
+
+@pytest.mark.asyncio
+async def test_sse_session_maker_default_loader_loads_trial_and_job(async_session):
+    from app.shared.database.shared_database_models_model import Company
+
+    clock = _VirtualClock()
+    talent = await create_talent_partner(async_session, email="sse-db-loader@test.com")
+    trial, _tasks = await create_trial(async_session, created_by=talent)
+    trial.status = TRIAL_STATUS_GENERATING
+    company = await async_session.get(Company, talent.company_id)
+    assert company is not None
+    await create_job(
+        async_session,
+        company=company,
+        job_type=SCENARIO_GENERATION_JOB_TYPE,
+        status=JOB_STATUS_RUNNING,
+        correlation_id=f"trial:{trial.id}",
+    )
+    await async_session.commit()
+
+    session_maker = _session_maker(async_session)
+    events: list[tuple[str, dict]] = []
+    async for frame in trial_generation_progress_events(
+        session_maker=session_maker,
+        trial_id=trial.id,
+        company_id=talent.company_id,
+        clock=clock.time,
+        sleep=clock.sleep,
+        timeout_seconds=0.6,
+        poll_interval_seconds=0.15,
+    ):
+        events.append(_parse_sse(frame))
+
+    assert events[0][0] == "step"
+    assert not any(e == "failed" and "not found" in d.get("message", "").lower() for e, d in events)
+
+
+@pytest.mark.asyncio
+async def test_sse_session_maker_default_loader_trial_not_found_for_wrong_company(
+    async_session,
+):
+    from app.shared.database.shared_database_models_model import Company
+
+    clock = _VirtualClock()
+    talent = await create_talent_partner(async_session, email="sse-db-wrong-co@test.com")
+    trial, _tasks = await create_trial(async_session, created_by=talent)
+    trial.status = TRIAL_STATUS_GENERATING
+    company = await async_session.get(Company, talent.company_id)
+    assert company is not None
+    await create_job(
+        async_session,
+        company=company,
+        job_type=SCENARIO_GENERATION_JOB_TYPE,
+        status=JOB_STATUS_RUNNING,
+        correlation_id=f"trial:{trial.id}",
+    )
+    await async_session.commit()
+
+    session_maker = _session_maker(async_session)
+    events: list[tuple[str, dict]] = []
+    async for frame in trial_generation_progress_events(
+        session_maker=session_maker,
+        trial_id=trial.id,
+        company_id=talent.company_id + 9_999_999,
+        clock=clock.time,
+        sleep=clock.sleep,
+        timeout_seconds=0.2,
+        poll_interval_seconds=0.05,
+    ):
+        events.append(_parse_sse(frame))
+
+    assert events[-1] == ("failed", {"message": "Trial not found."})
