@@ -372,7 +372,9 @@ async def test_sse_session_maker_default_loader_loads_trial_and_job(async_sessio
         events.append(_parse_sse(frame))
 
     assert events[0][0] == "step"
-    assert not any(e == "failed" and "not found" in d.get("message", "").lower() for e, d in events)
+    assert not any(
+        e == "failed" and "not found" in d.get("message", "").lower() for e, d in events
+    )
 
 
 @pytest.mark.asyncio
@@ -382,7 +384,9 @@ async def test_sse_session_maker_default_loader_trial_not_found_for_wrong_compan
     from app.shared.database.shared_database_models_model import Company
 
     clock = _VirtualClock()
-    talent = await create_talent_partner(async_session, email="sse-db-wrong-co@test.com")
+    talent = await create_talent_partner(
+        async_session, email="sse-db-wrong-co@test.com"
+    )
     trial, _tasks = await create_trial(async_session, created_by=talent)
     trial.status = TRIAL_STATUS_GENERATING
     company = await async_session.get(Company, talent.company_id)

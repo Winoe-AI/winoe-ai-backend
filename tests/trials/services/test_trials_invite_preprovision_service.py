@@ -76,7 +76,9 @@ async def test_preprovision_skips_second_task_when_workspace_key_repeats(
         "is_code_task",
         lambda _t: True,
     )
-    monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx")
+    monkeypatch.setattr(
+        preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx"
+    )
     monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_ORG", "org")
 
     tp = await create_talent_partner(async_session, email="preprov-unit1@test.com")
@@ -124,7 +126,9 @@ async def test_preprovision_passes_workspace_resolution_for_fresh_session(
         "is_code_task",
         lambda _t: True,
     )
-    monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx")
+    monkeypatch.setattr(
+        preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx"
+    )
     monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_ORG", "org")
 
     tp = await create_talent_partner(async_session, email="preprov-unit2@test.com")
@@ -174,7 +178,9 @@ async def test_preprovision_does_not_list_repo_when_not_marked_created(
         "is_code_task",
         lambda _t: True,
     )
-    monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx")
+    monkeypatch.setattr(
+        preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx"
+    )
     monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_ORG", "org")
 
     tp = await create_talent_partner(async_session, email="preprov-unit3@test.com")
@@ -228,7 +234,9 @@ async def test_preprovision_attaches_partial_repo_names_on_later_failure(
         "resolve_workspace_key_for_task",
         lambda t: f"wk-{t.id}",
     )
-    monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx")
+    monkeypatch.setattr(
+        preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx"
+    )
     monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_ORG", "org")
 
     tp = await create_talent_partner(async_session, email="preprov-unit4@test.com")
@@ -276,7 +284,9 @@ async def test_preprovision_skips_when_task_is_not_code(async_session, monkeypat
         "is_code_task",
         lambda _t: False,
     )
-    monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx")
+    monkeypatch.setattr(
+        preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx"
+    )
     monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_ORG", "org")
 
     tp = await create_talent_partner(async_session, email="preprov-unit5@test.com")
@@ -323,7 +333,9 @@ async def test_preprovision_skips_when_github_username_missing(
         "is_code_task",
         lambda _t: True,
     )
-    monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx")
+    monkeypatch.setattr(
+        preprovision_module.settings.github, "GITHUB_REPO_PREFIX", "pfx"
+    )
     monkeypatch.setattr(preprovision_module.settings.github, "GITHUB_ORG", "org")
 
     tp = await create_talent_partner(async_session, email="preprov-unit6@test.com")
