@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.ai import (
     compute_ai_policy_snapshot_digest,
@@ -13,6 +13,9 @@ from app.ai import (
 )
 from app.evaluations.repositories import (
     RUBRIC_SNAPSHOT_SCOPE_WINOE,
+)
+from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_snapshot_model import (
+    WinoeRubricSnapshot,
 )
 from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_pipeline_runner_service as runner_service,
@@ -78,13 +81,14 @@ async def test_process_evaluation_run_job_uses_persisted_rubric_snapshots(
     captured: dict[str, object] = {}
 
     async def fake_get_or_start_run(**_kwargs):
+        captured["start_kwargs"] = _kwargs
         return (
             SimpleNamespace(
                 id=9001,
                 basis_fingerprint="basis-9001",
-                model_version="2026-03-12",
-                prompt_version="winoe-report-v1",
-                rubric_version="rubric-v1",
+                model_version="gpt-5.2",
+                prompt_version="winoe-ai-pack-v4:winoeReport",
+                rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
             ),
             None,
         )
@@ -167,18 +171,138 @@ async def test_process_evaluation_run_job_uses_persisted_rubric_snapshots(
         scenario_version_id=candidate_session.scenario_version_id,
     )
     assert bundle.ai_policy_snapshot_json["rubricSnapshots"]
+    assert bundle.ai_policy_snapshot_json["promptPackVersion"] == "winoe-ai-pack-v4"
+    assert (
+        bundle.ai_policy_snapshot_json["agents"]["winoeReport"]["rubricVersion"]
+        == "winoe-ai-pack-v4:winoeReport:rubric"
+    )
+    assert bundle.model_name == "gpt-5.2"
+    assert bundle.model_version == "gpt-5.2"
+    assert bundle.prompt_version == "winoe-ai-pack-v4:winoeReport"
     assert {
         item["snapshotId"] for item in bundle.ai_policy_snapshot_json["rubricSnapshots"]
     } == {item["snapshotId"] for item in materialized["rubricSnapshots"]}
     assert {
         item["snapshotId"] for item in captured["run_metadata"]["rubricSnapshots"]
     } == {item["snapshotId"] for item in materialized["rubricSnapshots"]}
+    assert captured["start_kwargs"]["model_name"] == "gpt-5.2"
+    assert captured["start_kwargs"]["model_version"] == "gpt-5.2"
+    assert captured["start_kwargs"]["prompt_version"] == "winoe-ai-pack-v4:winoeReport"
+    assert (
+        captured["start_kwargs"]["rubric_version"]
+        == "winoe-ai-pack-v4:winoeReport:rubric"
+    )
+    assert captured["start_kwargs"]["prompt_version"] != "winoe-report-v1"
     assert bundle.code_implementation_evidence.commit_history == []
     assert bundle.code_implementation_evidence.file_creation_timeline == []
     assert bundle.code_implementation_evidence.test_coverage_progression == []
     assert bundle.code_implementation_evidence.evidence_status[
         "commit_history"
     ].startswith("unavailable:")
+
+
+@pytest.mark.asyncio
+async def test_materialize_scenario_version_rubric_snapshots_repairs_stale_rows_before_candidate_sessions(
+    async_session,
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="pipeline-rubric-repair@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
+    scenario_version = await async_session.scalar(
+        select(ScenarioVersion).where(
+            ScenarioVersion.id == trial.active_scenario_version_id
+        )
+    )
+    assert scenario_version is not None
+
+    initial = await rubric_service.materialize_scenario_version_rubric_snapshots(
+        async_session, scenario_version=scenario_version, trial=trial
+    )
+    await async_session.execute(
+        delete(WinoeRubricSnapshot).where(
+            WinoeRubricSnapshot.scenario_version_id == scenario_version.id
+        )
+    )
+    async_session.add(
+        WinoeRubricSnapshot(
+            scenario_version_id=scenario_version.id,
+            scope="winoe",
+            rubric_kind="winoe_synthesis",
+            rubric_key="winoeReport",
+            rubric_version="winoe-ai-pack-v1:winoeReport:rubric",
+            content_hash="legacy-hash",
+            content_md="# Legacy Winoe synthesis",
+            source_path="app/ai/prompt_assets/v1/winoe_synthesis.md",
+            metadata_json={"sourceType": "legacy_seed"},
+        )
+    )
+    await async_session.commit()
+
+    repaired = await rubric_service.materialize_scenario_version_rubric_snapshots(
+        async_session, scenario_version=scenario_version, trial=trial
+    )
+
+    assert {item["rubricVersion"] for item in repaired["rubricSnapshots"]} == {
+        item["rubricVersion"] for item in initial["rubricSnapshots"]
+    }
+    assert all(
+        item["rubricVersion"].startswith("winoe-ai-pack-v4:")
+        for item in repaired["rubricSnapshots"]
+        if item["rubricKey"] == "winoeReport"
+    )
+    assert all(
+        item["sourcePath"] != "app/ai/prompt_assets/v1/winoe_synthesis.md"
+        for item in repaired["rubricSnapshots"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_materialize_scenario_version_rubric_snapshots_fails_closed_for_stale_rows_after_candidate_session_exists(
+    async_session,
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="pipeline-rubric-stale@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
+    candidate_session = await create_candidate_session(async_session, trial=trial)
+    scenario_version = await async_session.scalar(
+        select(ScenarioVersion).where(
+            ScenarioVersion.id == candidate_session.scenario_version_id
+        )
+    )
+    assert scenario_version is not None
+
+    await rubric_service.materialize_scenario_version_rubric_snapshots(
+        async_session, scenario_version=scenario_version, trial=trial
+    )
+    await async_session.execute(
+        delete(WinoeRubricSnapshot).where(
+            WinoeRubricSnapshot.scenario_version_id == scenario_version.id
+        )
+    )
+    async_session.add(
+        WinoeRubricSnapshot(
+            scenario_version_id=scenario_version.id,
+            scope="winoe",
+            rubric_kind="winoe_synthesis",
+            rubric_key="winoeReport",
+            rubric_version="winoe-ai-pack-v1:winoeReport:rubric",
+            content_hash="legacy-hash",
+            content_md="# Legacy Winoe synthesis",
+            source_path="app/ai/prompt_assets/v1/winoe_synthesis.md",
+            metadata_json={"sourceType": "legacy_seed"},
+        )
+    )
+    await async_session.commit()
+
+    with pytest.raises(
+        rubric_service.RubricSnapshotMaterializationError,
+        match="scenario_version_rubric_snapshots_stale_after_candidate_session_exists",
+    ):
+        await rubric_service.materialize_scenario_version_rubric_snapshots(
+            async_session, scenario_version=scenario_version, trial=trial
+        )
 
 
 @pytest.mark.asyncio
@@ -335,8 +459,8 @@ async def test_process_evaluation_run_job_records_repository_evidence_when_prese
                 id=9002,
                 basis_fingerprint="basis-9002",
                 model_version="2026-03-12",
-                prompt_version="winoe-report-v1",
-                rubric_version="rubric-v1",
+                prompt_version="winoe-ai-pack-v4:winoeReport",
+                rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
             ),
             None,
         )
@@ -479,8 +603,8 @@ async def test_process_evaluation_run_job_marks_repo_reference_only_as_partial(
                 id=9003,
                 basis_fingerprint="basis-9003",
                 model_version="2026-03-12",
-                prompt_version="winoe-report-v1",
-                rubric_version="rubric-v1",
+                prompt_version="winoe-ai-pack-v4:winoeReport",
+                rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
             ),
             None,
         )
@@ -595,8 +719,8 @@ async def test_process_evaluation_run_job_reuses_same_snapshot_ids_for_same_tria
                 id=9101,
                 basis_fingerprint="basis-9101",
                 model_version="2026-03-12",
-                prompt_version="winoe-report-v1",
-                rubric_version="rubric-v1",
+                prompt_version="winoe-ai-pack-v4:winoeReport",
+                rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
             ),
             None,
         )

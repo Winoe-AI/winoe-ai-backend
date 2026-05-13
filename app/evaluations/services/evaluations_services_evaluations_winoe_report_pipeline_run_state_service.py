@@ -9,11 +9,6 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
     EVALUATION_RUN_STATUS_COMPLETED,
     EVALUATION_RUN_STATUS_FAILED,
 )
-from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_constants_service import (
-    DEFAULT_EVALUATION_MODEL_NAME,
-    DEFAULT_EVALUATION_MODEL_VERSION,
-    DEFAULT_EVALUATION_PROMPT_VERSION,
-)
 
 
 def _completed_response(
@@ -65,11 +60,14 @@ async def _get_or_start_run(
     started: float,
     run_metadata: dict[str, Any],
     basis_fingerprint: str,
-    scenario_rubric_version: str,
     day2_checkpoint_sha: str,
     day3_final_sha: str,
     cutoff_commit_sha: str,
     transcript_reference: str,
+    model_name: str,
+    model_version: str,
+    prompt_version: str,
+    rubric_version: str,
 ) -> tuple[Any, dict[str, Any] | None]:
     existing_run = None
     existing_run_source = None
@@ -95,10 +93,10 @@ async def _get_or_start_run(
             db,
             candidate_session_id=context.candidate_session.id,
             scenario_version_id=context.candidate_session.scenario_version_id,
-            model_name=DEFAULT_EVALUATION_MODEL_NAME,
-            model_version=DEFAULT_EVALUATION_MODEL_VERSION,
-            prompt_version=DEFAULT_EVALUATION_PROMPT_VERSION,
-            rubric_version=scenario_rubric_version,
+            model_name=model_name,
+            model_version=model_version,
+            prompt_version=prompt_version,
+            rubric_version=rubric_version,
             day2_checkpoint_sha=day2_checkpoint_sha,
             day3_final_sha=day3_final_sha,
             cutoff_commit_sha=cutoff_commit_sha,

@@ -129,11 +129,7 @@ async def test_trial_context_round_trips_on_create_and_detail(
         tasks=list(tasks),
     )
     assert scenario_version.ai_policy_snapshot_json == build_ai_policy_snapshot(
-        trial=SimpleNamespace(
-            ai_notice_version=payload["ai"]["noticeVersion"],
-            ai_notice_text=payload["ai"]["noticeText"],
-            ai_eval_enabled_by_day=payload["ai"]["evalEnabledByDay"],
-        )
+        trial=trial
     )
 
     detail_res = await async_client.get(
@@ -151,7 +147,7 @@ async def test_trial_context_round_trips_on_create_and_detail(
     assert detail["ai"]["noticeVersion"] == payload["ai"]["noticeVersion"]
     assert detail["ai"]["noticeText"] == payload["ai"]["noticeText"]
     assert detail["ai"]["evalEnabledByDay"] == payload["ai"]["evalEnabledByDay"]
-    assert detail["ai"]["promptPackVersion"] == "winoe-ai-pack-v1"
+    assert detail["ai"]["promptPackVersion"] == "winoe-ai-pack-v4"
     assert detail["ai"]["changesPendingRegeneration"] is False
 
 
@@ -283,7 +279,7 @@ def test_detail_helpers_handle_non_reviewable_and_non_mapping_state():
     summary = _scenario_snapshot_summary(version, bundle_status="ready")
     assert summary is not None
     assert summary["scenarioVersionId"] == "sv-1"
-    assert summary["promptPackVersion"] == "winoe-ai-pack-v1"
+    assert summary["promptPackVersion"] == "winoe-ai-pack-v4"
     assert summary["bundleStatus"] == "ready"
     assert [agent["key"] for agent in summary["agents"]] == [
         "codeImplementationReviewer",

@@ -4,7 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.ai import AIPolicySnapshotError, build_ai_policy_snapshot
+from app.ai import (
+    AIPolicySnapshotError,
+    build_ai_policy_snapshot,
+)
 from app.ai.ai_output_models import (
     ScenarioGenerationOutput,
     ScenarioRubric,
@@ -20,6 +23,7 @@ from app.trials.services import scenario_generation
 from app.trials.services import (
     trials_services_trials_scenario_generation_runtime_service as scenario_generation_runtime,
 )
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 def _snapshot():
@@ -27,6 +31,7 @@ def _snapshot():
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     return build_ai_policy_snapshot(trial=trial)
 
@@ -46,7 +51,8 @@ def test_deterministic_template_generation_is_stable_for_same_inputs() -> None:
     )
     assert first == second
     assert len(first.task_prompts_json) == 5
-    assert first.project_brief_md.startswith("# Project Brief")
+    assert first.project_brief_md.startswith("# The Requested Product Area")
+    assert "requested product area" in first.project_brief_md.lower()
     assert (
         first.metadata.source
         == scenario_generation.SCENARIO_SOURCE_DETERMINISTIC_FALLBACK
@@ -186,7 +192,7 @@ def test_project_brief_stays_open_ended_for_context_changes() -> None:
         template_key="missing-template",
         ai_policy_snapshot_json=_snapshot(),
     )
-    assert payload.project_brief_md.startswith("# Project Brief")
+    assert payload.project_brief_md.startswith("# The Requested Product Area")
     assert "codespace" not in payload.project_brief_md.lower()
     assert "python" in payload.project_brief_md.lower()
     assert "template" not in payload.project_brief_md.lower()
@@ -214,13 +220,18 @@ def test_deterministic_template_generation_uses_demo_and_reflection_language() -
     assert "implementation wrap-up" in day3["title"].lower()
     assert "wrap-up" in day3["description"].lower()
     assert "debug" not in day3["description"].lower()
-    assert "wrap-up" in payload.rubric_json["summary"].lower()
+    assert "handoff + demo" in payload.rubric_json["summary"].lower()
+    assert "reflection" in payload.rubric_json["summary"].lower()
     assert any(
-        dimension["name"] == "Handoff communication"
+        dimension["name"] == "Architecture & Design"
         for dimension in payload.rubric_json["dimensions"]
     )
     assert any(
-        dimension["name"] == "Implementation completeness and handoff readiness"
+        dimension["name"] == "Communication"
+        for dimension in payload.rubric_json["dimensions"]
+    )
+    assert any(
+        dimension["name"] == "Functional Requirements"
         for dimension in payload.rubric_json["dimensions"]
     )
     assert all(
@@ -326,14 +337,44 @@ def test_generate_with_llm_success_includes_override_context(monkeypatch) -> Non
                         },
                         dimensions=[
                             ScenarioRubricDimension(
-                                name="Scope",
-                                weight=40,
-                                description="Evaluates whether the work is well scoped.",
+                                name="Architecture & Design",
+                                weight=12,
+                                description="Evaluates the structural approach.",
                             ),
                             ScenarioRubricDimension(
-                                name="Delivery",
-                                weight=60,
-                                description="Evaluates implementation quality and finish.",
+                                name="Problem Understanding",
+                                weight=12,
+                                description="Evaluates problem framing and requirements.",
+                            ),
+                            ScenarioRubricDimension(
+                                name="Implementation Quality",
+                                weight=12,
+                                description="Evaluates how well the plan is executed.",
+                            ),
+                            ScenarioRubricDimension(
+                                name="Code Quality",
+                                weight=12,
+                                description="Evaluates readability, structure, and maintainability.",
+                            ),
+                            ScenarioRubricDimension(
+                                name="Testing Discipline",
+                                weight=12,
+                                description="Evaluates test coverage and validation habits.",
+                            ),
+                            ScenarioRubricDimension(
+                                name="Development Process",
+                                weight=12,
+                                description="Evaluates pacing, iteration, and workflow.",
+                            ),
+                            ScenarioRubricDimension(
+                                name="Communication",
+                                weight=14,
+                                description="Evaluates handoff clarity and demo communication.",
+                            ),
+                            ScenarioRubricDimension(
+                                name="Reflection & Ownership",
+                                weight=14,
+                                description="Evaluates ownership, learning, and follow-through.",
                             ),
                         ],
                     ),

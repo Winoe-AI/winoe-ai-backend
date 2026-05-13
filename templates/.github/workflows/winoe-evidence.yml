@@ -1,0 +1,144 @@
+name: Winoe Evidence Capture
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture evidence
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          mkdir -p evidence
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+          from datetime import UTC, datetime
+
+          root = pathlib.Path(".")
+          evidence = pathlib.Path("evidence")
+          evidence.mkdir(parents=True, exist_ok=True)
+
+          def run(*args: str) -> subprocess.CompletedProcess[str]:
+              return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+
+          commit_sha = os.getenv("GITHUB_SHA", "")
+          generated_at = datetime.now(UTC).isoformat()
+
+          def write(name: str, payload: object) -> None:
+              (evidence / name).write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+          head = run("show", "-s", "--format=%H%x09%an%x09%ad%x09%s", "--date=iso-strict", "HEAD")
+          head_sha = ""
+          author_name = ""
+          author_timestamp = ""
+          subject = ""
+          if head.returncode == 0 and head.stdout.strip():
+              parts = head.stdout.strip().split("\t", 3)
+              if len(parts) == 4:
+                  head_sha, author_name, author_timestamp, subject = parts
+          write(
+              "commit_metadata.json",
+              {
+                  "generated_at": generated_at,
+                  "sha": head_sha or commit_sha,
+                  "author_name": author_name,
+                  "author_timestamp": author_timestamp,
+                  "subject": subject,
+              },
+          )
+          tree = run("ls-files")
+          tree_files = [line for line in tree.stdout.splitlines() if line.strip()]
+          write(
+              "repo_tree_summary.json",
+              {
+                  "files": tree_files,
+                  "file_count": len(tree_files),
+              },
+          )
+          creation = run("log", "--reverse", "--diff-filter=A", "--format=%H%x09%an%x09%ad%x09%s", "--date=iso-strict", "--name-only")
+          write("file_creation_timeline.json", {"log": creation.stdout})
+
+          manifests = []
+          if (root / "package.json").exists():
+              manifests.append({"kind": "node", "path": "package.json"})
+          if (root / "pyproject.toml").exists() or (root / "pytest.ini").exists() or (root / "setup.cfg").exists():
+              manifests.append({"kind": "python", "path": "pyproject.toml"})
+          if (root / "go.mod").exists():
+              manifests.append({"kind": "go", "path": "go.mod"})
+          if (root / "pom.xml").exists():
+              manifests.append({"kind": "maven", "path": "pom.xml"})
+          write("dependency_manifests.json", {"detected": bool(manifests), "manifests": manifests})
+
+          test_commands = [
+              ("npm", ["package.json"], "npm test"),
+              ("pytest", ["pyproject.toml", "pytest.ini", "setup.cfg"], "pytest"),
+              ("go", ["go.mod"], "go test ./..."),
+              ("maven", ["pom.xml"], "mvn test"),
+          ]
+          detected = None
+          for label, markers, command in test_commands:
+              if any((root / marker).exists() for marker in markers):
+                  detected = {"tool": label, "command": command}
+                  break
+          write("test_detection.json", {"detected": detected})
+          test_result = subprocess.run(detected["command"], shell=True, capture_output=True, text=True) if detected else None
+          write(
+              "test_results.json",
+              {
+                  "command": detected["command"] if detected else None,
+                  "exit_code": test_result.returncode if test_result else None,
+                  "stdout": test_result.stdout if test_result else "",
+                  "stderr": test_result.stderr if test_result else "",
+              },
+          )
+          lint_command = None
+          if (root / "package.json").exists() and "lint" in json.loads((root / "package.json").read_text(encoding="utf-8")).get("scripts", {}):
+              lint_command = "npm run lint"
+          elif (root / "pyproject.toml").exists():
+              lint_command = "python -m ruff check ."
+          elif (root / "go.mod").exists():
+              lint_command = "golangci-lint run"
+          elif (root / "pom.xml").exists():
+              lint_command = "mvn -q -DskipTests checkstyle:check"
+          lint_result = subprocess.run(lint_command, shell=True, capture_output=True, text=True) if lint_command else None
+          write(
+              "lint_detection.json",
+              {"command": lint_command, "detected": bool(lint_command)},
+          )
+          write(
+              "lint_results.json",
+              {
+                  "command": lint_command,
+                  "exit_code": lint_result.returncode if lint_result else None,
+                  "stdout": lint_result.stdout if lint_result else "",
+                  "stderr": lint_result.stderr if lint_result else "",
+              },
+          )
+          write(
+              "evidence_manifest.json",
+              {
+                  "generated_at": generated_at,
+                  "artifacts": sorted(p.name for p in evidence.iterdir()),
+              },
+          )
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: winoe-evidence-${{ github.sha }}
+          path: evidence/
+          retention-days: 90

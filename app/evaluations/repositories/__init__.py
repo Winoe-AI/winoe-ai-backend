@@ -46,6 +46,15 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_sn
     get_rubric_snapshot_by_identity,
     list_rubric_snapshots_for_scenario_version,
 )
+from app.evaluations.repositories.evaluations_repositories_trial_agent_snapshot_model import (
+    TrialAgentSnapshot,
+)
+from app.evaluations.repositories.evaluations_repositories_trial_agent_snapshot_repository import (
+    delete_trial_agent_snapshots,
+    get_required_trial_agent_snapshot,
+    list_trial_agent_snapshots,
+    replace_trial_agent_snapshots,
+)
 
 from . import evaluations_repositories_evaluations_core_model as models
 from . import evaluations_repositories_evaluations_core_repository as repository
@@ -73,6 +82,7 @@ __all__ = [
     "RUBRIC_SNAPSHOT_SCOPE_COMPANY",
     "RUBRIC_SNAPSHOT_SCOPE_WINOE",
     "RUBRIC_SNAPSHOT_SCOPES",
+    "TrialAgentSnapshot",
     "EvidencePointerValidationError",
     "add_day_scores",
     "add_reviewer_reports",
@@ -80,6 +90,8 @@ __all__ = [
     "create_run",
     "create_run_with_day_scores",
     "get_rubric_snapshot_by_identity",
+    "delete_trial_agent_snapshots",
+    "get_required_trial_agent_snapshot",
     "get_latest_run_for_candidate_session",
     "get_latest_successful_run_for_candidate_session",
     "get_run_by_id",
@@ -87,10 +99,12 @@ __all__ = [
     "has_runs_for_candidate_session",
     "list_runs_for_candidate_session",
     "list_rubric_snapshots_for_scenario_version",
+    "list_trial_agent_snapshots",
     "list_reviewer_reports",
     "list_reviewer_reports_for_run",
     "normalize_reviewer_report_payload",
     "models",
     "repository",
     "validate_evidence_pointers",
+    "replace_trial_agent_snapshots",
 ]

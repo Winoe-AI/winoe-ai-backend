@@ -4,6 +4,7 @@ import pytest
 
 from app.ai import build_ai_policy_snapshot
 from tests.evaluations.services.evaluations_winoe_report_pipeline_utils import *
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 @pytest.mark.asyncio
@@ -27,6 +28,7 @@ async def test_process_evaluation_run_job_reuses_existing_terminal_run(
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     context = SimpleNamespace(
         candidate_session=SimpleNamespace(id=50, scenario_version_id=60),
@@ -110,6 +112,7 @@ async def test_process_evaluation_run_job_reuses_existing_run_by_basis_when_job_
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     context = SimpleNamespace(
         candidate_session=SimpleNamespace(id=51, scenario_version_id=61),

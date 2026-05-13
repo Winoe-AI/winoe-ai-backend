@@ -10,6 +10,7 @@ from app.ai import (
     compute_ai_policy_snapshot_basis_fingerprint,
 )
 from tests.evaluations.services.evaluations_winoe_report_pipeline_utils import *
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 @pytest.mark.asyncio
@@ -23,6 +24,7 @@ async def test_process_evaluation_run_job_persists_failed_run_for_invalid_snapsh
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     snapshot = build_ai_policy_snapshot(trial=trial)
     snapshot["snapshotDigest"] = "x" * 256
@@ -141,5 +143,8 @@ async def test_process_evaluation_run_job_persists_failed_run_for_invalid_snapsh
     assert metadata["evaluationModelName"]
     assert metadata["evaluationModelVersion"]
     assert metadata["evaluationPromptVersion"]
-    assert metadata["evaluationRubricVersion"] == "rubric-vx"
+    assert (
+        metadata["evaluationRubricVersion"]
+        == snapshot["agents"]["winoeReport"]["rubricVersion"]
+    )
     assert db.commit.await_count == 1

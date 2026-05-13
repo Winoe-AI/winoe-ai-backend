@@ -34,13 +34,38 @@ def _scenario_generation_output() -> ScenarioGenerationOutput:
             dimensions=[
                 ScenarioRubricDimension(
                     name="Planning",
-                    weight=50,
+                    weight=15,
                     description="Plans well.",
                 ),
                 ScenarioRubricDimension(
-                    name="Execution",
-                    weight=50,
-                    description="Delivers well.",
+                    name="Architecture",
+                    weight=15,
+                    description="Designs a workable structure.",
+                ),
+                ScenarioRubricDimension(
+                    name="Problem Solving",
+                    weight=15,
+                    description="Resolves blockers effectively.",
+                ),
+                ScenarioRubricDimension(
+                    name="Implementation",
+                    weight=15,
+                    description="Delivers the feature cleanly.",
+                ),
+                ScenarioRubricDimension(
+                    name="Testing",
+                    weight=10,
+                    description="Verifies the behavior thoroughly.",
+                ),
+                ScenarioRubricDimension(
+                    name="Communication",
+                    weight=10,
+                    description="Explains decisions clearly.",
+                ),
+                ScenarioRubricDimension(
+                    name="Ownership",
+                    weight=20,
+                    description="Shows accountability end-to-end.",
                 ),
             ],
         ),

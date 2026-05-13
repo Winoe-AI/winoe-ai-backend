@@ -136,3 +136,26 @@ async def test_user_from_principal_backfills_existing_local_talent_partner_witho
 
     assert resolved.id == talent_partner.id
     assert talent_partner.company_id is not None
+
+
+@pytest.mark.asyncio
+async def test_user_from_principal_assigns_qa_talent_partner_with_company(
+    async_session, monkeypatch
+):
+    qa_email = "winoetalentpartner@gmail.com"
+    monkeypatch.setenv("QA_E2E_TALENT_PARTNER_EMAIL", qa_email)
+    monkeypatch.setattr(users_utils, "env_name", lambda: "local")
+
+    principal = Principal(
+        sub="auth0|qa-talent-partner",
+        email=qa_email,
+        name="Winoe Talent Partner",
+        roles=["talent_partner"],
+        permissions=["talent_partner:access"],
+        claims={},
+    )
+
+    user = await dependencies._user_from_principal(principal, async_session)
+
+    assert user.role == "talent_partner"
+    assert user.company_id is not None

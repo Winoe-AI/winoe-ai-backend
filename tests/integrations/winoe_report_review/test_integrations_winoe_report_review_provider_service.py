@@ -38,29 +38,61 @@ def _reviewer_output() -> DayReviewerOutput:
 def _aggregated_output(*, reason: str | None = None) -> AggregatedWinoeReportOutput:
     return AggregatedWinoeReportOutput.model_validate(
         {
-            "overallWinoeScore": 0.82,
-            "recommendation": "positive_signal",
-            "confidence": 0.74,
-            "dayScores": [
+            "winoe_score": 82.0,
+            "verdict_one_liner": "The candidate delivered a credible positive signal.",
+            "dimensions": [
                 {
-                    "dayIndex": 2,
-                    "status": "scored",
-                    "score": 0.82,
-                    "rubricBreakdown": {"execution": 0.84},
-                    "evidence": [
-                        {
-                            "kind": "submission",
-                            "ref": "submission://day2",
-                            "quote": "The candidate closed the blocking issue.",
-                            "dayIndex": 2,
-                        }
-                    ],
-                    "reason": reason,
+                    "name": "Execution",
+                    "score": 8.4,
+                    "justification": "Strong execution under constraints.",
+                },
+                {
+                    "name": "Communication",
+                    "score": 7.8,
+                    "justification": "Communicated blockers and tradeoffs clearly.",
+                },
+                {
+                    "name": "Testing Discipline",
+                    "score": 7.2,
+                    "justification": "Kept the validation path covered.",
+                },
+                {
+                    "name": "Problem Understanding",
+                    "score": 8.1,
+                    "justification": "Understood the failure mode and the scope quickly.",
+                },
+                {
+                    "name": "Implementation Quality",
+                    "score": 8.0,
+                    "justification": "The fix was focused and aligned with the contract.",
+                },
+                {
+                    "name": "Code Quality",
+                    "score": 7.9,
+                    "justification": "Readable changes with minimal churn.",
+                },
+                {
+                    "name": "Reflection & Ownership",
+                    "score": 7.7,
+                    "justification": "Adjusted approach after the first validation gap.",
+                },
+                {
+                    "name": "Evidence Trail",
+                    "score": 8.3,
+                    "justification": "Citations support the reviewer conclusion.",
+                },
+            ],
+            "narrative_assessment": reason
+            or "The evidence supports a positive signal with manageable follow-up work.",
+            "citations": [
+                {
+                    "dimension": "Execution",
+                    "artifact_type": "submission",
+                    "artifact_ref": "submission://day2",
+                    "excerpt": "The candidate closed the blocking issue.",
                 }
             ],
-            "strengths": ["Strong execution under constraints."],
-            "risks": ["Limited time for polish."],
-            "calibrationText": "The evidence supports a positive signal.",
+            "cohort_context": "Peer performance is within the expected band.",
         }
     )
 
@@ -146,7 +178,11 @@ async def test_openai_winoe_report_aggregate_falls_back_to_anthropic_on_retryabl
         )
     )
 
-    assert result.recommendation == "positive_signal"
+    assert result.winoe_score == 82.0
+    assert (
+        result.verdict_one_liner
+        == "The candidate delivered a credible positive signal."
+    )
     assert calls == [
         ("openai", "gpt-5.2"),
         ("anthropic", "claude-sonnet-4-6"),
@@ -194,7 +230,7 @@ async def test_openai_winoe_report_aggregate_accepts_long_anthropic_day_reason(
         )
     )
 
-    assert result.dayScores[0].reason == long_reason
+    assert result.narrative_assessment == long_reason
     assert calls == [
         ("openai", "gpt-5.2"),
         ("anthropic", "claude-sonnet-4-6"),

@@ -1,192 +1,132 @@
 {
   "$defs": {
-    "AggregatorDayScore": {
+    "WinoeSynthesisCitation": {
       "additionalProperties": false,
-      "description": "Aggregator-facing summary for a single day.",
+      "description": "Structured citation attached to the Winoe synthesis output.",
       "properties": {
-        "dayIndex": {
-          "maximum": 5,
-          "minimum": 1,
-          "title": "Dayindex",
-          "type": "integer"
-        },
-        "evidence": {
-          "items": {
-            "$ref": "#/$defs/EvidencePointer"
-          },
-          "title": "Evidence",
-          "type": "array"
-        },
-        "reason": {
-          "anyOf": [
-            {
-              "maxLength": 4000,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Reason"
-        },
-        "rubricBreakdown": {
-          "anyOf": [
-            {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Rubricbreakdown"
-        },
-        "score": {
-          "anyOf": [
-            {
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Score"
-        },
-        "status": {
-          "enum": [
-            "scored",
-            "human_review_required"
-          ],
-          "title": "Status",
-          "type": "string"
-        }
-      },
-      "required": [
-        "dayIndex",
-        "status"
-      ],
-      "title": "AggregatorDayScore",
-      "type": "object"
-    },
-    "EvidencePointer": {
-      "additionalProperties": false,
-      "description": "Evidence reference returned by reviewer models.",
-      "properties": {
-        "dayIndex": {
-          "maximum": 5,
-          "minimum": 1,
-          "title": "Dayindex",
-          "type": "integer"
-        },
-        "kind": {
-          "enum": [
-            "submission",
-            "diff",
-            "transcript",
-            "tests",
-            "rubric"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
-        "quote": {
-          "anyOf": [
-            {
-              "maxLength": 1500,
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Quote"
-        },
-        "ref": {
+        "artifact_ref": {
           "maxLength": 500,
           "minLength": 1,
-          "title": "Ref",
+          "title": "Artifact Ref",
+          "type": "string"
+        },
+        "artifact_type": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "dimension": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Dimension",
+          "type": "string"
+        },
+        "excerpt": {
+          "maxLength": 1500,
+          "minLength": 1,
+          "title": "Excerpt",
           "type": "string"
         }
       },
       "required": [
-        "kind",
-        "ref",
-        "dayIndex"
+        "dimension",
+        "artifact_type",
+        "artifact_ref",
+        "excerpt"
       ],
-      "title": "EvidencePointer",
+      "title": "WinoeSynthesisCitation",
+      "type": "object"
+    },
+    "WinoeSynthesisDimension": {
+      "additionalProperties": false,
+      "description": "Named dimension score for the Winoe synthesis agent.",
+      "properties": {
+        "justification": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Justification",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 10.0,
+          "minimum": 1.0,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "score",
+        "justification"
+      ],
+      "title": "WinoeSynthesisDimension",
       "type": "object"
     }
   },
   "additionalProperties": false,
-  "description": "Strict output contract for the winoe-report aggregator agent.",
+  "description": "Strict output contract for the Winoe synthesis agent.",
   "properties": {
-    "calibrationText": {
-      "maxLength": 4000,
-      "minLength": 1,
-      "title": "Calibrationtext",
-      "type": "string"
-    },
-    "confidence": {
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "title": "Confidence",
-      "type": "number"
-    },
-    "dayScores": {
+    "citations": {
       "items": {
-        "$ref": "#/$defs/AggregatorDayScore"
+        "$ref": "#/$defs/WinoeSynthesisCitation"
       },
-      "maxItems": 5,
-      "minItems": 1,
-      "title": "Dayscores",
+      "title": "Citations",
       "type": "array"
     },
-    "overallWinoeScore": {
-      "maximum": 1.0,
-      "minimum": 0.0,
-      "title": "Overallwinoescore",
-      "type": "number"
-    },
-    "recommendation": {
-      "enum": [
-        "strong_signal",
-        "positive_signal",
-        "mixed_signal",
-        "limited_signal"
+    "cohort_context": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ],
-      "title": "Recommendation",
+      "default": null,
+      "title": "Cohort Context"
+    },
+    "dimensions": {
+      "items": {
+        "$ref": "#/$defs/WinoeSynthesisDimension"
+      },
+      "maxItems": 12,
+      "minItems": 1,
+      "title": "Dimensions",
+      "type": "array"
+    },
+    "narrative_assessment": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Narrative Assessment",
       "type": "string"
     },
-    "risks": {
-      "items": {
-        "type": "string"
-      },
-      "maxItems": 10,
-      "title": "Risks",
-      "type": "array"
+    "verdict_one_liner": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Verdict One Liner",
+      "type": "string"
     },
-    "strengths": {
-      "items": {
-        "type": "string"
-      },
-      "maxItems": 10,
-      "title": "Strengths",
-      "type": "array"
+    "winoe_score": {
+      "maximum": 100.0,
+      "minimum": 0.0,
+      "title": "Winoe Score",
+      "type": "number"
     }
   },
   "required": [
-    "overallWinoeScore",
-    "recommendation",
-    "confidence",
-    "dayScores",
-    "calibrationText"
+    "winoe_score",
+    "verdict_one_liner",
+    "dimensions",
+    "narrative_assessment"
   ],
-  "title": "AggregatedWinoeReportOutput",
+  "title": "WinoeSynthesisOutput",
   "type": "object"
 }

@@ -149,7 +149,7 @@ async def _build_generation_basis_fingerprint(
     if day4_disabled:
         effective_disabled_days.append(4)
     effective_disabled_days = sorted(set(effective_disabled_days))
-    rubric_version = _resolve_rubric_version(context)
+    rubric_version = _resolve_rubric_version(context, effective_ai_policy_snapshot_json)
     run_metadata, _basis_refs, _day2_sha, _day3_sha, _cutoff_sha = _build_run_metadata(
         context=context,
         scenario_rubric_version=rubric_version,
@@ -165,7 +165,7 @@ async def _build_generation_basis_fingerprint(
             effective_ai_policy_snapshot_json
         ),
         basis_ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
-            rubric_snapshot_context["aiPolicySnapshotJson"]
+            effective_ai_policy_snapshot_json
         ),
         rubric_snapshots=rubric_snapshot_context["rubricSnapshots"],
     )

@@ -1,30 +1,51 @@
-# Task 4: Talent Partner Trial Creation API (v4)
+# Summary
 
-## Summary
+Completed Task 2 final hardening for Winoe AI.
 
-- Added v4 Trial creation endpoint: `POST /api/v1/trials`.
-- Added Trial generation progress SSE endpoint: `GET /api/v1/trials/{trial_id}/generation-progress`.
-- v4 creation accepts role title, seniority, optional preferred language/framework, focus notes, and optional evaluation focus areas.
-- v4 creation returns `202 Accepted` with `{ trial_id, job_id, status: "generating" }`.
-- Added targeted schema, route, and SSE service tests.
-- Refactored SSE service for injectable timing/loading to keep tests fast and deterministic.
+# What Changed
 
-## Validation
+### Evidence Trail Citation Hardening
 
-- `poetry run pytest tests/trials -q --no-cov` — pass
-- `./precommit.sh` — pass
-- Backend precommit full test suite — pass, 96.07% coverage
-- Backend compatibility grep — remaining hits documented as internal/legacy, not v4 API exposure
+- Preferred artifact-specific refs over `submission:<id>` whenever a stronger ref exists.
+- Kept `submission:<id>` as a fallback only when no stronger resolvable artifact ref is available.
+- Preserved fail-closed validation and avoided padding sparse evidence.
+- Kept citation uniqueness keyed by `(dimension, artifact_ref, excerpt)`.
+- Added Communication evidence from Day 5 reflection so sparse Day 4 transcript bundles can still satisfy coverage when real evidence exists.
 
-## Real Local QA Evidence
+### Winoe Identity Freeze
 
-- Backend readiness: pass (`GET /ready` 200)
-- `POST /api/v1/trials`: pass, returns 202
-- `GET /api/v1/trials/{trial_id}/generation-progress`: pass (SSE from browser via frontend BFF)
-- v4 response excludes legacy fields: pass (create body and client contract per Task 4)
-- Artifact folder: `winoe-ai-frontend/qa_verifications/task-4-trial-creation-flow/20260512-131043/` (screenshots, `qa-report.md`, readiness JSON)
+- Confirmed the frozen v4 identity in the live evaluation path:
+  - `gpt-5.2`
+  - `winoe-ai-pack-v4:winoeReport`
+  - `winoe-ai-pack-v4:winoeReport:rubric`
+  - `promptPackVersion=winoe-ai-pack-v4`
 
-## Notes
+### Validation Behavior
 
-- Existing internal compatibility fields remain outside the v4 response contract.
-- Do not expose template/stack fields in the new v4 API.
+- Validation still fails closed when the bundle does not have enough real evidence.
+- Duplicate citations do not count toward per-dimension coverage.
+- Strong refs remain preferred in the narrative and synthesis paths.
+
+### Database / Migration Status
+
+- Alembic remains single-head.
+- `poetry run alembic heads` reports `202605060001 (head)`.
+
+# Validation
+
+- `python3 -m compileall app` passed
+- `poetry run alembic heads` passed
+- `poetry run alembic upgrade head` passed
+- `python3 -m pytest tests/ai/test_ai_prompt_pack_v4_assets_service.py -q --no-cov` passed
+- `python3 -m pytest tests/evaluations/services/test_evaluations_evidence_trail_validator_service.py -q --no-cov` passed
+- `python3 -m pytest tests/evaluations/services/test_evaluations_evaluator_runner_service.py -q --no-cov` passed
+- `python3 -m pytest tests/evaluations/services/test_evaluations_winoe_report_pipeline_validation_retry_service.py -q --no-cov` passed
+- `python3 -m pytest tests/evaluations/routes/test_evaluations_winoe_report_api_worker_completion_returns_ready_and_evidence_routes.py -q --no-cov` passed
+- `python3 -m pytest tests/candidates/routes/test_candidates_candidate_flow_integration_routes.py -q --no-cov` passed
+- `./precommit.sh` passed
+- Contract-live QA passed locally with a ready Winoe Report
+
+# Risks / Follow-ups
+
+- `submission:<id>` still remains as a fallback only when no stronger artifact ref exists.
+- The evidence trail still depends on real artifact coverage; sparse bundles should continue to fail closed rather than invent citations.

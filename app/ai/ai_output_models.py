@@ -46,7 +46,7 @@ class ScenarioRubric(BaseModel):
 
     summary: str = Field(min_length=1, max_length=4_000)
     dayWeights: ScenarioRubricDayWeights
-    dimensions: list[ScenarioRubricDimension] = Field(min_length=1, max_length=12)
+    dimensions: list[ScenarioRubricDimension] = Field(min_length=7, max_length=9)
 
 
 class ScenarioGenerationOutput(BaseModel):
@@ -98,23 +98,44 @@ class AggregatorDayScore(BaseModel):
     reason: str | None = Field(default=None, max_length=4_000)
 
 
-class AggregatedWinoeReportOutput(BaseModel):
-    """Strict output contract for the winoe-report aggregator agent."""
+class WinoeSynthesisOutput(BaseModel):
+    """Strict output contract for the Winoe synthesis agent."""
 
     model_config = ConfigDict(extra="forbid")
 
-    overallWinoeScore: float = Field(ge=0.0, le=1.0)
-    recommendation: Literal[
-        "strong_signal",
-        "positive_signal",
-        "mixed_signal",
-        "limited_signal",
-    ]
-    confidence: float = Field(ge=0.0, le=1.0)
-    dayScores: list[AggregatorDayScore] = Field(min_length=1, max_length=5)
-    strengths: list[str] = Field(default_factory=list, max_length=10)
-    risks: list[str] = Field(default_factory=list, max_length=10)
-    calibrationText: str = Field(min_length=1, max_length=4_000)
+    winoe_score: float = Field(ge=0.0, le=100.0, alias="winoe_score")
+    verdict_one_liner: str = Field(min_length=1, max_length=500)
+    dimensions: list[WinoeSynthesisDimension] = Field(min_length=8, max_length=12)
+    narrative_assessment: str = Field(min_length=1, max_length=20_000)
+    citations: list[WinoeSynthesisCitation] = Field(min_length=1)
+    cohort_context: str | None = Field(default=None, max_length=1_000)
+
+
+AggregatedWinoeReportOutput = WinoeSynthesisOutput
+
+
+class WinoeSynthesisDimension(BaseModel):
+    """Named dimension score for the Winoe synthesis agent."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    score: float = Field(ge=1.0, le=10.0)
+    justification: str = Field(min_length=1, max_length=4_000)
+
+
+class WinoeSynthesisCitation(BaseModel):
+    """Structured citation attached to the Winoe synthesis output."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dimension: str = Field(min_length=1, max_length=100)
+    artifact_type: str = Field(min_length=1, max_length=50)
+    artifact_ref: str = Field(min_length=1, max_length=500)
+    excerpt: str = Field(min_length=1, max_length=1_500)
+
+
+WinoeSynthesisOutput.model_rebuild()
 
 
 __all__ = [
@@ -127,4 +148,7 @@ __all__ = [
     "ScenarioRubricDayWeights",
     "ScenarioRubricDimension",
     "ScenarioTaskPrompt",
+    "WinoeSynthesisOutput",
+    "WinoeSynthesisCitation",
+    "WinoeSynthesisDimension",
 ]

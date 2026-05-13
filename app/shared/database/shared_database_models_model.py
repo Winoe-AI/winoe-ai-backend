@@ -10,6 +10,9 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
 from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_snapshot_model import (
     WinoeRubricSnapshot,
 )
+from app.evaluations.repositories.evaluations_repositories_trial_agent_snapshot_model import (
+    TrialAgentSnapshot,
+)
 from app.media.repositories.purge_audits.media_repositories_purge_audits_core_model import (
     MediaPurgeAudit,
 )
@@ -33,6 +36,9 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 )
 from app.submissions.repositories.submissions_repositories_submissions_submission_model import (
     Submission,
+)
+from app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_model import (
+    WinoeReportCitation,
 )
 from app.submissions.repositories.submissions_repositories_submissions_winoe_report_model import (
     WinoeReport,
@@ -71,6 +77,7 @@ __all__ = [
     "EvaluationRun",
     "EvaluationReviewerReport",
     "WinoeRubricSnapshot",
+    "TrialAgentSnapshot",
     "Job",
     "MediaPurgeAudit",
     "NotificationDeliveryAudit",
@@ -84,6 +91,7 @@ __all__ = [
     "Transcript",
     "Submission",
     "WinoeReport",
+    "WinoeReportCitation",
     "Workspace",
     "WorkspaceGroup",
     "User",

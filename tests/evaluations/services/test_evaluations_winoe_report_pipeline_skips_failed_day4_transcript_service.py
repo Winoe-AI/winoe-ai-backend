@@ -10,6 +10,7 @@ from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_pipeline_runner_service as runner_service,
 )
 from tests.evaluations.services.evaluations_winoe_report_pipeline_utils import *
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 @pytest.mark.asyncio
@@ -21,6 +22,7 @@ async def test_process_evaluation_run_job_skips_failed_day4_transcript(monkeypat
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     context = SimpleNamespace(
         candidate_session=SimpleNamespace(id=50, scenario_version_id=60),
@@ -36,8 +38,8 @@ async def test_process_evaluation_run_job_skips_failed_day4_transcript(monkeypat
         captured["bundle"] = kwargs["bundle"]
         return SimpleNamespace(
             id=123,
-            model_version="2026-03-12",
-            prompt_version="winoe-report-v1",
+            model_version="gpt-5.2",
+            prompt_version="winoe-ai-pack-v4:winoeReport",
             rubric_version="rubric-vx",
             basis_fingerprint="basis-123",
             generated_at=None,
@@ -152,6 +154,7 @@ async def test_process_evaluation_run_job_skips_missing_day4_transcript(monkeypa
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     context = SimpleNamespace(
         candidate_session=SimpleNamespace(id=51, scenario_version_id=61),
@@ -167,8 +170,8 @@ async def test_process_evaluation_run_job_skips_missing_day4_transcript(monkeypa
         captured["bundle"] = kwargs["bundle"]
         return SimpleNamespace(
             id=124,
-            model_version="2026-03-12",
-            prompt_version="winoe-report-v1",
+            model_version="gpt-5.2",
+            prompt_version="winoe-ai-pack-v4:winoeReport",
             rubric_version="rubric-vx",
             basis_fingerprint="basis-123",
             generated_at=None,

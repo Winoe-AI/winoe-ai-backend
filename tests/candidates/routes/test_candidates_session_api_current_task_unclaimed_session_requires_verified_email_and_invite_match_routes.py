@@ -19,6 +19,7 @@ async def test_current_task_unclaimed_session_requires_invite_match_and_claims_s
         invite_email="owner@example.com",
         with_default_schedule=True,
     )
+    await async_session.commit()
     route = f"/api/candidate/session/{cs.id}/current_task"
     headers = {"x-candidate-session-id": str(cs.id)}
 

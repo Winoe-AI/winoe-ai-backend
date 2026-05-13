@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "WinoeSynthesisCitation": {
+      "additionalProperties": false,
+      "description": "Structured citation attached to the Winoe synthesis output.",
+      "properties": {
+        "artifact_ref": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Artifact Ref",
+          "type": "string"
+        },
+        "artifact_type": {
+          "maxLength": 50,
+          "minLength": 1,
+          "title": "Artifact Type",
+          "type": "string"
+        },
+        "dimension": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Dimension",
+          "type": "string"
+        },
+        "excerpt": {
+          "maxLength": 1500,
+          "minLength": 1,
+          "title": "Excerpt",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension",
+        "artifact_type",
+        "artifact_ref",
+        "excerpt"
+      ],
+      "title": "WinoeSynthesisCitation",
+      "type": "object"
+    },
+    "WinoeSynthesisDimension": {
+      "additionalProperties": false,
+      "description": "Named dimension score for the Winoe synthesis agent.",
+      "properties": {
+        "justification": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Justification",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 10.0,
+          "minimum": 1.0,
+          "title": "Score",
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "score",
+        "justification"
+      ],
+      "title": "WinoeSynthesisDimension",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Strict output contract for the Winoe synthesis agent.",
+  "properties": {
+    "citations": {
+      "items": {
+        "$ref": "#/$defs/WinoeSynthesisCitation"
+      },
+      "minItems": 1,
+      "title": "Citations",
+      "type": "array"
+    },
+    "cohort_context": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cohort Context"
+    },
+    "dimensions": {
+      "items": {
+        "$ref": "#/$defs/WinoeSynthesisDimension"
+      },
+      "maxItems": 12,
+      "minItems": 8,
+      "title": "Dimensions",
+      "type": "array"
+    },
+    "narrative_assessment": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Narrative Assessment",
+      "type": "string"
+    },
+    "verdict_one_liner": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Verdict One Liner",
+      "type": "string"
+    },
+    "winoe_score": {
+      "maximum": 100.0,
+      "minimum": 0.0,
+      "title": "Winoe Score",
+      "type": "number"
+    }
+  },
+  "required": [
+    "winoe_score",
+    "verdict_one_liner",
+    "dimensions",
+    "narrative_assessment",
+    "citations"
+  ],
+  "title": "WinoeSynthesisOutput",
+  "type": "object"
+}

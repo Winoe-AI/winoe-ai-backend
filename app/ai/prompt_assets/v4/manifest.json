@@ -1,0 +1,35 @@
+{
+  "version": "winoe-ai-pack-v4",
+  "agents": {
+    "prestart": {
+      "policyFile": "prestart_project_brief_creator.md",
+      "schemaFile": "scenario_generation_output.schema.json",
+      "outputModel": "ScenarioGenerationOutput"
+    },
+    "designDocReviewer": {
+      "policyFile": "design_doc_reviewer_rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "codeImplementationReviewer": {
+      "policyFile": "code_implementation_reviewer_rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "demoPresentationReviewer": {
+      "policyFile": "demo_reviewer_rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "reflectionEssayReviewer": {
+      "policyFile": "reflection_reviewer_rubric.md",
+      "schemaFile": "day_reviewer_output.schema.json",
+      "outputModel": "DayReviewerOutput"
+    },
+    "winoeReport": {
+      "policyFile": "winoe_synthesis.md",
+      "schemaFile": "aggregated_winoe_report_output.schema.json",
+      "outputModel": "WinoeSynthesisOutput"
+    }
+  }
+}

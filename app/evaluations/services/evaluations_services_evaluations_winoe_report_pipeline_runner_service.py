@@ -15,11 +15,6 @@ from app.ai import (
     require_candidate_settings_from_snapshot,
     validate_ai_policy_snapshot_contract,
 )
-from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_constants_service import (
-    DEFAULT_EVALUATION_MODEL_NAME,
-    DEFAULT_EVALUATION_MODEL_VERSION,
-    DEFAULT_EVALUATION_PROMPT_VERSION,
-)
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_pipeline_day_inputs_service import (
     _build_code_implementation_evidence_context,
     _build_day_inputs,
@@ -64,6 +59,40 @@ _RETRYABLE_PROVIDER_ERROR_MARKERS = (
 )
 
 
+def _resolve_winoe_report_run_identity(
+    ai_policy_snapshot_json: dict[str, Any] | None,
+) -> tuple[str, str, str, str, str]:
+    """Resolve the active Winoe model and prompt identity."""
+    snapshot = require_agent_policy_snapshot(
+        ai_policy_snapshot_json,
+        "winoeReport",
+    )
+    runtime = require_agent_runtime(
+        ai_policy_snapshot_json,
+        "winoeReport",
+    )
+    prompt_pack_version = str(
+        ai_policy_snapshot_json.get("promptPackVersion")
+        if isinstance(ai_policy_snapshot_json, dict)
+        else ""
+    ).strip()
+    if not prompt_pack_version:
+        raise AIPolicySnapshotError(
+            "scenario_version_ai_policy_snapshot_prompt_pack_version_missing"
+        )
+    model_name = str(runtime["model"])
+    model_version = str(runtime["model"])
+    prompt_version = str(snapshot["promptVersion"])
+    rubric_version = str(snapshot["rubricVersion"])
+    return (
+        model_name,
+        model_version,
+        prompt_version,
+        rubric_version,
+        prompt_pack_version,
+    )
+
+
 def _is_retryable_winoe_report_provider_error(error: Exception) -> bool:
     if not isinstance(error, WinoeReportReviewProviderError):
         return False
@@ -80,7 +109,6 @@ async def _record_invalid_snapshot_run(
     evaluation_runs,
     ai_policy_snapshot_json: dict[str, Any] | None,
     job_id: str | None,
-    rubric_version: str,
     day2_checkpoint_sha: str,
     day3_final_sha: str,
     cutoff_commit_sha: str,
@@ -91,20 +119,28 @@ async def _record_invalid_snapshot_run(
         ai_policy_snapshot_json
     )
     snapshot_digest = compute_ai_policy_snapshot_digest(ai_policy_snapshot_json)
+    (
+        model_name,
+        model_version,
+        prompt_version,
+        resolved_rubric_version,
+        prompt_pack_version,
+    ) = _resolve_winoe_report_run_identity(ai_policy_snapshot_json)
     snapshot_metadata: dict[str, Any] = {
         "candidateSessionId": context.candidate_session.id,
         "scenarioVersionId": context.candidate_session.scenario_version_id,
         "jobId": job_id,
         "aiPolicySnapshotDigest": snapshot_digest,
         "aiPolicySnapshotBasisFingerprint": snapshot_fingerprint,
+        "promptPackVersion": prompt_pack_version,
         "snapshotValidationErrorCode": getattr(
             error, "error_code", "scenario_version_ai_policy_snapshot_invalid"
         ),
         "snapshotValidationMessage": str(error),
-        "evaluationModelName": DEFAULT_EVALUATION_MODEL_NAME,
-        "evaluationModelVersion": DEFAULT_EVALUATION_MODEL_VERSION,
-        "evaluationPromptVersion": DEFAULT_EVALUATION_PROMPT_VERSION,
-        "evaluationRubricVersion": rubric_version,
+        "evaluationModelName": model_name,
+        "evaluationModelVersion": model_version,
+        "evaluationPromptVersion": prompt_version,
+        "evaluationRubricVersion": resolved_rubric_version,
         "aiPolicyProvider": None,
         "aiPolicyModel": None,
         "aiPolicyPromptVersion": None,
@@ -129,10 +165,10 @@ async def _record_invalid_snapshot_run(
         db,
         candidate_session_id=context.candidate_session.id,
         scenario_version_id=context.candidate_session.scenario_version_id,
-        model_name=DEFAULT_EVALUATION_MODEL_NAME,
-        model_version=DEFAULT_EVALUATION_MODEL_VERSION,
-        prompt_version=DEFAULT_EVALUATION_PROMPT_VERSION,
-        rubric_version=rubric_version,
+        model_name=model_name,
+        model_version=model_version,
+        prompt_version=prompt_version,
+        rubric_version=resolved_rubric_version,
         day2_checkpoint_sha=day2_checkpoint_sha,
         day3_final_sha=day3_final_sha,
         cutoff_commit_sha=cutoff_commit_sha,
@@ -228,7 +264,6 @@ async def process_evaluation_run_job_impl(
         except ValueError:
             transcript, transcript_ref = transcript_resolution
         day4_disabled = transcript_state != "ready"
-        rubric_version = _resolve_rubric_version(context)
         day2_checkpoint_sha, day3_sha, cutoff_sha = _resolve_cutoff_commit_shas(
             day_audits=audits,
             submissions_by_day=submissions,
@@ -268,7 +303,6 @@ async def process_evaluation_run_job_impl(
                 evaluation_runs=deps["evaluation_runs"],
                 ai_policy_snapshot_json=ai_policy_snapshot_json,
                 job_id=job_id,
-                rubric_version=rubric_version,
                 day2_checkpoint_sha=day2_checkpoint_sha,
                 day3_final_sha=day3_sha,
                 cutoff_commit_sha=cutoff_sha,
@@ -291,6 +325,9 @@ async def process_evaluation_run_job_impl(
         if day4_disabled:
             effective_disabled_days.append(4)
         effective_disabled_days = sorted(set(effective_disabled_days))
+        rubric_version = _resolve_rubric_version(
+            context, effective_ai_policy_snapshot_json
+        )
 
         day_inputs = _build_day_inputs(
             tasks_by_day=tasks,
@@ -328,28 +365,10 @@ async def process_evaluation_run_job_impl(
                 effective_ai_policy_snapshot_json
             ),
             basis_ai_policy_snapshot_digest=compute_ai_policy_snapshot_digest(
-                rubric_snapshot_context["aiPolicySnapshotJson"]
+                effective_ai_policy_snapshot_json
             ),
             rubric_snapshots=rubric_snapshots,
         )
-        run, terminal_response = await _get_or_start_run(
-            db=db,
-            context=context,
-            evaluation_repo=deps["evaluation_repo"],
-            evaluation_runs=deps["evaluation_runs"],
-            job_id=job_id,
-            started=started,
-            run_metadata=run_metadata,
-            basis_fingerprint=run_metadata["basisFingerprint"],
-            scenario_rubric_version=rubric_version,
-            day2_checkpoint_sha=day2_sha,
-            day3_final_sha=day3_sha,
-            cutoff_commit_sha=cutoff_sha,
-            transcript_reference=transcript_ref,
-        )
-        if terminal_response is not None:
-            return terminal_response
-
         aggregator_snapshot = require_agent_policy_snapshot(
             effective_ai_policy_snapshot_json,
             "winoeReport",
@@ -360,6 +379,26 @@ async def process_evaluation_run_job_impl(
             "winoeReport",
             scenario_version_id=context.candidate_session.scenario_version_id,
         )
+        run, terminal_response = await _get_or_start_run(
+            db=db,
+            context=context,
+            evaluation_repo=deps["evaluation_repo"],
+            evaluation_runs=deps["evaluation_runs"],
+            job_id=job_id,
+            started=started,
+            run_metadata=run_metadata,
+            basis_fingerprint=run_metadata["basisFingerprint"],
+            day2_checkpoint_sha=day2_sha,
+            day3_final_sha=day3_sha,
+            cutoff_commit_sha=cutoff_sha,
+            transcript_reference=transcript_ref,
+            model_name=str(aggregator_runtime["model"]),
+            model_version=str(aggregator_runtime["model"]),
+            prompt_version=str(aggregator_snapshot["promptVersion"]),
+            rubric_version=rubric_version,
+        )
+        if terminal_response is not None:
+            return terminal_response
         run_metadata.update(
             {
                 "aiPolicyProvider": str(aggregator_runtime["provider"]),
@@ -367,21 +406,18 @@ async def process_evaluation_run_job_impl(
                 "aiPolicyModelVersion": str(aggregator_runtime["model"]),
                 "aiPolicyPromptVersion": str(aggregator_snapshot["promptVersion"]),
                 "aiPolicyRubricVersion": rubric_version,
+                "promptPackVersion": effective_ai_policy_snapshot_json.get(
+                    "promptPackVersion"
+                ),
                 "rubricSnapshots": rubric_snapshots,
             }
         )
         bundle = deps["evaluator_service"].EvaluationInputBundle(
             candidate_session_id=context.candidate_session.id,
             scenario_version_id=context.candidate_session.scenario_version_id,
-            model_name=str(aggregator_runtime["model"])
-            or DEFAULT_EVALUATION_MODEL_NAME,
-            model_version=(
-                str(aggregator_runtime["model"]) or DEFAULT_EVALUATION_MODEL_VERSION
-            ),
-            prompt_version=(
-                str(aggregator_snapshot["promptVersion"])
-                or DEFAULT_EVALUATION_PROMPT_VERSION
-            ),
+            model_name=str(aggregator_runtime["model"]),
+            model_version=str(aggregator_runtime["model"]),
+            prompt_version=str(aggregator_snapshot["promptVersion"]),
             rubric_version=rubric_version,
             disabled_day_indexes=effective_disabled_days,
             day_inputs=day_inputs,

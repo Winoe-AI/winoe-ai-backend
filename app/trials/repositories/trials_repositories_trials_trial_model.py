@@ -167,6 +167,12 @@ class Trial(Base, TimestampMixin):
         post_update=True,
     )
     candidate_sessions = relationship("CandidateSession", back_populates="trial")
+    agent_snapshots = relationship(
+        "TrialAgentSnapshot",
+        back_populates="trial",
+        cascade="all, delete-orphan",
+        order_by="TrialAgentSnapshot.agent_name",
+    )
 
 
 __all__ = [

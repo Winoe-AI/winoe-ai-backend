@@ -11,6 +11,9 @@ from app.ai import build_ai_policy_snapshot, resolve_scenario_generation_config
 from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
     materialize_scenario_version_rubric_snapshots,
 )
+from app.evaluations.services.evaluations_services_trial_agent_snapshots_service import (
+    materialize_trial_agent_snapshots,
+)
 from app.shared.database.shared_database_models_model import (
     Company,
     ScenarioVersion,
@@ -109,6 +112,14 @@ async def handle_scenario_generation_impl(
             select(Company.ai_prompt_overrides_json).where(
                 Company.id == trial.company_id
             )
+        )
+        await materialize_trial_agent_snapshots(
+            db,
+            trial=trial,
+            company_prompt_overrides_json=company_prompt_overrides_json,
+            trial_prompt_overrides_json=getattr(
+                trial, "ai_prompt_overrides_json", None
+            ),
         )
         ai_policy_snapshot_json = build_ai_policy_snapshot(
             trial=trial,

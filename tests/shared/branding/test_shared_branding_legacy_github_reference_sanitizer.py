@@ -89,3 +89,30 @@ def test_sanitize_legacy_github_reference_rewrites_non_url_text():
         )
         == "Workspace winoe-ai-repos/winoe-ws-1-coding is retired"
     )
+
+
+def test_sanitize_legacy_github_reference_handles_none_non_string_and_non_github_urls():
+    assert sanitize_legacy_github_reference(None) is None
+    assert sanitize_legacy_github_reference(123) == 123
+    assert (
+        sanitize_legacy_github_reference("https://example.com/anything")
+        == "https://example.com/anything"
+    )
+    assert sanitize_legacy_github_reference("https://github.com/acme") == (
+        "https://github.com/acme"
+    )
+
+
+def test_sanitize_legacy_github_payload_handles_tuples_and_non_url_keys():
+    payload = {
+        "urls": ("https://github.com/tenon-hire-dev/tenon-ws-1-coding", "plain"),
+        1: "https://github.com/tenon-hire-dev/tenon-ws-1-coding",
+    }
+
+    sanitized = sanitize_legacy_github_payload(payload)
+
+    assert sanitized["urls"] == (
+        "[legacy GitHub link removed]",
+        "plain",
+    )
+    assert sanitized[1] == "[legacy GitHub link removed]"

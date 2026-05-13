@@ -4,15 +4,21 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.evaluations.schemas.evaluations_schemas_evaluations_winoe_report_citations_schema import (
+    WinoeReportCitationsResponse,
+)
 from app.evaluations.schemas.evaluations_schemas_evaluations_winoe_report_schema import (
     WinoeReportGenerateResponse,
     WinoeReportStatusResponse,
 )
 from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_api_service as winoe_report_api,
+)
+from app.evaluations.services import (
+    evaluations_services_evaluations_winoe_report_citations_service as winoe_report_citations_service,
 )
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner
@@ -119,6 +125,35 @@ async def get_winoe_report_route(
         user=user,
     )
     return WinoeReportStatusResponse(**payload)
+
+
+@router.get(
+    "/reports/{report_id}/citations",
+    response_model=WinoeReportCitationsResponse,
+    response_model_exclude_unset=True,
+    status_code=status.HTTP_200_OK,
+    summary="Get Winoe Report Citations",
+    description="Return the persisted Evidence Trail citations for one Winoe Report.",
+    responses={
+        status.HTTP_403_FORBIDDEN: {"description": "Talent Partner access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Winoe Report not found."},
+    },
+)
+async def get_winoe_report_citations_route(
+    report_id: Annotated[int, Path(..., ge=1)],
+    db: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(get_current_user)],
+    dimension: str | None = Query(default=None),
+) -> WinoeReportCitationsResponse:
+    """Return persisted citations for a Winoe Report."""
+    ensure_talent_partner(user)
+    payload = await winoe_report_citations_service.get_report_citations(
+        db,
+        report_id=report_id,
+        dimension=dimension,
+        user=user,
+    )
+    return WinoeReportCitationsResponse(**payload)
 
 
 __all__ = ["router"]
