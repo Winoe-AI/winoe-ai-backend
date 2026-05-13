@@ -14,6 +14,9 @@ from app.ai import (
 from app.evaluations.services.evaluations_services_evaluations_winoe_rubric_snapshots_service import (
     materialize_scenario_version_rubric_snapshots,
 )
+from app.evaluations.services.evaluations_services_trial_agent_snapshots_service import (
+    materialize_trial_agent_snapshots,
+)
 from app.shared.database.shared_database_models_model import (
     Company,
     ScenarioVersion,
@@ -47,6 +50,12 @@ async def create_initial_scenario_version(
     company_prompt_overrides_json = await db.scalar(
         select(Company.ai_prompt_overrides_json).where(Company.id == trial.company_id)
     )
+    await materialize_trial_agent_snapshots(
+        db,
+        trial=trial,
+        company_prompt_overrides_json=company_prompt_overrides_json,
+        trial_prompt_overrides_json=getattr(trial, "ai_prompt_overrides_json", None),
+    )
     scenario_version = ScenarioVersion(
         trial_id=trial.id,
         version_index=1,
@@ -57,7 +66,9 @@ async def create_initial_scenario_version(
             role=trial.role,
             company_context=getattr(trial, "company_context", None),
             focus=trial.focus,
-            preferred_language_framework=None,
+            preferred_language_framework=getattr(
+                trial, "preferred_language_framework", None
+            ),
         ),
         rubric_json={},
         focus_notes=trial.focus or "",

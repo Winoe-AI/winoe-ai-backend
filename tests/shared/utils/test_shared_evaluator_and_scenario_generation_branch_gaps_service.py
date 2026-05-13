@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from app.ai import build_ai_policy_snapshot
 from app.evaluations.services import winoe_report_pipeline
 from app.trials.services import scenario_generation
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 def _snapshot():
@@ -12,6 +13,7 @@ def _snapshot():
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     return build_ai_policy_snapshot(trial=trial)
 
@@ -23,7 +25,7 @@ def test_project_brief_generation_stays_open_ended():
         template_key="template-x",
         ai_policy_snapshot_json=_snapshot(),
     )
-    assert payload.project_brief_md.startswith("# Project Brief")
+    assert payload.project_brief_md.startswith("# The Requested Product Area")
     assert "template" not in payload.project_brief_md.lower()
 
 

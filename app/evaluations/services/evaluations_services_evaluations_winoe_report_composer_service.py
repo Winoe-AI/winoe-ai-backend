@@ -64,6 +64,22 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
         confidence = _normalize_unit_interval(persisted_report.get("confidence")) or 0.0
 
     metadata_json = run.metadata_json if isinstance(run.metadata_json, Mapping) else {}
+    persisted_version = (
+        persisted_report.get("version")
+        if isinstance(persisted_report.get("version"), Mapping)
+        else {}
+    )
+    prompt_pack_version = (
+        str(persisted_version.get("promptPackVersion"))
+        if isinstance(persisted_version, Mapping)
+        and isinstance(persisted_version.get("promptPackVersion"), str)
+        else (
+            str(metadata_json.get("promptPackVersion"))
+            if isinstance(metadata_json, Mapping)
+            and isinstance(metadata_json.get("promptPackVersion"), str)
+            else None
+        )
+    )
 
     report: dict[str, Any] = {
         "overallWinoeScore": overall_winoe_score,
@@ -81,7 +97,12 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
                 str(metadata_json.get("aiPolicyProvider"))
                 if isinstance(metadata_json, Mapping)
                 and isinstance(metadata_json.get("aiPolicyProvider"), str)
-                else None
+                else (
+                    str(persisted_version.get("provider"))
+                    if isinstance(persisted_version, Mapping)
+                    and isinstance(persisted_version.get("provider"), str)
+                    else None
+                )
             ),
             "promptVersion": run.prompt_version,
             "rubricVersion": run.rubric_version,
@@ -89,13 +110,24 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
                 str(metadata_json.get("aiPolicySnapshotDigest"))
                 if isinstance(metadata_json, Mapping)
                 and isinstance(metadata_json.get("aiPolicySnapshotDigest"), str)
-                else None
+                else (
+                    str(persisted_version.get("aiPolicySnapshotDigest"))
+                    if isinstance(persisted_version, Mapping)
+                    and isinstance(persisted_version.get("aiPolicySnapshotDigest"), str)
+                    else None
+                )
             ),
+            "promptPackVersion": (prompt_pack_version),
             "rubricSnapshots": (
                 list(metadata_json.get("rubricSnapshots"))
                 if isinstance(metadata_json, Mapping)
                 and isinstance(metadata_json.get("rubricSnapshots"), list)
-                else []
+                else (
+                    list(persisted_version.get("rubricSnapshots"))
+                    if isinstance(persisted_version, Mapping)
+                    and isinstance(persisted_version.get("rubricSnapshots"), list)
+                    else []
+                )
             ),
         },
     }

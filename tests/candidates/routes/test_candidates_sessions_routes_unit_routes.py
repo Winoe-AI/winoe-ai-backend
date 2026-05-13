@@ -6,6 +6,7 @@ from fastapi import Request, Response
 from app.ai import build_ai_policy_snapshot
 from app.shared.auth import rate_limit
 from app.shared.http.routes import candidate_sessions
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 def _fake_request(scope_overrides: dict | None = None) -> Request:
@@ -62,6 +63,7 @@ async def test_candidate_session_rate_limits(monkeypatch):
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     cs_obj = SimpleNamespace(
         id=1,

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.candidate_sessions.repositories.candidates_candidate_sessions_repositories_candidates_candidate_sessions_candidate_session_model import (
     CandidateSession,
@@ -11,10 +11,12 @@ from app.shared.database.shared_database_models_model import (
     Company,
     User,
 )
-from app.shared.jobs import worker
 from app.shared.types.shared_types_types_model import CANDIDATE_SESSION_STATUS_COMPLETED
 from app.trials.routes import (
     trials_routes_trials_core_routes as sim_routes,
+)
+from tests.evaluations.routes.evaluations_winoe_report_api_utils import (
+    _run_worker_once,
 )
 
 
@@ -61,19 +63,9 @@ async def _create_and_generate_trial(
     assert create_sim.status_code == 201
     sim_id = create_sim.json()["id"]
 
-    session_maker = async_sessionmaker(
-        bind=async_session.bind, expire_on_commit=False, autoflush=False
+    handled = await _run_worker_once(
+        async_session, worker_id="candidate-invites-worker"
     )
-    worker.clear_handlers()
-    try:
-        worker.register_builtin_handlers()
-        handled = await worker.run_once(
-            session_maker=session_maker,
-            worker_id="candidate-invites-worker",
-            now=datetime.now(UTC),
-        )
-    finally:
-        worker.clear_handlers()
     assert handled is True
     return sim_id
 

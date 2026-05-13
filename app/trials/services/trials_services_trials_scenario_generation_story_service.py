@@ -58,6 +58,7 @@ def build_project_brief_markdown(
     preferred_stack = normalize_text(preferred_language_framework)
     domain = None
     product_area = None
+    company_name = None
     if isinstance(company_context, dict):
         domain = normalize_text(
             company_context.get("domain") or company_context.get("businessDomain")
@@ -65,75 +66,95 @@ def build_project_brief_markdown(
         product_area = normalize_text(
             company_context.get("productArea") or company_context.get("product_area")
         )
+        company_name = normalize_text(company_context.get("name"))
         if not preferred_stack:
             preferred_stack = normalize_text(
                 company_context.get("preferredLanguageFramework")
                 or company_context.get("preferred_language_framework")
             )
-    business_context = "; ".join(
-        part
-        for part in (
-            f"Domain: {domain}" if domain else None,
-            f"Product area: {product_area}" if product_area else None,
-        )
-        if part
-    )
-    context_lines = [
-        "# Project Brief",
-        "",
-        "## Business Context",
-        "",
-        f"The team needs a candidate-built system in an empty repo for a {role_label.lower()} engagement.",
+    team_name = company_name or "the team"
+    context_bits = [
+        f"{team_name} is trying to improve {subject}.",
         (
-            f"The product focus is {subject}. The scenario should feel realistic, scoped, and "
-            "open enough to support different valid architectures."
+            f"The work should feel like a real {role_label.lower()} trial: the candidate "
+            "starts from an empty repository and is expected to build the system from scratch."
         ),
     ]
-    if business_context:
-        context_lines.extend([business_context, ""])
-    if preferred_stack:
-        context_lines.extend(
-            [
-                "",
-                "## Talent Partner Context",
-                "",
-            ]
-        )
-        if preferred_stack:
-            context_lines.extend(
-                [
-                    (
-                        f"Preferred language/framework: {preferred_stack}. Treat this as context "
-                        "only, not as a requirement."
-                    )
-                ]
+    if domain or product_area:
+        context_bits.append(
+            "; ".join(
+                part
+                for part in (
+                    f"Domain: {domain}" if domain else None,
+                    f"Product area: {product_area}" if product_area else None,
+                )
+                if part
             )
-    context_lines.extend(
+        )
+
+    user_lines = [
+        "- Primary users: the operational team that depends on the new workflow or service.",
+        "- Secondary users: the Talent Partner reviewing the Evidence Trail and demo.",
+    ]
+    if preferred_stack:
+        user_lines.append(
+            f"- Preferred language/framework context: {preferred_stack}. Treat this as "
+            "a constraint to respect, not a command to follow blindly."
+        )
+
+    return "\n".join(
         [
+            f"# {subject.title()}",
             "",
-            "## System Requirements",
+            "## Context",
             "",
-            "- Build the system from scratch in the empty workspace.",
-            "- Keep the scope small enough for two implementation days while still feeling production-grade.",
-            "- Support one or two core user journeys that require real product and engineering tradeoffs.",
-            "- Include enough detail for a strong design doc, implementation plan, demo, and reflection.",
+            *context_bits,
             "",
-            "## Technical Constraints",
+            "## Problem",
             "",
-            "- Do not prescribe a specific framework, language, or database.",
-            "- Keep the architecture open-ended so multiple reasonable stack choices are possible.",
-            "- Assume the repo starts with workspace configuration, evidence capture, and this README only.",
-            "- Do not require cloned or pre-populated implementation files.",
+            (
+                f"The candidate must design and build a {subject} that solves a concrete business problem "
+                "with enough detail to grade the work consistently."
+            ),
             "",
-            "## Deliverables",
+            "## Users",
             "",
-            "- A working implementation of the requested system.",
-            "- Tests that verify the main user flows and a meaningful regression path.",
-            "- A concise demo narrative that explains decisions, tradeoffs, and remaining risks.",
-            "- A reflection that summarizes what was built and what would come next.",
+            *user_lines,
+            "",
+            "## Functional Requirements",
+            "",
+            "- Build a production-shaped system, feature, service, or tool from scratch.",
+            "- Support the core user journey and the main success path end to end.",
+            "- Include the minimum data model, APIs, and persistence needed for the workflow.",
+            "- Make the implementation testable and understandable without prescribing the exact file layout.",
+            "",
+            "## Non-Functional Requirements",
+            "",
+            "- Keep the scope achievable in two focused implementation days.",
+            "- Choose an architecture that is reliable, secure enough for the trial, and easy to explain.",
+            "- Avoid unnecessary framework lock-in beyond the preferred language/framework context.",
+            "- Surface errors clearly and make the system observable enough for review.",
+            "",
+            "## Out of Scope",
+            "",
+            "- Do not build unrelated features, admin tooling, or extra user journeys.",
+            "- Do not prescribe exact file structures or endpoint names.",
+            "- Do not assume implementation files beyond the empty-workspace infrastructure.",
+            "",
+            '## What "Done" Looks Like',
+            "",
+            "- The requested workflow is implemented and behaves consistently in the candidate repository.",
+            "- Tests cover the meaningful success path and the important failure cases.",
+            "- The repository is easy to review, hand off, and demo within the Trial.",
+            "",
+            "## Suggested Daily Cadence",
+            "- Day 1 (Design Doc): define the architecture, risks, tradeoffs, and validation plan.",
+            "- Day 2 (Implementation Kickoff): scaffold the system and land the first end-to-end slice.",
+            "- Day 3 (Implementation Wrap-Up): finish the core path, tighten tests, and harden edges.",
+            "- Day 4 (Handoff + Demo): walk through what was built, what was verified, and what remains open.",
+            "- Day 5 (Reflection): explain the decisions, mistakes, and lessons from the Trial.",
         ]
-    )
-    return "\n".join(context_lines).strip()
+    ).strip()
 
 
 def build_task_description(

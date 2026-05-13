@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +19,12 @@ from .shared_auth_dependencies_local_talent_partner_company_utils import (
 )
 from .shared_auth_dependencies_modules_utils import current_user_module
 
+QA_TALENT_PARTNER_EMAIL_ENV_KEYS = (
+    "QA_E2E_TALENT_PARTNER_EMAIL",
+    "CONTRACT_LIVE_TALENT_PARTNER_EMAIL",
+    "WINOE_TALENT_PARTNER_EMAIL",
+)
+
 
 def _role_from_principal(principal: Principal) -> str:
     permissions = set(getattr(principal, "permissions", []) or [])
@@ -27,15 +34,27 @@ def _role_from_principal(principal: Principal) -> str:
     return "talent_partner"
 
 
+def _resolve_qa_talent_partner_email() -> str | None:
+    for key in QA_TALENT_PARTNER_EMAIL_ENV_KEYS:
+        value = os.getenv(key)
+        if value and value.strip():
+            return value.strip().lower()
+    return None
+
+
 async def _resolve_local_company_id(
     db: AsyncSession, *, email: str, role: str, company_id: int | None
 ) -> int | None:
     normalized_email = (email or "").strip().lower()
+    qa_talent_partner_email = _resolve_qa_talent_partner_email()
     if (
         role != "talent_partner"
         or company_id is not None
         or env_name() != "local"
-        or not normalized_email.endswith("@local.test")
+        or (
+            not normalized_email.endswith("@local.test")
+            and normalized_email != qa_talent_partner_email
+        )
     ):
         return company_id
     company = await ensure_local_talent_partner_company(db)

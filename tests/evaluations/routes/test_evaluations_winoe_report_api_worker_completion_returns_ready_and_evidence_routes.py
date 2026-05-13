@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import pytest
 
+from app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_model import (
+    WinoeReportCitation,
+)
 from tests.evaluations.routes.evaluations_winoe_report_api_utils import *
 
 
@@ -96,8 +99,30 @@ async def test_winoe_report_worker_completion_returns_ready_and_evidence(
     assert run.basis_fingerprint is not None
     assert run.generated_at is not None
     assert run.job_id is not None
+    assert run.model_name == "gpt-5.2"
+    assert run.model_version == "gpt-5.2"
+    assert run.prompt_version == "winoe-ai-pack-v4:winoeReport"
+    assert run.rubric_version == "winoe-ai-pack-v4:winoeReport:rubric"
     assert run.day2_checkpoint_sha == "cutoff-day2-fixed"
     assert run.day3_final_sha == "cutoff-day3-fixed"
+    assert run.metadata_json is not None
+    assert run.metadata_json["aiPolicyPromptVersion"] == "winoe-ai-pack-v4:winoeReport"
+    assert (
+        run.metadata_json["aiPolicyRubricVersion"]
+        == "winoe-ai-pack-v4:winoeReport:rubric"
+    )
+    assert run.metadata_json["promptPackVersion"] == "winoe-ai-pack-v4"
+    assert run.metadata_json["rubricSnapshots"]
+    assert any(
+        item["rubricVersion"] == "winoe-ai-pack-v4:winoeReport:rubric"
+        and item["rubricKey"] == "winoeReport"
+        for item in run.metadata_json["rubricSnapshots"]
+    )
+    assert run.metadata_json["rubricSnapshots"]
+    assert all(
+        item["rubricVersion"].startswith("winoe-ai-pack-v4:")
+        for item in run.metadata_json["rubricSnapshots"]
+    )
 
     marker = (
         await async_session.execute(
@@ -108,3 +133,17 @@ async def test_winoe_report_worker_completion_returns_ready_and_evidence(
     ).scalar_one_or_none()
     assert marker is not None
     assert marker.generated_at is not None
+    citations = (
+        (
+            await async_session.execute(
+                select(WinoeReportCitation).where(
+                    WinoeReportCitation.report_id == marker.id
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert citations
+    assert len(citations) >= 8
+    assert all(citation.dimension for citation in citations)

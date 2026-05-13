@@ -23,7 +23,7 @@ def test_build_ready_payload_includes_rubric_snapshot_metadata():
     ]
     run = SimpleNamespace(
         overall_winoe_score=0.78,
-        recommendation="hire",
+        recommendation="strong_signal",
         confidence=0.82,
         raw_report_json={"overallWinoeScore": 0.78},
         scenario_version_id=7,
@@ -41,9 +41,9 @@ def test_build_ready_payload_includes_rubric_snapshot_metadata():
             "aiPolicyProvider": "anthropic",
             "aiPolicySnapshotDigest": "digest-1",
         },
-        model_name="fit-evaluator",
-        model_version="2026-03-12",
-        prompt_version="winoe-report-v1",
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
         rubric_version="rubric-v3",
         generated_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
         completed_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),

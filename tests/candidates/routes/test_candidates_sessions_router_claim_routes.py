@@ -13,6 +13,7 @@ from tests.candidates.routes.test_candidates_sessions_router_routes import (
     _principal,
     _request,
 )
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 @pytest.mark.asyncio
@@ -26,6 +27,7 @@ async def test_claim_route_uses_claim_service(monkeypatch):
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     cs = SimpleNamespace(
         id=3,

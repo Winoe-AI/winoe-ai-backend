@@ -5,11 +5,13 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,17 +25,19 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_sn
     get_rubric_snapshot_by_identity,
     list_rubric_snapshots_for_scenario_version,
 )
+from app.shared.database.shared_database_models_model import CandidateSession
 from app.trials.repositories.scenario_versions.trials_repositories_scenario_versions_trials_scenario_versions_model import (
     ScenarioVersion,
 )
 from app.trials.repositories.trials_repositories_trials_trial_model import Trial
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
 class WinoeRubricRegistryEntry:
-    """Describe one baseline rubric asset."""
+    """Describe one reference rubric asset."""
 
     rubric_key: str
     rubric_kind: str
@@ -46,32 +50,32 @@ WINOE_RUBRIC_REGISTRY: tuple[WinoeRubricRegistryEntry, ...] = (
     WinoeRubricRegistryEntry(
         rubric_key="designDocReviewer",
         rubric_kind="day_1_design_doc",
-        rubric_version="winoe-ai-pack-v1:designDocReviewer:rubric",
-        source_path="app/ai/prompt_assets/v1/winoe-day-1-rubric.md",
+        rubric_version="winoe-ai-pack-v4:designDocReviewer:rubric",
+        source_path="app/ai/prompt_assets/v4/design_doc_reviewer_rubric.md",
     ),
     WinoeRubricRegistryEntry(
         rubric_key="codeImplementationReviewer",
         rubric_kind="day_2_3_code_implementation",
-        rubric_version="winoe-ai-pack-v1:codeImplementationReviewer:rubric",
-        source_path="app/ai/prompt_assets/v1/winoe-day-2&3-rubric.md",
+        rubric_version="winoe-ai-pack-v4:codeImplementationReviewer:rubric",
+        source_path="app/ai/prompt_assets/v4/code_implementation_reviewer_rubric.md",
     ),
     WinoeRubricRegistryEntry(
         rubric_key="demoPresentationReviewer",
         rubric_kind="day_4_demo",
-        rubric_version="winoe-ai-pack-v1:demoPresentationReviewer:rubric",
-        source_path="app/ai/prompt_assets/v1/winoe-day-4-rubric.md",
+        rubric_version="winoe-ai-pack-v4:demoPresentationReviewer:rubric",
+        source_path="app/ai/prompt_assets/v4/demo_reviewer_rubric.md",
     ),
     WinoeRubricRegistryEntry(
         rubric_key="reflectionEssayReviewer",
         rubric_kind="day_5_reflection",
-        rubric_version="winoe-ai-pack-v1:reflectionEssayReviewer:rubric",
-        source_path="app/ai/prompt_assets/v1/winoe-day-5-rubric.md",
+        rubric_version="winoe-ai-pack-v4:reflectionEssayReviewer:rubric",
+        source_path="app/ai/prompt_assets/v4/reflection_reviewer_rubric.md",
     ),
     WinoeRubricRegistryEntry(
         rubric_key="winoeReport",
         rubric_kind="winoe_synthesis",
-        rubric_version="winoe-ai-pack-v1:winoeReport:rubric",
-        source_path="app/ai/prompt_assets/v1/winoe-assessment-provider-rubric.md",
+        rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
+        source_path="app/ai/prompt_assets/v4/winoe_synthesis.md",
     ),
 )
 
@@ -206,9 +210,10 @@ def _effective_snapshot_payload(
             "scenario version AI policy snapshot is missing agents."
         )
     snapshot["agents"] = {}
+    preferred_snapshots = _preferred_rubric_snapshots(rubric_snapshots)
     snapshot_meta: list[dict[str, Any]] = []
     by_key: dict[str, WinoeRubricSnapshot] = {}
-    for snapshot_row in rubric_snapshots:
+    for snapshot_row in preferred_snapshots:
         existing = by_key.get(snapshot_row.rubric_key)
         if existing is None:
             by_key[snapshot_row.rubric_key] = snapshot_row
@@ -279,14 +284,256 @@ def _serialize_rubric_snapshots(
     ]
 
 
+def _preferred_rubric_snapshots(
+    rubric_snapshots: list[WinoeRubricSnapshot],
+) -> list[WinoeRubricSnapshot]:
+    if not rubric_snapshots:
+        return []
+    current_versions = {
+        entry.rubric_key: entry.rubric_version for entry in WINOE_RUBRIC_REGISTRY
+    }
+    selected: dict[str, WinoeRubricSnapshot] = {}
+    for rubric_key in current_versions:
+        key_snapshots = [
+            snapshot
+            for snapshot in rubric_snapshots
+            if snapshot.rubric_key == rubric_key
+        ]
+        if not key_snapshots:
+            continue
+        company_snapshots = [
+            snapshot
+            for snapshot in key_snapshots
+            if snapshot.scope == RUBRIC_SNAPSHOT_SCOPE_COMPANY
+        ]
+        if company_snapshots:
+            selected[rubric_key] = max(company_snapshots, key=lambda item: item.id)
+            continue
+        current_winoe_snapshot = next(
+            (
+                snapshot
+                for snapshot in key_snapshots
+                if snapshot.scope == RUBRIC_SNAPSHOT_SCOPE_WINOE
+                and snapshot.rubric_version == current_versions[rubric_key]
+            ),
+            None,
+        )
+        if current_winoe_snapshot is not None:
+            selected[rubric_key] = current_winoe_snapshot
+    return list(selected.values())
+
+
+def _snapshot_matches_current(
+    *,
+    snapshot: WinoeRubricSnapshot,
+    expected_row: dict[str, Any],
+) -> bool:
+    return (
+        getattr(snapshot, "scope", None) == expected_row["scope"]
+        and getattr(snapshot, "rubric_kind", None) == expected_row["rubric_kind"]
+        and getattr(snapshot, "rubric_key", None) == expected_row["rubric_key"]
+        and getattr(snapshot, "rubric_version", None) == expected_row["rubric_version"]
+    )
+
+
+async def _has_candidate_session(db: AsyncSession, trial_id: int) -> bool:
+    return (
+        await db.execute(
+            select(CandidateSession.id)
+            .where(CandidateSession.trial_id == int(trial_id))
+            .limit(1)
+        )
+    ).scalar_one_or_none() is not None
+
+
+def _expected_snapshot_row(
+    *,
+    scenario_version_id: int,
+    scope: str,
+    rubric_kind: str,
+    rubric_key: str,
+    rubric_version: str,
+    content_md: str,
+    source_path: str | None,
+    metadata_json: dict[str, Any] | None,
+) -> dict[str, Any]:
+    return {
+        "scenario_version_id": scenario_version_id,
+        "scope": scope,
+        "rubric_kind": rubric_kind,
+        "rubric_key": rubric_key,
+        "rubric_version": rubric_version,
+        "content_hash": hashlib.sha256(content_md.encode("utf-8")).hexdigest(),
+        "content_md": content_md,
+        "source_path": source_path,
+        "metadata_json": metadata_json,
+    }
+
+
+def _expected_snapshot_rows(
+    *,
+    scenario_version: ScenarioVersion,
+    trial: Trial,
+) -> list[dict[str, Any]]:
+    company_payload = _company_rubric_payload_by_key(trial)
+    rows: list[dict[str, Any]] = []
+    for entry in WINOE_RUBRIC_REGISTRY:
+        content_md = _read_text_file(entry.source_path)
+        rows.append(
+            _expected_snapshot_row(
+                scenario_version_id=scenario_version.id,
+                scope=entry.scope,
+                rubric_kind=entry.rubric_kind,
+                rubric_key=entry.rubric_key,
+                rubric_version=entry.rubric_version,
+                content_md=content_md,
+                source_path=entry.source_path,
+                metadata_json={
+                    "sourceType": "winoe_static_file",
+                    "registryKey": entry.rubric_key,
+                },
+            )
+        )
+        raw_company = company_payload.get(entry.rubric_key)
+        if raw_company is None:
+            continue
+        (
+            company_content,
+            company_version,
+            company_source_path,
+            company_metadata,
+        ) = _normalize_company_rubric_payload(trial, entry.rubric_key, raw_company)
+        rows.append(
+            _expected_snapshot_row(
+                scenario_version_id=scenario_version.id,
+                scope=RUBRIC_SNAPSHOT_SCOPE_COMPANY,
+                rubric_kind=entry.rubric_kind,
+                rubric_key=entry.rubric_key,
+                rubric_version=company_version,
+                content_md=company_content,
+                source_path=company_source_path,
+                metadata_json={
+                    "sourceType": "company_trial_attachment",
+                    "registryKey": entry.rubric_key,
+                    "trialId": trial.id,
+                    "companyMetadata": company_metadata,
+                },
+            )
+        )
+    return rows
+
+
+def _snapshot_rows_are_current(
+    *,
+    existing_snapshots: list[WinoeRubricSnapshot],
+    expected_rows: list[dict[str, Any]],
+) -> bool:
+    if len(existing_snapshots) != len(expected_rows):
+        return False
+    existing_identities = {
+        (
+            str(snapshot.scope),
+            str(snapshot.rubric_kind),
+            str(snapshot.rubric_key),
+            str(snapshot.rubric_version),
+        )
+        for snapshot in existing_snapshots
+    }
+    expected_identities = {
+        (
+            str(row["scope"]),
+            str(row["rubric_kind"]),
+            str(row["rubric_key"]),
+            str(row["rubric_version"]),
+        )
+        for row in expected_rows
+    }
+    if existing_identities != expected_identities:
+        return False
+    return all(
+        any(
+            _snapshot_matches_current(snapshot=snapshot, expected_row=expected_row)
+            for snapshot in existing_snapshots
+            if (
+                str(snapshot.scope),
+                str(snapshot.rubric_kind),
+                str(snapshot.rubric_key),
+                str(snapshot.rubric_version),
+            )
+            == (
+                str(expected_row["scope"]),
+                str(expected_row["rubric_kind"]),
+                str(expected_row["rubric_key"]),
+                str(expected_row["rubric_version"]),
+            )
+        )
+        for expected_row in expected_rows
+    )
+
+
+def _snapshot_identities_from_trial(trial: Trial) -> set[tuple[str, str, str, str]]:
+    identities = {
+        (
+            entry.scope,
+            entry.rubric_kind,
+            entry.rubric_key,
+            entry.rubric_version,
+        )
+        for entry in WINOE_RUBRIC_REGISTRY
+    }
+    company_payload = _company_rubric_payload_by_key(trial)
+    for rubric_key, raw_company in company_payload.items():
+        (
+            _company_content,
+            company_version,
+            _company_source_path,
+            _company_metadata,
+        ) = _normalize_company_rubric_payload(trial, rubric_key, raw_company)
+        registry_entry = _REGISTRY_BY_KEY.get(rubric_key)
+        if registry_entry is None:
+            continue
+        identities.add(
+            (
+                RUBRIC_SNAPSHOT_SCOPE_COMPANY,
+                registry_entry.rubric_kind,
+                registry_entry.rubric_key,
+                company_version,
+            )
+        )
+    return identities
+
+
+def _snapshot_rows_match_frozen_contract(
+    *,
+    existing_snapshots: list[WinoeRubricSnapshot],
+    trial: Trial,
+) -> bool:
+    if not existing_snapshots:
+        return False
+    expected_identities = _snapshot_identities_from_trial(trial)
+    if len(existing_snapshots) != len(expected_identities):
+        return False
+    existing_identities = {
+        (
+            str(snapshot.scope),
+            str(snapshot.rubric_kind),
+            str(snapshot.rubric_key),
+            str(snapshot.rubric_version),
+        )
+        for snapshot in existing_snapshots
+    }
+    return existing_identities == expected_identities
+
+
 def _build_rubric_snapshot_context(
     *,
     scenario_version: ScenarioVersion,
     trial: Trial,
     rubric_snapshots: list[WinoeRubricSnapshot],
 ) -> dict[str, Any]:
+    preferred_snapshots = _preferred_rubric_snapshots(rubric_snapshots)
     ordered_snapshots = sorted(
-        rubric_snapshots,
+        preferred_snapshots,
         key=lambda item: (
             item.scope,
             item.rubric_kind,
@@ -322,53 +569,78 @@ async def materialize_scenario_version_rubric_snapshots(
         raise RubricSnapshotMaterializationError(
             "trial is required to materialize rubric snapshots."
         )
-    company_payload = _company_rubric_payload_by_key(resolved_trial)
-    snapshot_rows: list[WinoeRubricSnapshot] = []
-    for entry in WINOE_RUBRIC_REGISTRY:
-        content_md = _read_text_file(entry.source_path)
-        snapshot_rows.append(
-            await _materialize_snapshot(
-                db,
-                scenario_version_id=scenario_version.id,
-                scope=entry.scope,
-                rubric_kind=entry.rubric_kind,
-                rubric_key=entry.rubric_key,
-                rubric_version=entry.rubric_version,
-                content_md=content_md,
-                source_path=entry.source_path,
-                metadata_json={
-                    "sourceType": "winoe_static_file",
-                    "registryKey": entry.rubric_key,
-                },
+    expected_rows = _expected_snapshot_rows(
+        scenario_version=scenario_version,
+        trial=resolved_trial,
+    )
+    existing_snapshots = await list_rubric_snapshots_for_scenario_version(
+        db, scenario_version_id=scenario_version.id
+    )
+    if _snapshot_rows_are_current(
+        existing_snapshots=existing_snapshots,
+        expected_rows=expected_rows,
+    ):
+        await db.flush()
+        return _build_rubric_snapshot_context(
+            scenario_version=scenario_version,
+            trial=resolved_trial,
+            rubric_snapshots=existing_snapshots,
+        )
+    if existing_snapshots:
+        if await _has_candidate_session(db, resolved_trial.id):
+            raise RubricSnapshotMaterializationError(
+                "scenario_version_rubric_snapshots_stale_after_candidate_session_exists"
+            )
+        logger.warning(
+            "repairing_scenario_version_rubric_snapshots trialId=%s scenarioVersionId=%s existingCount=%s expectedCount=%s",
+            resolved_trial.id,
+            scenario_version.id,
+            len(existing_snapshots),
+            len(expected_rows),
+        )
+        await db.execute(
+            delete(WinoeRubricSnapshot).where(
+                WinoeRubricSnapshot.scenario_version_id == scenario_version.id
             )
         )
-        raw_company = company_payload.get(entry.rubric_key)
-        if raw_company is None:
-            continue
-        (
-            company_content,
-            company_version,
-            company_source_path,
-            company_metadata,
-        ) = _normalize_company_rubric_payload(
-            resolved_trial, entry.rubric_key, raw_company
+        snapshot_rows = []
+        for row in expected_rows:
+            snapshot_rows.append(
+                await create_rubric_snapshot(
+                    db,
+                    scenario_version_id=scenario_version.id,
+                    scope=str(row["scope"]),
+                    rubric_kind=str(row["rubric_kind"]),
+                    rubric_key=str(row["rubric_key"]),
+                    rubric_version=str(row["rubric_version"]),
+                    content_hash=str(row["content_hash"]),
+                    content_md=str(row["content_md"]),
+                    source_path=row["source_path"],
+                    metadata_json=row["metadata_json"],
+                    commit=False,
+                )
+            )
+        await db.flush()
+        return _build_rubric_snapshot_context(
+            scenario_version=scenario_version,
+            trial=resolved_trial,
+            rubric_snapshots=snapshot_rows,
         )
+    snapshot_rows = []
+    for row in expected_rows:
         snapshot_rows.append(
-            await _materialize_snapshot(
+            await create_rubric_snapshot(
                 db,
                 scenario_version_id=scenario_version.id,
-                scope=RUBRIC_SNAPSHOT_SCOPE_COMPANY,
-                rubric_kind=entry.rubric_kind,
-                rubric_key=entry.rubric_key,
-                rubric_version=company_version,
-                content_md=company_content,
-                source_path=company_source_path,
-                metadata_json={
-                    "sourceType": "company_trial_attachment",
-                    "registryKey": entry.rubric_key,
-                    "trialId": resolved_trial.id,
-                    "companyMetadata": company_metadata,
-                },
+                scope=str(row["scope"]),
+                rubric_kind=str(row["rubric_kind"]),
+                rubric_key=str(row["rubric_key"]),
+                rubric_version=str(row["rubric_version"]),
+                content_hash=str(row["content_hash"]),
+                content_md=str(row["content_md"]),
+                source_path=row["source_path"],
+                metadata_json=row["metadata_json"],
+                commit=False,
             )
         )
     await db.flush()
@@ -408,6 +680,17 @@ async def get_rubric_snapshots_for_scenario_version(
         if resolved_trial is None:
             raise RubricSnapshotMaterializationError(
                 "trial is required to materialize rubric snapshots."
+            )
+        if not _snapshot_rows_match_frozen_contract(
+            existing_snapshots=snapshots,
+            trial=resolved_trial,
+        ):
+            if await _has_candidate_session(db, resolved_trial.id):
+                raise RubricSnapshotMaterializationError(
+                    "scenario_version_rubric_snapshots_stale_after_candidate_session_exists"
+                )
+            return await materialize_scenario_version_rubric_snapshots(
+                db, scenario_version=scenario_version, trial=resolved_trial
             )
         return _build_rubric_snapshot_context(
             scenario_version=scenario_version,

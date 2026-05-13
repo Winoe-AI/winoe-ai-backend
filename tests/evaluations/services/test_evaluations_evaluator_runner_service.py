@@ -6,7 +6,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.ai import AIPolicySnapshotError, build_ai_policy_snapshot
+from app.ai import (
+    AIPolicySnapshotError,
+    build_ai_policy_snapshot,
+)
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
     EVALUATION_RECOMMENDATION_NO_HIRE,
 )
@@ -16,8 +19,17 @@ from app.evaluations.services import (
 from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_pipeline_day_inputs_service as day_inputs_service,
 )
+from app.evaluations.services import (
+    evaluations_services_evaluations_winoe_report_pipeline_runner_service as winoe_report_runner,
+)
 from app.evaluations.services import evaluator
+from app.evaluations.services.evaluations_services_evaluations_evaluator_models_service import (
+    CodeImplementationEvidenceContext,
+    DayEvaluationResult,
+    ReviewerReportResult,
+)
 from tests.evaluations.services.evaluations_evaluator_branch_gap_utils import day_input
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 def _snapshot():
@@ -25,6 +37,7 @@ def _snapshot():
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     return build_ai_policy_snapshot(trial=trial)
 
@@ -43,7 +56,7 @@ async def test_deterministic_evaluator_handles_empty_enabled_days():
     )
     result = await evaluator.DeterministicWinoeReportEvaluator().evaluate(bundle)
     assert result.overall_winoe_score == 0.0
-    assert result.confidence == 0.0
+    assert result.confidence > 0.0
     assert result.recommendation == EVALUATION_RECOMMENDATION_NO_HIRE
     assert result.day_results == []
     assert result.reviewer_reports == []
@@ -54,6 +67,7 @@ async def test_deterministic_evaluator_handles_empty_enabled_days():
             "reason": "ai_eval_disabled_for_day",
         }
     ]
+    assert result.report_json["citations"]
 
 
 async def test_deterministic_evaluator_sorts_days_and_builds_report():
@@ -160,6 +174,517 @@ async def test_live_evaluator_rejects_snapshot_contract_mismatch():
         match="scenario_version_ai_policy_snapshot_agent_contract_mismatch",
     ):
         await evaluator.get_winoe_report_evaluator().evaluate(bundle)
+
+
+def test_deterministic_winoe_report_emits_unique_real_citations():
+    snapshot = _snapshot()
+    bundle = evaluator.EvaluationInputBundle(
+        candidate_session_id=10,
+        scenario_version_id=20,
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
+        rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
+        disabled_day_indexes=[],
+        day_inputs=[
+            day_input(
+                day_index=1,
+                content_text="# Day 1\n\n- Architecture plan\n- Risk controls",
+            ),
+            day_input(
+                day_index=2,
+                content_text="# Day 2\n\n- Implement the service\n- Add tests",
+            ),
+            day_input(
+                day_index=3,
+                content_text="# Day 3\n\n- Tighten the implementation\n- Improve tests",
+            ),
+            day_input(
+                day_index=4,
+                transcript_segments=[
+                    {"startMs": 0, "endMs": 900, "text": "Handoff walkthrough"},
+                    {"startMs": 900, "endMs": 1800, "text": "Evidence summary"},
+                ],
+            ),
+            day_input(
+                day_index=5,
+                content_text="# Day 5\n\nReflection and ownership notes",
+            ),
+        ],
+        code_implementation_evidence=CodeImplementationEvidenceContext(
+            repository_snapshot={
+                "daySubmissionRefs": [
+                    {
+                        "path": "app/evaluations/services/example_service.py",
+                        "commitSha": "abc1234",
+                    }
+                ]
+            },
+            repository_artifact_references=[
+                {"path": "app/evaluations/services/example_service.py"},
+                {"path": "tests/evaluations/services/example_service_test.py"},
+            ],
+            commit_history=[
+                {"filesChangedPaths": ["app/evaluations/services/example_service.py"]},
+                {
+                    "filesChangedPaths": [
+                        "tests/evaluations/services/example_service_test.py"
+                    ]
+                },
+            ],
+            file_creation_timeline=[
+                {"path": "app/evaluations/services/example_service.py"},
+                {"path": "tests/evaluations/services/example_service_test.py"},
+            ],
+        ),
+        ai_policy_snapshot_json=snapshot,
+        ai_policy_snapshot_digest=snapshot["snapshotDigest"],
+    )
+
+    report = evaluator_runtime._deterministic_aggregate_report(
+        bundle=bundle,
+        snapshot_json=snapshot,
+        day_results=[
+            DayEvaluationResult(
+                day_index=1,
+                score=0.8,
+                rubric_breakdown={"Architecture & Design": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=2,
+                score=0.8,
+                rubric_breakdown={"Implementation Quality": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=3,
+                score=0.8,
+                rubric_breakdown={"Code Quality": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=4,
+                score=0.8,
+                rubric_breakdown={"Communication": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=5,
+                score=0.8,
+                rubric_breakdown={"Reflection & Ownership": 8},
+                evidence=[],
+            ),
+        ],
+        reviewer_reports=[
+            ReviewerReportResult(
+                reviewer_agent_key="demoPresentationReviewer",
+                day_index=4,
+                submission_kind="handoff",
+                score=0.8,
+                dimensional_scores_json={"Communication": 8},
+                evidence_citations_json=[
+                    {
+                        "artifact_ref": "[00:00-00:00:00.900]",
+                        "excerpt": "Handoff walkthrough",
+                    },
+                    {
+                        "artifact_ref": "[00:00-00:00:01.800]",
+                        "excerpt": "Evidence summary",
+                    },
+                ],
+                assessment_text="Communication was clear.",
+                strengths_json=[],
+                risks_json=[],
+            )
+        ],
+        report_day_scores=[],
+    )
+
+    citation_refs = [
+        (item["dimension"], item["artifact_ref"], item["excerpt"])
+        for item in report["citations"]
+    ]
+    assert len(set(citation_refs)) == len(report["citations"])
+
+    citations_by_dimension: dict[str, set[tuple[str, str, str]]] = {}
+    for item in report["citations"]:
+        citations_by_dimension.setdefault(item["dimension"], set()).add(
+            (
+                item["dimension"],
+                item["artifact_ref"],
+                item["excerpt"],
+            )
+        )
+
+    assert set(citations_by_dimension) == {
+        "Architecture & Design",
+        "Problem Understanding",
+        "Implementation Quality",
+        "Code Quality",
+        "Testing Discipline",
+        "Development Process",
+        "Communication",
+        "Reflection & Ownership",
+    }
+    assert all(len(items) >= 2 for items in citations_by_dimension.values())
+    assert any(ref[0] == "Communication" for ref in citation_refs)
+
+
+def test_winoe_report_payload_supplies_real_bundle_citations_when_synthesis_output_is_sparse():
+    snapshot = _snapshot()
+    bundle = evaluator.EvaluationInputBundle(
+        candidate_session_id=10,
+        scenario_version_id=20,
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
+        rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
+        disabled_day_indexes=[],
+        day_inputs=[
+            day_input(
+                day_index=1,
+                content_text="# Day 1\n\n- Architecture plan\n- Risk controls",
+            ),
+            day_input(
+                day_index=2,
+                content_text="# Day 2\n\n- Implement the service\n- Add tests",
+            ),
+            day_input(
+                day_index=3,
+                content_text="# Day 3\n\n- Tighten the implementation\n- Improve tests",
+            ),
+            day_input(
+                day_index=4,
+                transcript_segments=[
+                    {"startMs": 0, "endMs": 900, "text": "Handoff walkthrough"}
+                ],
+            ),
+            day_input(
+                day_index=5,
+                content_text="# Day 5\n\nReflection and ownership notes",
+            ),
+        ],
+        code_implementation_evidence=CodeImplementationEvidenceContext(
+            repository_snapshot={
+                "daySubmissionRefs": [
+                    {
+                        "path": "app/evaluations/services/example_service.py",
+                        "commitSha": "abc1234",
+                    }
+                ]
+            },
+            repository_artifact_references=[
+                {"path": "app/evaluations/services/example_service.py"},
+                {"path": "tests/evaluations/services/example_service_test.py"},
+            ],
+            commit_history=[
+                {"filesChangedPaths": ["app/evaluations/services/example_service.py"]},
+                {
+                    "filesChangedPaths": [
+                        "tests/evaluations/services/example_service_test.py"
+                    ]
+                },
+            ],
+            file_creation_timeline=[
+                {"path": "app/evaluations/services/example_service.py"},
+                {"path": "tests/evaluations/services/example_service_test.py"},
+            ],
+        ),
+        ai_policy_snapshot_json=snapshot,
+        ai_policy_snapshot_digest=snapshot["snapshotDigest"],
+    )
+    reviewer_reports = [
+        ReviewerReportResult(
+            reviewer_agent_key="demoPresentationReviewer",
+            day_index=4,
+            submission_kind="handoff",
+            score=0.8,
+            dimensional_scores_json={"Communication": 8},
+            evidence_citations_json=[
+                {
+                    "artifact_ref": "[00:00-00:00:00.900]",
+                    "excerpt": "Handoff walkthrough",
+                }
+            ],
+            assessment_text="Communication was clear.",
+            strengths_json=[],
+            risks_json=[],
+        )
+    ]
+    payload = evaluator_runtime._build_winoe_report_payload(
+        bundle=bundle,
+        day_results=[
+            DayEvaluationResult(
+                day_index=1,
+                score=0.8,
+                rubric_breakdown={"Architecture & Design": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=2,
+                score=0.8,
+                rubric_breakdown={"Implementation Quality": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=3,
+                score=0.8,
+                rubric_breakdown={"Code Quality": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=4,
+                score=0.8,
+                rubric_breakdown={"Communication": 8},
+                evidence=[],
+            ),
+            DayEvaluationResult(
+                day_index=5,
+                score=0.8,
+                rubric_breakdown={"Reflection & Ownership": 8},
+                evidence=[],
+            ),
+        ],
+        reviewer_reports=reviewer_reports,
+        report_day_scores=[],
+        synthesis_output={
+            "winoe_score": 80,
+            "recommendation": "hire",
+            "confidence": 0.6,
+            "dimensions": [
+                {
+                    "name": "Architecture & Design",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+                {
+                    "name": "Problem Understanding",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+                {
+                    "name": "Implementation Quality",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+                {
+                    "name": "Code Quality",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+                {
+                    "name": "Testing Discipline",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+                {
+                    "name": "Development Process",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+                {
+                    "name": "Communication",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+                {
+                    "name": "Reflection & Ownership",
+                    "score": 8.0,
+                    "justification": "Sparse model citation.",
+                },
+            ],
+            "citations": [
+                {
+                    "dimension": "Communication",
+                    "artifact_type": "transcript",
+                    "artifact_ref": "[00:00-00:00:00.900]",
+                    "excerpt": "Handoff walkthrough",
+                }
+            ],
+            "narrative_assessment": "Paragraph one. Paragraph two. Paragraph three. Paragraph four. Paragraph five. Paragraph six. Paragraph seven. Paragraph eight.",
+            "cohort_context": "Above the median",
+        },
+    )
+
+    citations = payload["citations"]
+    identities = {
+        (
+            item["dimension"],
+            item["artifact_ref"],
+            item["excerpt"],
+        )
+        for item in citations
+    }
+    assert len(citations) > 1
+    assert len(identities) == len(citations)
+    communication_refs = [
+        item["artifact_ref"]
+        for item in citations
+        if item["dimension"] == "Communication"
+    ]
+    assert len(communication_refs) >= 2
+    assert any(ref.startswith("day5-reflection.md:") for ref in communication_refs)
+    assert (
+        "Communication",
+        "[00:00-00:00:00.900]",
+        "Handoff walkthrough",
+    ) in identities
+    assert any(item["dimension"] == "Testing Discipline" for item in citations)
+    assert any(item["dimension"] == "Development Process" for item in citations)
+    assert all(
+        not str(item["artifact_ref"]).startswith("submission:") for item in citations
+    )
+
+
+def test_synthesis_citations_prefer_strong_refs_over_submission_fallback():
+    snapshot = _snapshot()
+    bundle = evaluator.EvaluationInputBundle(
+        candidate_session_id=10,
+        scenario_version_id=20,
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
+        rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
+        disabled_day_indexes=[],
+        day_inputs=[
+            day_input(day_index=1, content_text=""),
+            day_input(day_index=2, content_text=""),
+            day_input(day_index=3, content_text=""),
+            day_input(
+                day_index=4,
+                transcript_segments=[
+                    {"startMs": 0, "endMs": 900, "text": "Handoff walkthrough"}
+                ],
+            ),
+            day_input(day_index=5, content_text=""),
+        ],
+        ai_policy_snapshot_json=snapshot,
+        ai_policy_snapshot_digest=snapshot["snapshotDigest"],
+    )
+    bundle.day_inputs[3].submission_id = 404
+    reviewer_reports = [
+        ReviewerReportResult(
+            reviewer_agent_key="demoPresentationReviewer",
+            day_index=4,
+            submission_kind="handoff",
+            score=0.8,
+            dimensional_scores_json={"Communication": 8},
+            evidence_citations_json=[
+                {
+                    "artifact_ref": "submission:404",
+                    "excerpt": "Fallback handoff evidence.",
+                },
+                {
+                    "artifact_ref": "[00:00-00:00]",
+                    "excerpt": "Handoff walkthrough",
+                },
+            ],
+            assessment_text="Communication was clear.",
+            strengths_json=[],
+            risks_json=[],
+        )
+    ]
+
+    citations = evaluator_runtime._synthesis_citations_from_bundle(
+        bundle=bundle,
+        reviewer_reports=reviewer_reports,
+    )
+    communication_refs = [
+        item["artifact_ref"]
+        for item in citations
+        if item["dimension"] == "Communication"
+    ]
+
+    assert "[00:00-00:00]" in communication_refs
+    assert "submission:404" not in communication_refs
+
+
+def test_synthesis_citations_keep_submission_fallback_when_no_stronger_ref_exists():
+    snapshot = _snapshot()
+    bundle = evaluator.EvaluationInputBundle(
+        candidate_session_id=10,
+        scenario_version_id=20,
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
+        rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
+        disabled_day_indexes=[],
+        day_inputs=[
+            day_input(day_index=1, content_text=""),
+            day_input(day_index=2, content_text=""),
+            day_input(day_index=3, content_text=""),
+            day_input(day_index=4, content_text=""),
+            day_input(day_index=5, content_text=""),
+        ],
+        ai_policy_snapshot_json=snapshot,
+        ai_policy_snapshot_digest=snapshot["snapshotDigest"],
+    )
+    bundle.day_inputs[3].submission_id = 505
+    reviewer_reports = [
+        ReviewerReportResult(
+            reviewer_agent_key="demoPresentationReviewer",
+            day_index=4,
+            submission_kind="handoff",
+            score=0.8,
+            dimensional_scores_json={"Communication": 8},
+            evidence_citations_json=[
+                {
+                    "artifact_ref": "submission:505",
+                    "excerpt": "Fallback handoff evidence.",
+                }
+            ],
+            assessment_text="Communication was clear.",
+            strengths_json=[],
+            risks_json=[],
+        )
+    ]
+
+    citations = evaluator_runtime._synthesis_citations_from_bundle(
+        bundle=bundle,
+        reviewer_reports=reviewer_reports,
+    )
+    communication_refs = [
+        item["artifact_ref"]
+        for item in citations
+        if item["dimension"] == "Communication"
+    ]
+
+    assert communication_refs == ["submission:505"]
+
+
+def test_winoe_report_run_identity_uses_frozen_snapshot_values(monkeypatch):
+    snapshot = _snapshot()
+    snapshot["promptPackVersion"] = "winoe-ai-pack-v4"
+    monkeypatch.setattr(
+        winoe_report_runner,
+        "build_prompt_pack_entry",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("mutable prompt-pack lookup should not be used")
+        ),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        winoe_report_runner,
+        "resolve_winoe_report_aggregator_config",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("mutable runtime config lookup should not be used")
+        ),
+        raising=False,
+    )
+    (
+        model_name,
+        model_version,
+        prompt_version,
+        rubric_version,
+        prompt_pack_version,
+    ) = winoe_report_runner._resolve_winoe_report_run_identity(snapshot)
+
+    assert model_name == "gpt-5.2"
+    assert model_version == "gpt-5.2"
+    assert prompt_version == "winoe-ai-pack-v4:winoeReport"
+    assert rubric_version == "winoe-ai-pack-v4:winoeReport:rubric"
+    assert prompt_pack_version == "winoe-ai-pack-v4"
 
 
 def test_code_implementation_evidence_context_has_explicit_slots():

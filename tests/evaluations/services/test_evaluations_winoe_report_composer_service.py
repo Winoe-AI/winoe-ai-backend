@@ -44,16 +44,16 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
         started_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
         completed_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
         generated_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
-        model_name="fit-evaluator",
-        model_version="2026-03-12",
-        prompt_version="winoe-report-v1",
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
         rubric_version="rubric-v3",
-        day2_checkpoint_sha="day2-cutoff",
-        day3_final_sha="day3-cutoff",
-        cutoff_commit_sha="day3-cutoff",
+        day2_checkpoint_sha="abc1234",
+        day3_final_sha="def5678",
+        cutoff_commit_sha="def5678",
         transcript_reference="transcript:11",
         overall_winoe_score=0.78,
-        recommendation="hire",
+        recommendation="positive_signal",
         confidence=0.82,
         metadata_json={
             "disabledDayIndexes": [4],
@@ -100,9 +100,9 @@ async def test_build_ready_payload_uses_persisted_run_shape(async_session):
     assert report["overallWinoeScore"] == 0.78
     assert report["recommendation"] == "positive_signal"
     assert report["confidence"] == 0.82
-    assert report["version"]["model"] == "fit-evaluator"
+    assert report["version"]["model"] == "gpt-5.2"
     assert report["version"]["provider"] == "anthropic"
-    assert report["version"]["promptVersion"] == "winoe-report-v1"
+    assert report["version"]["promptVersion"] == "winoe-ai-pack-v4:winoeReport"
     assert report["version"]["rubricVersion"] == "rubric-v3"
     assert report["disabledDayIndexes"] == [4]
     assert report["reviewerReports"] == []
@@ -135,9 +135,9 @@ def test_build_ready_payload_translates_persisted_lean_hire_recommendation():
         ],
         reviewer_reports=[],
         metadata_json=None,
-        model_name="fit-evaluator",
-        model_version="2026-03-12",
-        prompt_version="winoe-report-v1",
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
         rubric_version="rubric-v3",
         generated_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
         completed_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
@@ -162,7 +162,7 @@ def test_build_ready_payload_sanitizes_legacy_github_refs_without_mutating_raw_r
     }
     run = SimpleNamespace(
         overall_winoe_score=0.58,
-        recommendation="hire",
+        recommendation="positive_signal",
         confidence=0.61,
         raw_report_json=deepcopy(raw_report_json),
         scenario_version_id=1,
@@ -207,9 +207,9 @@ def test_build_ready_payload_sanitizes_legacy_github_refs_without_mutating_raw_r
             )
         ],
         metadata_json={"rubricSnapshots": []},
-        model_name="fit-evaluator",
-        model_version="2026-03-12",
-        prompt_version="winoe-report-v1",
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
         rubric_version="rubric-v3",
         generated_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
         completed_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
@@ -248,16 +248,16 @@ async def test_build_ready_payload_includes_persisted_reviewer_reports(async_ses
         started_at=datetime(2026, 3, 12, 12, 0, tzinfo=UTC),
         completed_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
         generated_at=datetime(2026, 3, 12, 12, 3, tzinfo=UTC),
-        model_name="fit-evaluator",
-        model_version="2026-03-12",
-        prompt_version="winoe-report-v1",
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="winoe-ai-pack-v4:winoeReport",
         rubric_version="rubric-v3",
-        day2_checkpoint_sha="day2-cutoff",
-        day3_final_sha="day3-cutoff",
-        cutoff_commit_sha="day3-cutoff",
+        day2_checkpoint_sha="abc1234",
+        day3_final_sha="def5678",
+        cutoff_commit_sha="def5678",
         transcript_reference="transcript:11",
         overall_winoe_score=0.78,
-        recommendation="hire",
+        recommendation="positive_signal",
         confidence=0.82,
         metadata_json={"disabledDayIndexes": [4]},
         raw_report_json={"overallWinoeScore": 0.78},

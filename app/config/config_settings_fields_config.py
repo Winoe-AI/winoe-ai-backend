@@ -65,31 +65,61 @@ class SettingsFields(BaseSettings):
     SCENARIO_GENERATION_TIMEOUT_SECONDS: int = 120
     SCENARIO_GENERATION_MAX_RETRIES: int = 2
 
-    WINOE_REPORT_DAY1_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY1_RUNTIME_MODE: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "WINOE_REPORT_DAY1_RUNTIME_MODE",
+            "WINOE_WINOE_REPORT_DAY1_RUNTIME_MODE",
+        ),
+    )
     WINOE_REPORT_DAY1_PROVIDER: str = "anthropic"
     WINOE_REPORT_DAY1_MODEL: str = "claude-opus-4-7"
     WINOE_REPORT_DAY1_TIMEOUT_SECONDS: int = 90
     WINOE_REPORT_DAY1_MAX_RETRIES: int = 2
 
-    WINOE_REPORT_DAY23_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY23_RUNTIME_MODE: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "WINOE_REPORT_DAY23_RUNTIME_MODE",
+            "WINOE_WINOE_REPORT_DAY23_RUNTIME_MODE",
+        ),
+    )
     WINOE_REPORT_DAY23_PROVIDER: str = "openai"
     WINOE_REPORT_DAY23_MODEL: str = "gpt-5.2-codex"
     WINOE_REPORT_DAY23_TIMEOUT_SECONDS: int = 120
     WINOE_REPORT_DAY23_MAX_RETRIES: int = 2
 
-    WINOE_REPORT_DAY4_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY4_RUNTIME_MODE: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "WINOE_REPORT_DAY4_RUNTIME_MODE",
+            "WINOE_WINOE_REPORT_DAY4_RUNTIME_MODE",
+        ),
+    )
     WINOE_REPORT_DAY4_PROVIDER: str = "anthropic"
     WINOE_REPORT_DAY4_MODEL: str = "claude-sonnet-4-6"
     WINOE_REPORT_DAY4_TIMEOUT_SECONDS: int = 90
     WINOE_REPORT_DAY4_MAX_RETRIES: int = 2
 
-    WINOE_REPORT_DAY5_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_DAY5_RUNTIME_MODE: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "WINOE_REPORT_DAY5_RUNTIME_MODE",
+            "WINOE_WINOE_REPORT_DAY5_RUNTIME_MODE",
+        ),
+    )
     WINOE_REPORT_DAY5_PROVIDER: str = "anthropic"
     WINOE_REPORT_DAY5_MODEL: str = "claude-sonnet-4-6"
     WINOE_REPORT_DAY5_TIMEOUT_SECONDS: int = 90
     WINOE_REPORT_DAY5_MAX_RETRIES: int = 2
 
-    WINOE_REPORT_AGGREGATOR_RUNTIME_MODE: str | None = None
+    WINOE_REPORT_AGGREGATOR_RUNTIME_MODE: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "WINOE_REPORT_AGGREGATOR_RUNTIME_MODE",
+            "WINOE_WINOE_REPORT_AGGREGATOR_RUNTIME_MODE",
+        ),
+    )
     WINOE_REPORT_AGGREGATOR_PROVIDER: str = "openai"
     WINOE_REPORT_AGGREGATOR_MODEL: str = "gpt-5.2"
     WINOE_REPORT_AGGREGATOR_TIMEOUT_SECONDS: int = 90

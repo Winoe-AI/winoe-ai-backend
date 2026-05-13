@@ -6,9 +6,13 @@ import logging
 from datetime import time
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.shared.database.shared_database_models_model import Job, Task, Trial
+from app.evaluations.services.evaluations_services_trial_agent_snapshots_service import (
+    materialize_trial_agent_snapshots,
+)
+from app.shared.database.shared_database_models_model import Company, Job, Task, Trial
 from app.shared.jobs.repositories import repository as jobs_repo
 from app.trials.constants.trials_constants_trials_ai_config_constants import (
     AI_NOTICE_DEFAULT_VERSION,
@@ -101,6 +105,16 @@ async def create_trial_with_tasks(
     db.add(sim)
     await db.flush()
     _log_ai_config_changes(sim.id, user.id, notice_version, eval_by_day)
+
+    company_prompt_overrides_json = await db.scalar(
+        select(Company.ai_prompt_overrides_json).where(Company.id == sim.company_id)
+    )
+    await materialize_trial_agent_snapshots(
+        db,
+        trial=sim,
+        company_prompt_overrides_json=company_prompt_overrides_json,
+        trial_prompt_overrides_json=getattr(sim, "ai_prompt_overrides_json", None),
+    )
 
     created_tasks = await seed_default_tasks(db, sim.id, sim.template_key)
     enforce_day_five_trial_contract(sim, tasks=created_tasks)

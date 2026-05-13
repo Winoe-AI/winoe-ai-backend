@@ -4,6 +4,9 @@ from .ai_output_models import (
     AggregatedWinoeReportOutput,
     DayReviewerOutput,
     ScenarioGenerationOutput,
+    WinoeSynthesisCitation,
+    WinoeSynthesisDimension,
+    WinoeSynthesisOutput,
 )
 from .ai_policy_snapshot_service import (
     AIPolicySnapshotError,
@@ -66,6 +69,9 @@ __all__ = [
     "PROMPT_PACK_VERSION",
     "PromptOverrideSet",
     "ScenarioGenerationOutput",
+    "WinoeSynthesisOutput",
+    "WinoeSynthesisCitation",
+    "WinoeSynthesisDimension",
     "allow_demo_or_test_mode",
     "build_ai_policy_snapshot",
     "build_prompt_pack_entry",

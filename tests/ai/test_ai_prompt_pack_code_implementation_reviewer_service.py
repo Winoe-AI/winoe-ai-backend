@@ -9,21 +9,21 @@ def test_code_implementation_reviewer_prompt_uses_from_scratch_evidence_model() 
 
     for expected in (
         "complete repository",
-        "complete commit history",
-        "file creation timeline",
-        "test coverage progression",
-        "project scaffolding quality",
+        "the entire repository is the candidate's work",
+        "project scaffolding",
         "architectural coherence",
+        "testing discipline",
         "development process",
-        "ai tool usage is allowed",
-        "do not penalize ai usage by itself",
-        "no pre-existing application code to compare against",
+        "ai tool usage awareness",
+        "do not penalize ai tool usage by itself",
     ):
         assert expected in prompt
 
     for retired in (
         "precommit",
+        "baseline",
+        "delta",
+        "template",
         "specializor",
-        "starter template",
     ):
         assert retired not in prompt

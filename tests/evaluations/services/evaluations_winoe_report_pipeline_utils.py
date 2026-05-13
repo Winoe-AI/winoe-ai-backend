@@ -13,7 +13,11 @@ from app.evaluations.repositories import (
 from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_pipeline_execute_service as execute_service,
 )
+from app.evaluations.services import (
+    evaluations_services_evaluations_winoe_report_pipeline_runner_service as runner_service,
+)
 from app.evaluations.services import winoe_report_pipeline
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 class _ScalarOneResult:
@@ -64,6 +68,7 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     ai_policy_snapshot_json = build_ai_policy_snapshot(trial=trial)
     context = SimpleNamespace(
@@ -79,7 +84,7 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
             return_value=SimpleNamespace(
                 day_results=[],
                 overall_winoe_score=87,
-                recommendation="strong_hire",
+                recommendation="strong_signal",
                 confidence=0.91,
                 report_json={"summary": "ok"},
             )
@@ -92,8 +97,8 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
         return_value=SimpleNamespace(
             id=123,
             generated_at=datetime(2026, 3, 19, 0, 0, tzinfo=UTC),
-            model_version="2026-03-12",
-            prompt_version="winoe-report-v1",
+            model_version="gpt-5.2",
+            prompt_version="winoe-ai-pack-v4:winoeReport",
             rubric_version="rubric-vx",
             basis_fingerprint="basis-123",
         )
@@ -147,6 +152,26 @@ def _setup_pipeline_process_job_happy_path(monkeypatch):
         winoe_report_pipeline.evaluator_service,
         "get_winoe_report_evaluator",
         lambda: evaluator,
+    )
+
+    async def _fake_evaluate_and_finalize_run(**kwargs):
+        return await complete_run(
+            kwargs["db"],
+            run_id=kwargs["run"].id,
+            day_scores=[],
+            reviewer_reports=[],
+            overall_winoe_score=87,
+            recommendation="strong_signal",
+            confidence=0.91,
+            raw_report_json={"summary": "ok"},
+            metadata_json=kwargs["run_metadata"],
+            commit=False,
+        )
+
+    monkeypatch.setattr(
+        runner_service,
+        "_evaluate_and_finalize_run",
+        _fake_evaluate_and_finalize_run,
     )
     return get_run_by_job_id, get_latest_run_for_candidate_session, start_run
 

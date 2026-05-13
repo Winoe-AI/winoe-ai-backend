@@ -34,3 +34,9 @@ class WinoeReport(Base):
     )
 
     candidate_session = relationship("CandidateSession", back_populates="winoe_report")
+    citations = relationship(
+        "WinoeReportCitation",
+        back_populates="report",
+        cascade="all, delete-orphan",
+        order_by="WinoeReportCitation.dimension, WinoeReportCitation.id",
+    )

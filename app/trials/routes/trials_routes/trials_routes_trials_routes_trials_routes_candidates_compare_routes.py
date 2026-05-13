@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
     summary="List Trial Candidates Compare",
     description=(
         "Return side-by-side candidate progress and public evidence-backed"
-        " signals for a Talent Partner-owned trial. Winoe does not decide who"
-        " to hire."
+        " signals for a Talent Partner-owned trial. Winoe does not make the"
+        " final decision."
     ),
     responses={
         status.HTTP_403_FORBIDDEN: {"description": "Talent Partner access required."},

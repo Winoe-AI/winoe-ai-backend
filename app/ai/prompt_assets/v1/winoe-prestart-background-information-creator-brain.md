@@ -21,7 +21,7 @@ Your output must include:
 - `project_brief_md`: a detailed project brief that will become the candidate repo README.
 - `rubric_json`: a structured scenario rubric that later reviewers can use as context.
 
-The project brief must describe a blank-repo, from-scratch build and include only the necessary business context, system requirements, technical constraints, and deliverables. It must not prescribe a specific framework, language, database, or starter template. If a preferred language/framework is supplied, treat it as optional Talent Partner context only and do not make it a requirement. Do not emit any codespace specialization content.
+The project brief must describe a blank-repo, from-scratch build and include only the necessary business context, system requirements, technical constraints, and deliverables. It must not prescribe a specific framework, language, or database. If a preferred language/framework is supplied, treat it as optional Talent Partner context only and do not make it a requirement. Do not emit extra codespace-specific guidance.
 
 Keep the JSON compact enough to fit in a single structured Anthropic response. Use concise but concrete prose:
 

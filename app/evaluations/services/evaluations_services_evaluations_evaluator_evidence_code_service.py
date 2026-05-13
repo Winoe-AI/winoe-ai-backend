@@ -35,7 +35,7 @@ def _build_code_day_evidence(day: DayEvaluationInput) -> list[dict[str, Any]]:
         diff_item: dict[str, Any] = {
             "kind": "diff",
             "ref": f"{base_ref}...{head_ref}",
-            "excerpt": "Code delta between base and submitted head commits.",
+            "excerpt": "Code difference between the reference and submitted head commits.",
         }
         if repo_full_name:
             diff_item[

@@ -45,8 +45,16 @@ async def _seed_handoff_and_reflection(
         status=TRANSCRIPT_STATUS_READY,
         text="I refactored the service layer and added tests.",
         segments_json=[
-            {"startMs": 100, "endMs": 1200, "text": "I refactored the service layer."},
-            {"startMs": 1300, "endMs": 2600, "text": "I added regression tests."},
+            {
+                "startMs": 120000,
+                "endMs": 128000,
+                "text": "I refactored the service layer.",
+            },
+            {
+                "startMs": 128000,
+                "endMs": 136000,
+                "text": "I added regression tests.",
+            },
         ],
         model_name="whisper-test",
         commit=False,
@@ -55,7 +63,12 @@ async def _seed_handoff_and_reflection(
         async_session,
         candidate_session=candidate_session,
         task=tasks_by_day[5],
-        content_text="Reflection on constraints and communication.",
+        content_text=(
+            "Reflection on constraints and communication.\n"
+            "What went well.\n"
+            "What did not.\n"
+            "Next steps."
+        ),
         content_json={"kind": "day5_reflection", "sections": {"reflection": "done"}},
     )
 

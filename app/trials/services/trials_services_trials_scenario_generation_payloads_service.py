@@ -44,28 +44,51 @@ def build_rubric_json(*, role: str) -> dict[str, Any]:
     """Build rubric json."""
     role_label = normalize_text(role) or "Engineer"
     return {
-        "summary": f"Evaluate {role_label} performance across planning, implementation, wrap-up, handoff demo, and reflection in a from-scratch build.",
-        "dayWeights": {"1": 20, "2": 30, "3": 25, "4": 15, "5": 10},
+        "summary": (
+            f"Evaluate {role_label} performance across design, implementation, Handoff + Demo, "
+            "and reflection in a from-scratch build."
+        ),
+        "dayWeights": {"1": 20, "2": 25, "3": 20, "4": 20, "5": 15},
         "dimensions": [
             {
-                "name": "Problem framing",
-                "weight": 25,
-                "description": "Defines scope, constraints, and execution plan clearly.",
-            },
-            {
-                "name": "Technical execution",
-                "weight": 35,
-                "description": "Ships correct, maintainable changes with useful tests.",
-            },
-            {
-                "name": "Implementation completeness and handoff readiness",
+                "name": "Architecture & Design",
                 "weight": 20,
-                "description": "Finishes the core implementation, hardens edge cases, and leaves the codebase ready for reviewer handoff.",
+                "description": "Shows a workable architecture, boundaries, and data flow for the Trial.",
             },
             {
-                "name": "Handoff communication",
-                "weight": 20,
-                "description": "Explains decisions, risks, outcomes, and next steps clearly.",
+                "name": "Problem Understanding",
+                "weight": 10,
+                "description": "Reframes the business need accurately and keeps the brief grounded in real stakes.",
+            },
+            {
+                "name": "Functional Requirements",
+                "weight": 15,
+                "description": "Captures the core product behaviors that must actually work.",
+            },
+            {
+                "name": "Non-Functional Requirements",
+                "weight": 10,
+                "description": "States reliability, security, and performance expectations without over-specifying the stack.",
+            },
+            {
+                "name": "Scope Realism",
+                "weight": 10,
+                "description": "Keeps the work achievable in the 2-day implementation window.",
+            },
+            {
+                "name": "Code Quality",
+                "weight": 15,
+                "description": "Sets expectations for readable, maintainable, and well-structured code.",
+            },
+            {
+                "name": "Testing",
+                "weight": 5,
+                "description": "Requires meaningful verification of the important paths and failure cases.",
+            },
+            {
+                "name": "Communication",
+                "weight": 5,
+                "description": "Requires clear handoff language that a Talent Partner can follow.",
             },
         ],
     }

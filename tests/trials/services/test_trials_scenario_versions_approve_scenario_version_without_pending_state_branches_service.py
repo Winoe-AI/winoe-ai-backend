@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.ai import build_ai_policy_snapshot
+from tests.shared.factories import build_trial_agent_snapshots
 from tests.trials.services.trials_scenario_versions_service_utils import *
 
 
@@ -28,6 +30,7 @@ async def test_approve_scenario_version_without_pending_state_branches(async_ses
     assert approved_version.id == active_id
     assert approved_version.locked_at is not None
 
+    set_committed_value(sim, "agent_snapshots", build_trial_agent_snapshots())
     non_active = ScenarioVersion(
         trial_id=sim.id,
         version_index=2,

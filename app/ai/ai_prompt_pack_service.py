@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 from app.ai.ai_output_models import (
-    AggregatedWinoeReportOutput,
     DayReviewerOutput,
     ScenarioGenerationOutput,
+    WinoeSynthesisOutput,
 )
 
 
@@ -47,12 +47,13 @@ class PromptPackBundle:
 _OUTPUT_MODELS: dict[str, type[Any]] = {
     "ScenarioGenerationOutput": ScenarioGenerationOutput,
     "DayReviewerOutput": DayReviewerOutput,
-    "AggregatedWinoeReportOutput": AggregatedWinoeReportOutput,
+    "WinoeSynthesisOutput": WinoeSynthesisOutput,
+    "AggregatedWinoeReportOutput": WinoeSynthesisOutput,
 }
 
 
 def _prompt_assets_root() -> Path:
-    return Path(__file__).resolve().parent / "prompt_assets" / "v1"
+    return Path(__file__).resolve().parent / "prompt_assets" / "v4"
 
 
 def _manifest_path() -> Path:
@@ -78,9 +79,13 @@ def _extract_markdown_section(markdown_text: str, heading: str) -> str:
     if start_index is None:
         raise ValueError(f"Prompt asset missing '{marker}' section.")
     end_index = len(lines)
+    in_fenced_block = False
     for index in range(start_index, len(lines)):
         line = lines[index].strip()
-        if line.startswith("## "):
+        if line.startswith("```"):
+            in_fenced_block = not in_fenced_block
+            continue
+        if not in_fenced_block and line.startswith("## "):
             end_index = index
             break
     section = "\n".join(lines[start_index:end_index]).strip()
@@ -108,7 +113,11 @@ def _normalize_json(value: dict[str, Any]) -> str:
 
 
 def _load_persona_governance_md() -> str:
-    return _read_text_file(_prompt_asset_path("SOUL.md"))
+    for file_name in ("winoe_soul.md", "SOUL.md"):
+        path = _prompt_asset_path(file_name)
+        if path.is_file():
+            return _read_text_file(path)
+    raise FileNotFoundError("Persona governance prompt asset not found.")
 
 
 @lru_cache(maxsize=1)

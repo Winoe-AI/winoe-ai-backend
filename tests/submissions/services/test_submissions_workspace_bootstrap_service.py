@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 from app.integrations.github import GithubError
 from app.submissions.services.submissions_services_submissions_workspace_bootstrap_service import (
@@ -138,6 +140,18 @@ def test_evidence_capture_workflow_covers_core_review_artifacts() -> None:
         "actions/upload-artifact@v4",
     ):
         assert expected in workflow
+
+
+def test_evidence_capture_workflow_template_exists_and_parses() -> None:
+    template_path = Path("templates/.github/workflows/winoe-evidence.yml")
+    text = template_path.read_text(encoding="utf-8")
+    parsed = yaml.safe_load(text)
+
+    assert template_path.is_file()
+    assert parsed["name"] == "Winoe Evidence Capture"
+    assert parsed["jobs"]["capture"]["continue-on-error"] is True
+    assert parsed["jobs"]["capture"]["steps"][0]["with"]["fetch-depth"] == 0
+    assert "evidence" in text
 
 
 @pytest.mark.asyncio

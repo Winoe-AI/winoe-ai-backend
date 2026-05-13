@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
@@ -33,6 +34,7 @@ async def get_candidate_session_evaluation_context(
         await db.execute(
             select(CandidateSession, Trial, ScenarioVersion)
             .join(Trial, Trial.id == CandidateSession.trial_id)
+            .options(selectinload(Trial.agent_snapshots))
             .outerjoin(
                 ScenarioVersion,
                 ScenarioVersion.id == CandidateSession.scenario_version_id,

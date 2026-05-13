@@ -26,7 +26,7 @@ def default_storyline_md(trial: Trial) -> str:
     role = (trial.role or "").strip()
     scenario_template = (trial.scenario_template or "").strip()
     return (
-        f"# {title}\n\n" f"Role: {role}\n" f"Template: {scenario_template}\n"
+        f"# {title}\n\n" f"Role: {role}\n" f"Scenario key: {scenario_template}\n"
     ).strip()
 
 

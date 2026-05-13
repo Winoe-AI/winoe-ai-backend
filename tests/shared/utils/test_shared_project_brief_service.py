@@ -25,16 +25,30 @@ def test_canonical_project_brief_normalizes_mapping_payloads() -> None:
     brief = canonical_project_brief_markdown(
         {
             "project_brief_md": {
-                "business_context": "Help operators reconcile payments.",
-                "system_requirements": "Build the workflow from scratch.",
-                "technical_constraints": "Keep the stack open-ended.",
-                "deliverables": ["Working code", "Tests"],
+                "context": "Help operators reconcile payments.",
+                "problem": "Reduce manual follow-up on failed transfers.",
+                "users": ["Operations team", "Customer support"],
+                "functional_requirements": ["Build the workflow from scratch."],
+                "non_functional_requirements": ["Keep the stack open-ended."],
+                "out_of_scope": ["Do not build admin analytics."],
+                "what_done_looks_like": ["Working code", "Tests"],
+                "suggested_daily_cadence": {
+                    "Day 1": "Plan the architecture.",
+                    "Day 2": "Build the first slice.",
+                },
             }
         }
     )
 
-    assert "## Business Context" in brief
+    assert "## Context" in brief
     assert "Help operators reconcile payments." in brief
+    assert "## Problem" in brief
+    assert "## Users" in brief
+    assert "## Functional Requirements" in brief
+    assert "## Non-Functional Requirements" in brief
+    assert "## Out of Scope" in brief
+    assert '## What "Done" Looks Like' in brief
+    assert "## Suggested Daily Cadence" in brief
     assert "- Working code" in brief
 
 
@@ -47,10 +61,13 @@ def test_project_brief_generation_treats_preferred_language_as_context_only() ->
     )
 
     lowered = brief.lower()
-    assert brief.startswith("# Project Brief")
-    assert "preferred language/framework: typescript/node" in lowered
-    assert "not as a requirement" in lowered
-    assert "do not prescribe a specific framework" in lowered
+    assert brief.startswith("# Scheduling Operations")
+    assert "preferred language/framework context: typescript/node" in lowered
+    assert "treat this as a constraint to respect" in lowered
+    assert (
+        "avoid unnecessary framework lock-in beyond the preferred language/framework context"
+        in lowered
+    )
     assert "starter" not in lowered
     assert "precommit" not in lowered
     assert "specializor" not in lowered

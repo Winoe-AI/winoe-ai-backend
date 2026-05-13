@@ -6,7 +6,11 @@ from app.ai import build_ai_policy_snapshot
 from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_pipeline_execute_service as execute_service,
 )
+from app.evaluations.services import (
+    evaluations_services_evaluations_winoe_report_pipeline_runner_service as runner_service,
+)
 from tests.evaluations.services.evaluations_winoe_report_pipeline_utils import *
+from tests.shared.factories import build_trial_agent_snapshots
 
 
 @pytest.mark.asyncio
@@ -20,6 +24,7 @@ async def test_process_evaluation_run_job_continues_when_existing_run_not_termin
         ai_notice_version="mvp1",
         ai_notice_text="AI assistance may be used for evaluation support.",
         ai_eval_enabled_by_day={"1": True, "2": True, "3": True, "4": True, "5": True},
+        agent_snapshots=build_trial_agent_snapshots(),
     )
     context = SimpleNamespace(
         candidate_session=SimpleNamespace(id=50, scenario_version_id=60, trial_id=70),
@@ -35,7 +40,7 @@ async def test_process_evaluation_run_job_continues_when_existing_run_not_termin
             return_value=SimpleNamespace(
                 day_results=[],
                 overall_winoe_score=82,
-                recommendation="hire",
+                recommendation="strong_signal",
                 confidence=0.77,
                 report_json={"summary": "in_progress_then_completed"},
             )
@@ -46,8 +51,8 @@ async def test_process_evaluation_run_job_continues_when_existing_run_not_termin
         return_value=SimpleNamespace(
             id=99,
             generated_at=datetime(2026, 3, 19, 0, 5, tzinfo=UTC),
-            model_version="2026-03-12",
-            prompt_version="winoe-report-v1",
+            model_version="gpt-5.2",
+            prompt_version="winoe-ai-pack-v4:winoeReport",
             rubric_version="rubric-vx",
             basis_fingerprint="basis-99",
         )
@@ -109,6 +114,24 @@ async def test_process_evaluation_run_job_continues_when_existing_run_not_termin
         winoe_report_pipeline.evaluator_service,
         "get_winoe_report_evaluator",
         lambda: evaluator,
+    )
+
+    async def _fake_evaluate_and_finalize_run(**kwargs):
+        return await complete_run(
+            kwargs["db"],
+            run_id=kwargs["run"].id,
+            day_scores=[],
+            reviewer_reports=[],
+            overall_winoe_score=82,
+            recommendation="strong_signal",
+            confidence=0.77,
+            raw_report_json={"summary": "in_progress_then_completed"},
+            metadata_json=kwargs["run_metadata"],
+            commit=False,
+        )
+
+    monkeypatch.setattr(
+        runner_service, "_evaluate_and_finalize_run", _fake_evaluate_and_finalize_run
     )
 
     response = await winoe_report_pipeline.process_evaluation_run_job(

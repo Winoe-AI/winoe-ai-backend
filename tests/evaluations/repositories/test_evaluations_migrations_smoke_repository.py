@@ -75,7 +75,7 @@ def _temp_postgres_url(base_sync_url: str) -> tuple[str, str]:
     return admin_url, temp_sync_url
 
 
-def _run_alembic_heads(repo_root: Path, *, sync_url: str) -> None:
+def _run_alembic_upgrade_head(repo_root: Path, *, sync_url: str) -> None:
     env = os.environ.copy()
     env["WINOE_ENV"] = "test"
     env["WINOE_DATABASE_URL_SYNC"] = sync_url
@@ -88,7 +88,7 @@ def _run_alembic_heads(repo_root: Path, *, sync_url: str) -> None:
             "-c",
             str(repo_root / "alembic.ini"),
             "upgrade",
-            "heads",
+            "head",
         ],
         cwd=repo_root,
         env=env,
@@ -97,7 +97,7 @@ def _run_alembic_heads(repo_root: Path, *, sync_url: str) -> None:
         check=False,
     )
     assert result.returncode == 0, (
-        "Alembic command failed: upgrade heads\n"
+        "Alembic command failed: upgrade head\n"
         f"stdout:\n{result.stdout}\n"
         f"stderr:\n{result.stderr}"
     )
@@ -114,14 +114,16 @@ def test_evaluation_migration_upgrade_head_smoke():
         with admin_engine.connect() as conn:
             conn.execute(text(f'CREATE DATABASE "{temp_db_name}"'))
 
-        _run_alembic_heads(repo_root, sync_url=temp_sync_url)
+        _run_alembic_upgrade_head(repo_root, sync_url=temp_sync_url)
 
         engine = create_engine(temp_sync_url)
         with engine.connect() as conn:
-            version_num = conn.execute(
-                text("SELECT version_num FROM alembic_version")
-            ).scalar_one()
-        assert version_num is not None
+            version_nums = (
+                conn.execute(text("SELECT version_num FROM alembic_version"))
+                .scalars()
+                .all()
+            )
+        assert set(version_nums) == {"202605060001"}
 
         tables_after_upgrade = _table_names(temp_sync_url)
         assert "notification_delivery_audits" in tables_after_upgrade
@@ -133,6 +135,7 @@ def test_evaluation_migration_upgrade_head_smoke():
         reviewer_report_columns = _columns_for(
             temp_sync_url, "evaluation_reviewer_reports"
         )
+        citation_columns = _columns_for(temp_sync_url, "citations")
         rubric_snapshot_columns = _columns_for(temp_sync_url, "winoe_rubric_snapshots")
         trial_columns = _columns_for(temp_sync_url, "trials")
 
@@ -157,6 +160,13 @@ def test_evaluation_migration_upgrade_head_smoke():
         assert "strengths_json" in reviewer_report_columns
         assert "risks_json" in reviewer_report_columns
         assert "raw_output_json" in reviewer_report_columns
+
+        assert "report_id" in citation_columns
+        assert "dimension" in citation_columns
+        assert "artifact_type" in citation_columns
+        assert "artifact_ref" in citation_columns
+        assert "excerpt" in citation_columns
+        assert "created_at" in citation_columns
 
         assert "scenario_version_id" in rubric_snapshot_columns
         assert "scope" in rubric_snapshot_columns

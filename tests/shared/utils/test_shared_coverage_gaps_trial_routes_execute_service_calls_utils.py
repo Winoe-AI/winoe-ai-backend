@@ -205,6 +205,6 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
     assert captured_detail["current_ai_policy_snapshot_json"] is pending_snapshot
     assert captured_detail["scenario_generation_job"] is scenario_job
     assert captured_detail["background_failures"].failedJobsCount == 0
-    assert rendered_detail.ai.prompt_pack_version == "winoe-ai-pack-v1"
+    assert rendered_detail.ai.prompt_pack_version == "winoe-ai-pack-v4"
     assert rendered_detail.scenario.id == pending_version.id
     assert listed[0].numCandidates == 2

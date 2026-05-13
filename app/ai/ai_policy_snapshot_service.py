@@ -334,6 +334,19 @@ def validate_current_ai_policy_snapshot_contract(
     return snapshot
 
 
+def _trial_agent_snapshot_map(trial: object) -> dict[str, Any]:
+    rows = trial.__dict__.get("agent_snapshots") if hasattr(trial, "__dict__") else None
+    if not isinstance(rows, list):
+        return {}
+    snapshot_map: dict[str, Any] = {}
+    for row in rows:
+        agent_name = getattr(row, "agent_name", None)
+        if not isinstance(agent_name, str) or not agent_name.strip():
+            continue
+        snapshot_map[agent_name.strip()] = row
+    return snapshot_map
+
+
 def build_ai_policy_snapshot(
     *,
     trial: object,
@@ -342,17 +355,51 @@ def build_ai_policy_snapshot(
 ) -> dict[str, Any]:
     """Build the canonical frozen AI policy snapshot for one scenario version."""
     agents: dict[str, Any] = {}
+    trial_agent_snapshots = _trial_agent_snapshot_map(trial)
+    trial_id = getattr(trial, "id", None)
+    if trial_id is not None and len(trial_agent_snapshots) < len(_ACTIVE_AGENT_KEYS):
+        raise _snapshot_error(
+            code="scenario_version_ai_policy_snapshot_missing",
+            scenario_version_id=getattr(trial, "active_scenario_version_id", None),
+            details={
+                "trialId": trial_id,
+                "expectedAgentKeys": list(_ACTIVE_AGENT_KEYS),
+                "actualAgentKeys": sorted(trial_agent_snapshots),
+            },
+        )
     for agent_key in _ACTIVE_AGENT_KEYS:
         prompt_entry = build_prompt_pack_entry(agent_key)
-        resolved_instructions_md, resolved_rubric_md = resolve_prompt_layers(
-            key=agent_key,
-            base_instructions_md=prompt_entry.instructions_md,
-            base_rubric_md=prompt_entry.rubric_md,
-            company_overrides_json=company_prompt_overrides_json,
-            trial_overrides_json=trial_prompt_overrides_json,
-            run_context_md=None,
-        )
         runtime_config = _feature_config_for_agent(agent_key)
+        trial_snapshot = trial_agent_snapshots.get(
+            {
+                "prestart": "Prestart Project Brief Creator",
+                "designDocReviewer": "Design Doc Reviewer",
+                "codeImplementationReviewer": "Code Implementation Reviewer",
+                "demoPresentationReviewer": "Handoff + Demo Reviewer",
+                "reflectionEssayReviewer": "Reflection Reviewer",
+                "winoeReport": "Winoe",
+            }[agent_key]
+        )
+        if trial_snapshot is None:
+            resolved_instructions_md, resolved_rubric_md = resolve_prompt_layers(
+                key=agent_key,
+                base_instructions_md=prompt_entry.instructions_md,
+                base_rubric_md=prompt_entry.rubric_md,
+                company_overrides_json=company_prompt_overrides_json,
+                trial_overrides_json=trial_prompt_overrides_json,
+                run_context_md=None,
+            )
+            prompt_content_hash = prompt_entry.instructions_sha256
+            rubric_content_hash = prompt_entry.rubric_sha256
+        else:
+            resolved_instructions_md = getattr(trial_snapshot, "prompt_content", "")
+            resolved_rubric_md = getattr(trial_snapshot, "rubric_content", "")
+            prompt_content_hash = getattr(
+                trial_snapshot, "prompt_content_hash", prompt_entry.instructions_sha256
+            )
+            rubric_content_hash = getattr(
+                trial_snapshot, "rubric_content_hash", prompt_entry.rubric_sha256
+            )
         agents[agent_key] = {
             "key": agent_key,
             "provider": runtime_config.provider,
@@ -363,8 +410,8 @@ def build_ai_policy_snapshot(
             "policySha256": prompt_entry.policy_sha256,
             "schemaFileName": prompt_entry.schema_file_name,
             "schemaSha256": prompt_entry.schema_sha256,
-            "instructionsSha256": prompt_entry.instructions_sha256,
-            "rubricSha256": prompt_entry.rubric_sha256,
+            "instructionsSha256": prompt_content_hash,
+            "rubricSha256": rubric_content_hash,
             "resolvedInstructionsMd": resolved_instructions_md,
             "resolvedRubricMd": resolved_rubric_md,
             "runtime": {

@@ -6,6 +6,8 @@ from app.shared.utils.shared_utils_lazy_module_aliases_utils import (
 )
 
 _MODULE_ALIASES = {
+    "winoe_report_citation": "app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_model",
+    "winoe_report_citation_repository": "app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_repository",
     "winoe_report": "app.submissions.repositories.submissions_repositories_submissions_winoe_report_model",
     "winoe_report_repository": "app.submissions.repositories.submissions_repositories_submissions_winoe_report_repository",
     "repository": "app.submissions.repositories.submissions_repositories_submissions_core_repository",

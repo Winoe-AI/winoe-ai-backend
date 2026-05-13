@@ -7,6 +7,9 @@ from . import (
     evaluations_services_evaluations_winoe_report_api_service as winoe_report_api,
 )
 from . import (
+    evaluations_services_evaluations_winoe_report_citations_service as winoe_report_citations,
+)
+from . import (
     evaluations_services_evaluations_winoe_report_composer_service as winoe_report_composer,
 )
 from . import (
@@ -20,6 +23,12 @@ from . import (
 )
 from . import (
     evaluations_services_evaluations_winoe_rubric_snapshots_service as winoe_rubric_snapshots,
+)
+from . import (
+    evaluations_services_evidence_trail_validator_service as evidence_trail_validator,
+)
+from . import (
+    evaluations_services_trial_agent_snapshots_service as trial_agent_snapshots,
 )
 
 fetch_winoe_report = winoe_report_api.fetch_winoe_report
@@ -36,12 +45,15 @@ __all__ = [
     "evaluator",
     "fail_run",
     "fetch_winoe_report",
+    "evidence_trail_validator",
     "winoe_rubric_snapshots",
+    "winoe_report_citations",
     "winoe_report_access",
     "winoe_report_api",
     "winoe_report_composer",
     "winoe_report_jobs",
     "winoe_report_pipeline",
+    "trial_agent_snapshots",
     "winoe_report_pipeline_transcript",
     "generate_winoe_report",
     "runs",

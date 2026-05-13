@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from app.ai import get_agent_policy_snapshot
 from app.evaluations.services import (
     evaluations_services_evaluations_evaluator_service as evaluator_service,
 )
@@ -313,7 +314,14 @@ def _documentation_evolution_from_commit_history(
     return documentation_evolution
 
 
-def _resolve_rubric_version(context) -> str:
+def _resolve_rubric_version(
+    context,
+    ai_policy_snapshot_json: dict[str, Any] | None = None,
+) -> str:
+    snapshot = get_agent_policy_snapshot(ai_policy_snapshot_json, "winoeReport")
+    version = snapshot.get("rubricVersion") if isinstance(snapshot, dict) else None
+    if isinstance(version, str) and version.strip():
+        return version.strip()
     version = getattr(
         getattr(context, "scenario_version", None), "rubric_version", None
     )

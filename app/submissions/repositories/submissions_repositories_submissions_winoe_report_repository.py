@@ -22,6 +22,16 @@ async def get_by_candidate_session_id(
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
+async def get_by_id(
+    db: AsyncSession,
+    *,
+    report_id: int,
+) -> WinoeReport | None:
+    """Return by report id."""
+    stmt = select(WinoeReport).where(WinoeReport.id == int(report_id))
+    return (await db.execute(stmt)).scalar_one_or_none()
+
+
 async def upsert_marker(
     db: AsyncSession,
     *,
@@ -52,4 +62,4 @@ async def upsert_marker(
     return marker
 
 
-__all__ = ["get_by_candidate_session_id", "upsert_marker"]
+__all__ = ["get_by_candidate_session_id", "get_by_id", "upsert_marker"]
