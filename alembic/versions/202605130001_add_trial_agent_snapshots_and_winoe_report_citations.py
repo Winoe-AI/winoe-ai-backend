@@ -1,8 +1,8 @@
 """Add trial agent snapshots and Winoe report citations.
 
-Revision ID: 202605060001
-Revises: 202604290001
-Create Date: 2026-05-06 00:01:00.000000
+Revision ID: 202605130001
+Revises: 202605060001
+Create Date: 2026-05-13 00:01:00.000000
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "202605060001"
-down_revision: str | Sequence[str] | None = "5148b3a35f39"
+revision: str = "202605130001"
+down_revision: str | Sequence[str] | None = "202605060001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
