@@ -84,6 +84,14 @@ def _run_migrations(project_root: Path) -> None:
     )
 
 
+async def _drop_existing_schema(engine) -> None:
+    from app.shared.database.shared_database_models_model import Base
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.exec_driver_sql("DROP TABLE IF EXISTS alembic_version")
+
+
 def _build_github_client(mode: str) -> GithubClient | FakeGithubClient:
     if mode == "fake":
         return FakeGithubClient()
@@ -135,6 +143,8 @@ async def _main_async(args: argparse.Namespace) -> None:
         if not github_org:
             raise RuntimeError("Real GitHub provider mode requires WINOE_GITHUB_ORG.")
         await github_client._get_json(f"/orgs/{github_org}")
+    if args.reset_db:
+        await _drop_existing_schema(engine)
     _run_migrations(project_root)
     if args.reset_db:
         print("YC demo seed: full database reset requested")
