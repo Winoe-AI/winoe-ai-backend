@@ -37,11 +37,28 @@ from app.trials.services.trials_services_trials_lifecycle_transition_rules_servi
 
 
 @dataclass(slots=True)
+class TerminateTrialCleanupSummary:
+    """Synchronous cleanup performed during termination.
+
+    Repository and Codespace teardown is **not** performed inline; a
+    ``trial_cleanup`` background job is enqueued (see ``cleanup_job_ids`` /
+    ``asyncRepoCodespaceCleanupJobIds``) to delete GitHub resources.
+    """
+
+    jobs_cancelled: int = 0
+    invites_revoked: int = 0
+    failures: list[str] | None = None
+    async_repo_codespace_cleanup_enqueued: bool = True
+    async_repo_codespace_cleanup_job_ids: list[str] | None = None
+
+
+@dataclass(slots=True)
 class TerminateTrialResult:
     """Represent terminate trial result data and behavior."""
 
     trial: Trial
     cleanup_job_ids: list[str]
+    cleanup: TerminateTrialCleanupSummary | None = None
 
 
 async def _expire_pending_candidate_sessions(
@@ -163,7 +180,20 @@ async def terminate_trial_with_cleanup_impl(
         cancelled_job_count,
         cleanup_job_ids,
     )
-    return TerminateTrialResult(trial=trial, cleanup_job_ids=cleanup_job_ids)
+    cleanup = TerminateTrialCleanupSummary(
+        jobs_cancelled=cancelled_job_count,
+        invites_revoked=expired_count,
+        failures=[],
+        async_repo_codespace_cleanup_enqueued=True,
+        async_repo_codespace_cleanup_job_ids=cleanup_job_ids,
+    )
+    return TerminateTrialResult(
+        trial=trial, cleanup_job_ids=cleanup_job_ids, cleanup=cleanup
+    )
 
 
-__all__ = ["TerminateTrialResult", "terminate_trial_with_cleanup_impl"]
+__all__ = [
+    "TerminateTrialCleanupSummary",
+    "TerminateTrialResult",
+    "terminate_trial_with_cleanup_impl",
+]

@@ -28,6 +28,7 @@ TRIALS_SCHEMA_EXPORTS = [
     "TrialLatestFailureSummary",
     "TrialLifecycleRequest",
     "TrialListItem",
+    "TrialTerminateCleanupSummary",
     "TrialTerminateResponse",
     "TrialUpdate",
     "TaskOut",

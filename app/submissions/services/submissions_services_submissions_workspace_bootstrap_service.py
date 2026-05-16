@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -11,11 +12,15 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.github.client import GithubClient, GithubError
 from app.shared.database.shared_database_models_model import CandidateSession, Task
 from app.shared.utils.shared_utils_project_brief_service import (
     canonical_project_brief_markdown,
+)
+from app.submissions.repositories.github_native.workspaces.submissions_repositories_github_native_workspaces_submissions_github_native_workspaces_workspace_model import (
+    Workspace,
 )
 from app.submissions.services.submissions_services_submissions_workspace_records_service import (
     build_codespace_url,
@@ -107,6 +112,7 @@ class BootstrapRepoResult:
     codespace_name: str | None
     codespace_state: str | None
     codespace_url: str | None
+    workspace_provisioning_status: str
 
 
 def build_candidate_repo_name(prefix: str, candidate_session: CandidateSession) -> str:
@@ -173,15 +179,6 @@ def _bootstrap_file_payloads(
     ]
 
 
-def _bootstrap_paths() -> list[str]:
-    return [
-        ".devcontainer/devcontainer.json",
-        "README.md",
-        ".gitignore",
-        _EVIDENCE_WORKFLOW_PATH,
-    ]
-
-
 def _elapsed_ms(start_time: float) -> int:
     return int((time.perf_counter() - start_time) * 1000)
 
@@ -224,21 +221,246 @@ async def _ensure_bootstrap_actor_access(
     return github_username
 
 
-def _codespace_degradation_reason(exc: GithubError) -> str | None:
-    """Return the explicit repo-only fallback reason for codespace creation.
+def _normalize_github_http_status(exc: GithubError) -> int | None:
+    """Coerce GitHub HTTP status codes for reliable branching."""
+    code = exc.status_code
+    if isinstance(code, int):
+        return code
+    if isinstance(code, str) and code.strip().isdigit():
+        return int(code.strip())
+    return None
 
-    Only a GitHub service-unavailable response is allowed to degrade to a
-    repo-only invite flow. A 404 is still retried first, then converted to the
-    same repo-only fallback if GitHub never makes the repository visible.
+
+def _codespace_degradation_reason(
+    exc: GithubError, *, include_repo_not_found: bool = False
+) -> str | None:
+    """Return repo-only fallback reason for codespace creation failures.
+
+    HTTP 404 is omitted during the retry loop so GitHub can finish indexing a
+    brand-new repository; once retries are exhausted, pass
+    ``include_repo_not_found=True`` so 404 degrades like other client errors.
     """
-    if exc.status_code == 503:
-        return "github_codespace_service_unavailable"
+    code = _normalize_github_http_status(exc)
+    if code in {400, 401, 403, 409, 422, 429}:
+        return "github_codespace_client_error"
+    if include_repo_not_found and code == 404:
+        return "github_codespace_repo_not_visible"
+    if code in {500, 502, 503, 504}:
+        return "github_codespace_service_error"
+    if code is None:
+        return "github_codespace_unknown_error"
+    if isinstance(code, int):
+        return "github_codespace_unexpected_error"
     return None
 
 
 def _should_retry_codespace_error(exc: GithubError) -> bool:
     """Return whether a codespace error is transient enough to retry."""
-    return exc.status_code == 404
+    return _normalize_github_http_status(exc) == 404
+
+
+async def provision_github_codespace_for_repo(
+    *,
+    github_client: GithubClient,
+    repo_full_name: str,
+    default_branch: str,
+    trial_id: int | None,
+    candidate_session_id: int | None,
+    overall_started_at: float,
+) -> tuple[str | None, str | None, str | None, str]:
+    """Create a Codespace or degrade to repo-only URLs without raising."""
+    codespace = None
+    last_codespace_error: GithubError | None = None
+    fallback_reason: str | None = None
+    codespace_attempt_started_at = time.perf_counter()
+    attempt = 0
+    for attempt in range(7):
+        codespace_attempt_started_at = time.perf_counter()
+        try:
+            codespace = await github_client.create_codespace(
+                repo_full_name,
+                ref=default_branch,
+                devcontainer_path=".devcontainer/devcontainer.json",
+            )
+            last_codespace_error = None
+            _log_bootstrap_event(
+                "github_codespace_provision_attempt",
+                trial_id=trial_id,
+                candidate_session_id=candidate_session_id,
+                repo_full_name=repo_full_name,
+                attempt=attempt + 1,
+                elapsed_ms=_elapsed_ms(codespace_attempt_started_at),
+                status_code=None,
+                succeeded=True,
+            )
+            break
+        except GithubError as exc:
+            last_codespace_error = exc
+            fallback_reason = _codespace_degradation_reason(exc)
+            status_norm = _normalize_github_http_status(exc)
+            _log_bootstrap_event(
+                "github_codespace_provision_attempt",
+                trial_id=trial_id,
+                candidate_session_id=candidate_session_id,
+                repo_full_name=repo_full_name,
+                attempt=attempt + 1,
+                elapsed_ms=_elapsed_ms(codespace_attempt_started_at),
+                status_code=status_norm,
+                succeeded=False,
+                error_message=str(exc),
+            )
+            if fallback_reason is not None:
+                logger.warning(
+                    "github_codespace_provision_degraded",
+                    extra={
+                        "trial_id": trial_id,
+                        "candidate_session_id": candidate_session_id,
+                        "repo_full_name": repo_full_name,
+                        "status_code": status_norm,
+                        "fallback_reason": fallback_reason,
+                        "fallback_mode": "repo_only",
+                        "safe_fallback": True,
+                        "error_message": str(exc),
+                        "elapsed_ms": _elapsed_ms(overall_started_at),
+                    },
+                )
+                break
+            if _should_retry_codespace_error(exc) and attempt < 6:
+                logger.warning(
+                    "github_codespace_provision_retrying",
+                    extra={
+                        "trial_id": trial_id,
+                        "candidate_session_id": candidate_session_id,
+                        "repo_full_name": repo_full_name,
+                        "status_code": status_norm,
+                        "retry_reason": "repo_not_ready_yet",
+                        "retryable": True,
+                        "attempt": attempt + 1,
+                        "elapsed_ms": _elapsed_ms(overall_started_at),
+                    },
+                )
+                await asyncio.sleep(_CODESPACE_RETRY_DELAY_SECONDS)
+                continue
+            if status_norm == 404:
+                break
+            logger.error(
+                "github_codespace_provision_failed",
+                extra={
+                    "trial_id": trial_id,
+                    "candidate_session_id": candidate_session_id,
+                    "repo_full_name": repo_full_name,
+                    "status_code": status_norm,
+                    "failure_class": "hard_failure",
+                    "retryable": False,
+                    "error_message": str(exc),
+                    "attempt": attempt + 1,
+                },
+            )
+            raise
+    codespace_name: str | None
+    codespace_state: str | None
+    codespace_url: str | None
+    if codespace is None:
+        assert last_codespace_error is not None
+        fallback_reason = _codespace_degradation_reason(
+            last_codespace_error, include_repo_not_found=True
+        )
+        if fallback_reason is not None:
+            logger.warning(
+                "github_codespace_provision_degraded",
+                extra={
+                    "trial_id": trial_id,
+                    "candidate_session_id": candidate_session_id,
+                    "repo_full_name": repo_full_name,
+                    "status_code": _normalize_github_http_status(last_codespace_error),
+                    "fallback_reason": fallback_reason,
+                    "fallback_mode": "repo_only",
+                    "safe_fallback": True,
+                    "error_message": str(last_codespace_error),
+                    "elapsed_ms": _elapsed_ms(overall_started_at),
+                },
+            )
+            codespace_name = None
+            codespace_state = None
+            codespace_url = build_codespace_url(repo_full_name)
+        else:
+            raise last_codespace_error
+    else:
+        codespace_name = str(codespace.get("name") or "").strip() or None
+        codespace_state = str(codespace.get("state") or "").strip().lower() or None
+        codespace_url = (
+            str(codespace.get("web_url") or codespace.get("url") or "").strip() or None
+        )
+        _log_bootstrap_event(
+            "github_codespace_provisioned",
+            trial_id=trial_id,
+            candidate_session_id=candidate_session_id,
+            repo_full_name=repo_full_name,
+            attempt=attempt + 1,
+            elapsed_ms=_elapsed_ms(codespace_attempt_started_at),
+            codespace_name=codespace_name,
+            codespace_state=codespace_state,
+            codespace_url=codespace_url,
+        )
+
+    workspace_provisioning_status = (
+        "provisioning_ready" if codespace_name else "provisioning_failed"
+    )
+    return codespace_name, codespace_state, codespace_url, workspace_provisioning_status
+
+
+async def finalize_invite_workspace_codespace(
+    db: AsyncSession,
+    *,
+    workspace: Workspace,
+    github_client: GithubClient,
+    trial_id: int,
+    candidate_session_id: int,
+) -> str:
+    """Run Codespace provisioning after the invite email is queued; never raises."""
+    repo_full_name = str(workspace.repo_full_name or "").strip()
+    default_branch = str(workspace.default_branch or "").strip() or _DEFAULT_BRANCH
+    if not repo_full_name:
+        workspace.workspace_provisioning_status = "provisioning_failed"
+        await db.flush()
+        return "provisioning_failed"
+    started = time.perf_counter()
+    try:
+        (
+            codespace_name,
+            codespace_state,
+            codespace_url,
+            ws_status,
+        ) = await provision_github_codespace_for_repo(
+            github_client=github_client,
+            repo_full_name=repo_full_name,
+            default_branch=default_branch,
+            trial_id=trial_id,
+            candidate_session_id=candidate_session_id,
+            overall_started_at=started,
+        )
+        workspace.codespace_name = codespace_name
+        workspace.codespace_state = codespace_state
+        workspace.codespace_url = codespace_url or build_codespace_url(repo_full_name)
+        workspace.workspace_provisioning_status = ws_status
+        await db.flush()
+        return ws_status
+    except Exception:
+        logger.exception(
+            "invite_workspace_codespace_finalize_failed",
+            extra={
+                "trial_id": trial_id,
+                "candidate_session_id": candidate_session_id,
+                "workspace_id": getattr(workspace, "id", None),
+                "repo_full_name": repo_full_name,
+            },
+        )
+        workspace.workspace_provisioning_status = "provisioning_failed"
+        workspace.codespace_name = None
+        workspace.codespace_state = None
+        workspace.codespace_url = build_codespace_url(repo_full_name)
+        await db.flush()
+        return "provisioning_failed"
 
 
 async def _create_candidate_repo(
@@ -270,8 +492,14 @@ async def bootstrap_empty_candidate_repo(
     repo_prefix: str,
     destination_owner: str | None,
     repo_name: str | None = None,
+    defer_codespace: bool = False,
 ) -> BootstrapRepoResult:
-    """Create or reuse an empty candidate repository and seed the brief files."""
+    """Create or reuse an empty candidate repository and seed the brief files.
+
+    When ``defer_codespace`` is true, skip live Codespace creation and return
+    ``workspace_provisioning_status="provisioning_pending"`` so email sending can
+    happen first; call :func:`finalize_invite_workspace_codespace` afterward.
+    """
     overall_started_at = time.perf_counter()
     resolved_owner = (destination_owner or "").strip()
     if not resolved_owner:
@@ -330,122 +558,90 @@ async def bootstrap_empty_candidate_repo(
     except GithubError:
         existing_branch_sha = None
 
-    bootstrap_needed = False
-    for path in _bootstrap_paths():
-        try:
-            await github_client.get_file_contents(
-                repo_full_name, path, ref=default_branch
-            )
-        except GithubError as exc:
-            if exc.status_code in {404, 422}:
-                bootstrap_needed = True
-                break
-            raise
-
     try:
-        if bootstrap_needed:
-            bootstrap_started_at = time.perf_counter()
-            create_or_update_file = getattr(
-                github_client, "create_or_update_file", None
-            )
-            if not existing_branch_sha and callable(create_or_update_file):
-                await create_or_update_file(
+        # Always rewrite the bootstrap tree so reused repos cannot keep legacy paths
+        # (for example ``.github/workflows/evidence-capture.yml`` merged via
+        # ``base_tree``) or stale README content after a new scenario approval.
+        bootstrap_started_at = time.perf_counter()
+        file_payloads = _bootstrap_file_payloads(
+            trial=trial, scenario_version=scenario_version, task=task
+        )
+        readme_text = next(
+            str(p["content"])
+            for p in file_payloads
+            if str(p.get("path") or "") == "README.md"
+        )
+        readme_fp = hashlib.sha256(readme_text.encode("utf-8")).hexdigest()[:16]
+        readme_first_line = readme_text.strip().split("\n", 1)[0][:200]
+        _log_bootstrap_event(
+            "github_workspace_bootstrap_readme_proof",
+            trial_id=trial_id,
+            candidate_session_id=candidate_session_id,
+            repo_full_name=repo_full_name,
+            readme_sha256_prefix=readme_fp,
+            readme_first_line=readme_first_line,
+        )
+        create_blob = getattr(github_client, "create_blob", None)
+        tree: list[dict[str, Any]] = []
+        if callable(create_blob):
+            for payload in file_payloads:
+                blob = await create_blob(
                     repo_full_name,
-                    "README.md",
-                    content=_project_brief_readme(
-                        trial=trial, scenario_version=scenario_version, task=task
-                    ),
-                    message="chore: initialize candidate repo",
-                    branch=default_branch,
+                    content=payload["content"],
                 )
-                try:
-                    branch_payload = await github_client.get_branch(
-                        repo_full_name, default_branch
-                    )
-                    existing_branch_sha = (
-                        branch_payload.get("commit", {}).get("sha")
-                        if isinstance(branch_payload, dict)
-                        else None
-                    )
-                except GithubError:
-                    existing_branch_sha = None
-
-            file_payloads = _bootstrap_file_payloads(
-                trial=trial, scenario_version=scenario_version, task=task
-            )
-            create_blob = getattr(github_client, "create_blob", None)
-            tree: list[dict[str, Any]] = []
-            if callable(create_blob):
-                for payload in file_payloads:
-                    blob = await create_blob(
-                        repo_full_name,
-                        content=payload["content"],
-                    )
-                    tree.append(
-                        {
-                            "path": payload["path"],
-                            "mode": payload["mode"],
-                            "type": payload["type"],
-                            "sha": blob["sha"],
-                        }
-                    )
-            else:
-                tree = [
+                tree.append(
                     {
                         "path": payload["path"],
                         "mode": payload["mode"],
                         "type": payload["type"],
-                        "content": payload["content"],
+                        "sha": blob["sha"],
                     }
-                    for payload in file_payloads
-                ]
-
-            base_tree_sha = None
-            get_commit = getattr(github_client, "get_commit", None)
-            if existing_branch_sha and callable(get_commit):
-                current_commit = await github_client.get_commit(
-                    repo_full_name, existing_branch_sha
                 )
-                base_tree_sha = (
-                    current_commit.get("tree", {}).get("sha")
-                    if isinstance(current_commit, dict)
-                    else None
-                )
+        else:
+            tree = [
+                {
+                    "path": payload["path"],
+                    "mode": payload["mode"],
+                    "type": payload["type"],
+                    "content": payload["content"],
+                }
+                for payload in file_payloads
+            ]
 
-            tree_result = await github_client.create_tree(
-                repo_full_name, tree=tree, base_tree=base_tree_sha
-            )
-            commit_parents = [existing_branch_sha] if existing_branch_sha else []
-            commit_result = await github_client.create_commit(
+        # Omit ``base_tree`` so the new tree is exactly the four allowed bootstrap
+        # blobs (GitHub merges unknown paths when ``base_tree`` is set).
+        tree_result = await github_client.create_tree(
+            repo_full_name, tree=tree, base_tree=None
+        )
+        commit_parents = [existing_branch_sha] if existing_branch_sha else []
+        commit_result = await github_client.create_commit(
+            repo_full_name,
+            message="chore: bootstrap candidate repo",
+            tree=tree_result["sha"],
+            parents=commit_parents,
+        )
+        if existing_branch_sha:
+            await github_client.update_ref(
                 repo_full_name,
-                message="chore: bootstrap candidate repo",
-                tree=tree_result["sha"],
-                parents=commit_parents,
-            )
-            if existing_branch_sha:
-                await github_client.update_ref(
-                    repo_full_name,
-                    ref=branch_ref,
-                    sha=commit_result["sha"],
-                    force=True,
-                )
-            else:
-                await github_client.create_ref(
-                    repo_full_name,
-                    ref=f"refs/{branch_ref}",
-                    sha=commit_result["sha"],
-                )
-            bootstrap_sha = commit_result["sha"]
-            _log_bootstrap_event(
-                "github_workspace_repo_bootstrapped",
-                trial_id=trial_id,
-                candidate_session_id=candidate_session_id,
-                repo_full_name=repo_full_name,
-                elapsed_ms=_elapsed_ms(bootstrap_started_at),
-                bootstrap_commit_sha=bootstrap_sha,
+                ref=branch_ref,
+                sha=commit_result["sha"],
+                force=True,
             )
         else:
-            bootstrap_sha = existing_branch_sha
+            await github_client.create_ref(
+                repo_full_name,
+                ref=f"refs/{branch_ref}",
+                sha=commit_result["sha"],
+            )
+        bootstrap_sha = commit_result["sha"]
+        _log_bootstrap_event(
+            "github_workspace_repo_bootstrapped",
+            trial_id=trial_id,
+            candidate_session_id=candidate_session_id,
+            repo_full_name=repo_full_name,
+            elapsed_ms=_elapsed_ms(bootstrap_started_at),
+            bootstrap_commit_sha=bootstrap_sha,
+        )
 
         await _ensure_bootstrap_actor_access(
             github_client,
@@ -454,139 +650,25 @@ async def bootstrap_empty_candidate_repo(
             candidate_session_id=candidate_session_id,
         )
 
-        codespace = None
-        last_codespace_error: GithubError | None = None
-        fallback_reason: str | None = None
-        for attempt in range(7):
-            codespace_attempt_started_at = time.perf_counter()
-            try:
-                codespace = await github_client.create_codespace(
-                    repo_full_name,
-                    ref=default_branch,
-                    devcontainer_path=".devcontainer/devcontainer.json",
-                )
-                last_codespace_error = None
-                _log_bootstrap_event(
-                    "github_codespace_provision_attempt",
-                    trial_id=trial_id,
-                    candidate_session_id=candidate_session_id,
-                    repo_full_name=repo_full_name,
-                    attempt=attempt + 1,
-                    elapsed_ms=_elapsed_ms(codespace_attempt_started_at),
-                    status_code=None,
-                    succeeded=True,
-                )
-                break
-            except GithubError as exc:
-                last_codespace_error = exc
-                fallback_reason = _codespace_degradation_reason(exc)
-                _log_bootstrap_event(
-                    "github_codespace_provision_attempt",
-                    trial_id=trial_id,
-                    candidate_session_id=candidate_session_id,
-                    repo_full_name=repo_full_name,
-                    attempt=attempt + 1,
-                    elapsed_ms=_elapsed_ms(codespace_attempt_started_at),
-                    status_code=exc.status_code,
-                    succeeded=False,
-                    error_message=str(exc),
-                )
-                if fallback_reason is not None:
-                    logger.warning(
-                        "github_codespace_provision_degraded",
-                        extra={
-                            "trial_id": trial_id,
-                            "candidate_session_id": candidate_session_id,
-                            "repo_full_name": repo_full_name,
-                            "status_code": exc.status_code,
-                            "fallback_reason": fallback_reason,
-                            "fallback_mode": "repo_only",
-                            "safe_fallback": True,
-                            "error_message": str(exc),
-                            "elapsed_ms": _elapsed_ms(overall_started_at),
-                        },
-                    )
-                    break
-                if _should_retry_codespace_error(exc) and attempt < 6:
-                    # GitHub can briefly lag while a new repo settles, so we
-                    # retry the not-found case without degrading the flow.
-                    logger.warning(
-                        "github_codespace_provision_retrying",
-                        extra={
-                            "trial_id": trial_id,
-                            "candidate_session_id": candidate_session_id,
-                            "repo_full_name": repo_full_name,
-                            "status_code": exc.status_code,
-                            "retry_reason": "repo_not_ready_yet",
-                            "retryable": True,
-                            "attempt": attempt + 1,
-                            "elapsed_ms": _elapsed_ms(overall_started_at),
-                        },
-                    )
-                    await asyncio.sleep(_CODESPACE_RETRY_DELAY_SECONDS)
-                    continue
-                if exc.status_code == 404:
-                    break
-                logger.error(
-                    "github_codespace_provision_failed",
-                    extra={
-                        "trial_id": trial_id,
-                        "candidate_session_id": candidate_session_id,
-                        "repo_full_name": repo_full_name,
-                        "status_code": exc.status_code,
-                        "failure_class": "hard_failure",
-                        "retryable": False,
-                        "error_message": str(exc),
-                        "attempt": attempt + 1,
-                    },
-                )
-                raise
-        if codespace is None:
-            assert last_codespace_error is not None
-            fallback_reason = _codespace_degradation_reason(last_codespace_error)
-            if fallback_reason is None and last_codespace_error.status_code == 404:
-                fallback_reason = "github_codespace_service_unavailable"
-            if fallback_reason is not None:
-                logger.warning(
-                    "github_codespace_provision_degraded",
-                    extra={
-                        "trial_id": trial_id,
-                        "candidate_session_id": candidate_session_id,
-                        "repo_full_name": repo_full_name,
-                        "status_code": getattr(
-                            last_codespace_error, "status_code", None
-                        ),
-                        "fallback_reason": fallback_reason,
-                        "fallback_mode": "repo_only",
-                        "safe_fallback": True,
-                        "error_message": str(last_codespace_error),
-                        "elapsed_ms": _elapsed_ms(overall_started_at),
-                    },
-                )
-                codespace_name = None
-                codespace_state = None
-                codespace_url = build_codespace_url(repo_full_name)
-            else:
-                raise last_codespace_error
+        if defer_codespace:
+            codespace_name = None
+            codespace_state = None
+            codespace_url = build_codespace_url(repo_full_name)
+            workspace_provisioning_status = "provisioning_pending"
         else:
-            codespace_name = str(codespace.get("name") or "").strip() or None
-            codespace_state = str(codespace.get("state") or "").strip().lower() or None
-            codespace_url = (
-                str(codespace.get("web_url") or codespace.get("url") or "").strip()
-                or None
-            )
-            _log_bootstrap_event(
-                "github_codespace_provisioned",
+            (
+                codespace_name,
+                codespace_state,
+                codespace_url,
+                workspace_provisioning_status,
+            ) = await provision_github_codespace_for_repo(
+                github_client=github_client,
+                repo_full_name=repo_full_name,
+                default_branch=default_branch,
                 trial_id=trial_id,
                 candidate_session_id=candidate_session_id,
-                repo_full_name=repo_full_name,
-                attempt=attempt + 1,
-                elapsed_ms=_elapsed_ms(codespace_attempt_started_at),
-                codespace_name=codespace_name,
-                codespace_state=codespace_state,
-                codespace_url=codespace_url,
+                overall_started_at=overall_started_at,
             )
-
         result = BootstrapRepoResult(
             template_repo_full_name=None,
             repo_full_name=repo_full_name,
@@ -596,6 +678,7 @@ async def bootstrap_empty_candidate_repo(
             codespace_name=codespace_name,
             codespace_state=codespace_state,
             codespace_url=codespace_url,
+            workspace_provisioning_status=workspace_provisioning_status,
         )
         _log_bootstrap_event(
             "github_workspace_bootstrap_completed",
@@ -620,4 +703,6 @@ __all__ = [
     "build_candidate_repo_name",
     "build_evidence_capture_workflow_yaml",
     "bootstrap_empty_candidate_repo",
+    "finalize_invite_workspace_codespace",
+    "provision_github_codespace_for_repo",
 ]

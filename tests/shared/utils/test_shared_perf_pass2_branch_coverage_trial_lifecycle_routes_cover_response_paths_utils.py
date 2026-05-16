@@ -15,7 +15,7 @@ async def test_trial_lifecycle_routes_cover_response_paths(monkeypatch):
         activated_at=activated_at,
         terminated_at=terminated_at,
     )
-    terminated = SimpleNamespace(trial=trial, cleanup_job_ids=["job-1"])
+    terminated = SimpleNamespace(trial=trial, cleanup_job_ids=["job-1"], cleanup=None)
 
     monkeypatch.setattr(
         lifecycle_route, "ensure_talent_partner_or_none", lambda *_args, **_kwargs: None
@@ -47,3 +47,48 @@ async def test_trial_lifecycle_routes_cover_response_paths(monkeypatch):
     assert terminated_response.status == "active_inviting"
     assert terminated_response.terminatedAt == terminated_at
     assert terminated_response.cleanupJobIds == ["job-1"]
+
+
+@pytest.mark.asyncio
+async def test_trial_lifecycle_terminate_maps_cleanup_summary(monkeypatch):
+    terminated_at = datetime.now(UTC)
+    trial = SimpleNamespace(
+        id=44,
+        status="active",
+        activated_at=None,
+        terminated_at=terminated_at,
+    )
+    cleanup = SimpleNamespace(
+        jobs_cancelled=2,
+        invites_revoked=1,
+        failures=("bad",),
+        async_repo_codespace_cleanup_enqueued=True,
+        async_repo_codespace_cleanup_job_ids=["c1", "c2"],
+    )
+    terminated = SimpleNamespace(
+        trial=trial,
+        cleanup_job_ids=["job-1"],
+        cleanup=cleanup,
+    )
+    monkeypatch.setattr(
+        lifecycle_route, "ensure_talent_partner_or_none", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr(
+        lifecycle_route.trial_service,
+        "terminate_trial_with_cleanup",
+        _async_return(terminated),
+    )
+    monkeypatch.setattr(
+        lifecycle_route.trial_service,
+        "normalize_trial_status_or_raise",
+        lambda _status: "active_inviting",
+    )
+    payload = SimpleNamespace(confirm=True, reason="cleanup")
+    user = SimpleNamespace(id=7)
+    resp = await lifecycle_route.terminate_trial(44, payload, object(), user)
+    assert resp.cleanup is not None
+    assert resp.cleanup.jobsCancelled == 2
+    assert resp.cleanup.invitesRevoked == 1
+    assert resp.cleanup.failures == ["bad"]
+    assert resp.cleanup.asyncRepoCodespaceCleanupEnqueued is True
+    assert resp.cleanup.asyncRepoCodespaceCleanupJobIds == ["c1", "c2"]

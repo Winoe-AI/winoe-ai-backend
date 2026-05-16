@@ -42,6 +42,7 @@ async def create_invite_response(
             sim,
             outcome,
             invite_url,
+            _workspace_provisioning_status,
         ) = await invite_workflow.create_candidate_invite_workflow(
             db,
             trial_id=trial_id,

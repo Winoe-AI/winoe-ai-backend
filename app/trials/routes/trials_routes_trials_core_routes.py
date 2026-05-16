@@ -30,6 +30,7 @@ from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_i
 )
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_lifecycle_routes import (
     activate_trial,
+    approve_trial,
     terminate_trial,
 )
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_list_trials_routes import (
@@ -58,6 +59,7 @@ __all__ = [
     "update_trial",
     "get_trial_detail",
     "activate_trial",
+    "approve_trial",
     "terminate_trial",
     "list_trial_candidates",
     "list_trial_candidates_compare",

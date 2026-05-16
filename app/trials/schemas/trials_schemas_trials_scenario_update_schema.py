@@ -44,6 +44,16 @@ class TrialActivateResponse(BaseModel):
     activatedAt: datetime | None = None
 
 
+class TrialTerminateCleanupSummary(BaseModel):
+    """Cleanup work split into synchronous DB steps vs async GitHub teardown."""
+
+    jobsCancelled: int = 0
+    invitesRevoked: int = 0
+    failures: list[str] = Field(default_factory=list)
+    asyncRepoCodespaceCleanupEnqueued: bool = True
+    asyncRepoCodespaceCleanupJobIds: list[str] = Field(default_factory=list)
+
+
 class TrialTerminateResponse(BaseModel):
     """Response payload for trial termination."""
 
@@ -51,6 +61,7 @@ class TrialTerminateResponse(BaseModel):
     status: TrialStatus
     terminatedAt: datetime | None = None
     cleanupJobIds: list[str] = Field(default_factory=list)
+    cleanup: TrialTerminateCleanupSummary | None = None
 
 
 __all__ = [
@@ -58,5 +69,6 @@ __all__ = [
     "ScenarioActiveUpdateResponse",
     "ScenarioVersionPatchResponse",
     "TrialActivateResponse",
+    "TrialTerminateCleanupSummary",
     "TrialTerminateResponse",
 ]

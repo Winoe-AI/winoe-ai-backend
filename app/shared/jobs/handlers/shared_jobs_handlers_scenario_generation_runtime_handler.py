@@ -142,8 +142,13 @@ async def handle_scenario_generation_impl(
                 ai_policy_snapshot_json=ai_policy_snapshot_json,
             )
         except Exception as exc:
+            error_summary = sanitize_error(str(exc))
             logger.warning(
-                "scenario_generation_job_failed",
+                "scenario_generation_job_failed trialId=%s jobId=%s errorType=%s errorSummary=%s",
+                trial_id,
+                generation_job_id,
+                type(exc).__name__,
+                error_summary,
                 extra={
                     "trialId": trial_id,
                     "jobId": generation_job_id,
@@ -151,7 +156,8 @@ async def handle_scenario_generation_impl(
                     "provider": generation_config.provider,
                     "model": generation_config.model,
                     "errorType": type(exc).__name__,
-                    "errorMessage": sanitize_error(str(exc)),
+                    "errorMessage": error_summary,
+                    "errorSummary": error_summary,
                 },
             )
             raise

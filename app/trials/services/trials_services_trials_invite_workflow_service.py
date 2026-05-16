@@ -10,9 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.integrations.github import GithubClient
 from app.notifications.services import service as notification_service
 from app.shared.time.shared_time_now_service import utcnow as shared_utcnow
+from app.submissions.services.submissions_services_submissions_workspace_bootstrap_service import (
+    finalize_invite_workspace_codespace,
+)
 from app.trials import services as trial_service
 from app.trials.services import (
-    trials_services_trials_invite_preprovision_service as invite_preprovision,
+    trials_services_trials_invite_repo_bootstrap_service as invite_repo_bootstrap,
 )
 
 logger = logging.getLogger(__name__)
@@ -93,17 +96,23 @@ async def create_candidate_invite_workflow(
     fresh_candidate_session = bool(getattr(cs, "_invite_newly_created", False))
     invite_url = trial_service.invite_url(cs.token)
     provisioned_repo_full_names: tuple[str, ...] = ()
+    workspace_provisioning_status: str | None = None
     try:
-        provisioned_repo_full_names = await invite_preprovision.preprovision_workspaces(
-            db,
-            cs,
-            sim,
-            scenario_version,
-            tasks,
-            github_client,
-            now=now,
-            fresh_candidate_session=fresh_candidate_session,
+        provision_out = (
+            await invite_repo_bootstrap.provision_invite_candidate_repository(
+                db,
+                candidate_session=cs,
+                trial=sim,
+                scenario_version=scenario_version,
+                tasks=tasks,
+                github_client=github_client,
+                now=now,
+                fresh_candidate_session=fresh_candidate_session,
+            )
         )
+        provisioned_repo_full_names = tuple(provision_out.repo_full_names or ())
+        workspace_provisioning_status = provision_out.workspace_provisioning_status
+        invite_workspace = provision_out.workspace
         await notification_service.send_invite_email(
             db,
             candidate_session=cs,
@@ -112,17 +121,27 @@ async def create_candidate_invite_workflow(
             email_service=email_service,
             now=now,
         )
+        if (
+            invite_workspace is not None
+            and fresh_candidate_session
+            and workspace_provisioning_status == "provisioning_pending"
+        ):
+            workspace_provisioning_status = await finalize_invite_workspace_codespace(
+                db,
+                workspace=invite_workspace,
+                github_client=github_client,
+                trial_id=sim.id,
+                candidate_session_id=cs.id,
+            )
     except Exception as exc:
         if fresh_candidate_session:
             cleanup_targets = getattr(exc, "provisioned_repo_full_names", ())
             if not cleanup_targets:
                 cleanup_targets = provisioned_repo_full_names
-            if cleanup_targets is None:
-                cleanup_targets = ()
             await _cleanup_provisioned_repos(
                 github_client,
                 tuple(cleanup_targets),
             )
         await _rollback_if_supported(db)
         raise
-    return cs, sim, outcome, invite_url
+    return cs, sim, outcome, invite_url, workspace_provisioning_status

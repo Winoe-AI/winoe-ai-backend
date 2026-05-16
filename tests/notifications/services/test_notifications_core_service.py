@@ -46,7 +46,8 @@ async def test_send_invite_email_tracks_status_and_rate_limit(async_session):
     assert len(provider.sent) == 1
     sent_message = provider.sent[0]
     assert sent_message.to == cs.invite_email
-    assert sim.title in sent_message.subject
+    assert sim.role in sent_message.subject
+    assert "Winoe Trial" in sent_message.subject
 
     audits = (
         (

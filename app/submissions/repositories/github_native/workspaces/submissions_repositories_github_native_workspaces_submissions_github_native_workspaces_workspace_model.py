@@ -57,6 +57,9 @@ class Workspace(Base):
     codespace_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     codespace_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     codespace_state: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    workspace_provisioning_status: Mapped[str | None] = mapped_column(
+        String(32), nullable=True
+    )
     cleanup_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
     cleanup_attempted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

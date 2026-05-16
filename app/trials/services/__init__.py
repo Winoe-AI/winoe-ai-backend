@@ -74,9 +74,17 @@ _SYMBOL_ALIASES: dict[str, tuple[str, str]] = {
         "app.trials.services.trials_services_trials_lifecycle_service",
         "TerminateTrialResult",
     ),
+    "TerminateTrialCleanupSummary": (
+        "app.trials.services.trials_services_trials_lifecycle_termination_service",
+        "TerminateTrialCleanupSummary",
+    ),
     "activate_trial": (
         "app.trials.services.trials_services_trials_lifecycle_service",
         "activate_trial",
+    ),
+    "approve_trial_for_inviting": (
+        "app.trials.services.trials_services_trials_lifecycle_approve_service",
+        "approve_trial_for_inviting",
     ),
     "apply_status_transition": (
         "app.trials.services.trials_services_trials_lifecycle_service",

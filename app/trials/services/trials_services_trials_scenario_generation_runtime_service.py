@@ -38,6 +38,13 @@ from app.trials.services.trials_services_trials_scenario_generation_story_servic
     build_task_description,
 )
 
+_LLM_LOG_SUMMARY_LIMIT = 800
+
+
+def _scenario_generation_log_summary(text: str) -> str:
+    return " ".join((text or "").split())[:_LLM_LOG_SUMMARY_LIMIT]
+
+
 PickFn = Callable[[tuple[str, ...], int, int], str]
 ChooseSourceFn = Callable[[], str]
 GenerateLlmFn = Callable[..., GeneratedScenarioPayload]
@@ -188,9 +195,22 @@ def generate_scenario_payload(
             ai_policy_snapshot_json=ai_policy_snapshot_json,
         )
     except Exception as exc:
+        error_summary = _scenario_generation_log_summary(str(exc))
         logger.warning(
-            "scenario_generation_llm_failed",
-            extra={"trialKey": template_key, "errorType": type(exc).__name__},
+            "scenario_generation_llm_failed trialKey=%s errorType=%s errorSummary=%s",
+            template_key,
+            type(exc).__name__,
+            error_summary,
+            extra={
+                "trialKey": template_key,
+                "errorType": type(exc).__name__,
+                "errorSummary": error_summary,
+            },
+        )
+        # Plain-text line for log grep (some aggregators strip structured extras).
+        logger.warning(
+            "scenario_generation_llm_failed_message errorSummary=%s",
+            error_summary,
         )
         raise
 

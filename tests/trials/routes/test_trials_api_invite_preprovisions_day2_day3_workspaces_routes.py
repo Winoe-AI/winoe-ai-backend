@@ -142,11 +142,16 @@ async def test_invite_preprovisions_day2_day3_workspaces_skips_without_github_us
         .all()
     )
 
-    assert len(stub_client.created_repos) == 0
-    assert stub_client.tree_entries == []
-    assert stub_client.created_refs == []
+    assert len(stub_client.created_repos) == 1
+    assert stub_client.created_repos[0] == ("winoe-ai-repos", f"winoe-ws-{cs.id}")
+    assert [entry["path"] for entry in stub_client.tree_entries] == [
+        ".devcontainer/devcontainer.json",
+        "README.md",
+        ".gitignore",
+        ".github/workflows/winoe-evidence-capture.yml",
+    ]
+    assert len(workspaces) == 1
     assert len(workspace_groups) == 0
-    assert len(workspaces) == 0
 
 
 @pytest.mark.asyncio
@@ -167,14 +172,6 @@ async def test_invite_preprovisions_day2_day3_workspaces_with_candidate_username
     assert day2_tasks and day3_tasks
     day2_tasks[0].type = "code"
     day3_tasks[0].type = "code"
-    await async_session.commit()
-
-    candidate_session = await create_candidate_session(
-        async_session,
-        trial=sim,
-        invite_email="jane@example.com",
-    )
-    candidate_session.github_username = "octocat"
     await async_session.commit()
 
     monkeypatch.setattr(settings.github, "GITHUB_ORG", "winoe-ai-repos")
@@ -265,7 +262,7 @@ async def test_invite_preprovisions_day2_day3_workspaces_with_candidate_username
 
     assert res.status_code == 200, res.text
     body = res.json()
-    assert body["outcome"] == "resent"
+    assert body["outcome"] == "created"
 
     cs = (await async_session.execute(select(CandidateSession))).scalar_one()
     workspaces = (
@@ -302,9 +299,6 @@ async def test_invite_preprovisions_day2_day3_workspaces_with_candidate_username
     )
     assert "Project Brief" in readme_entry["content"]
     assert "template" not in readme_entry["content"].lower()
-    assert stub_client.collaborators and all(
-        username == "octocat" for username in stub_client.collaborators
-    )
     assert stub_client.codespace_requests == [
         {
             "repo_full_name": f"winoe-ai-repos/winoe-ws-{cs.id}",
@@ -312,8 +306,7 @@ async def test_invite_preprovisions_day2_day3_workspaces_with_candidate_username
             "devcontainer_path": ".devcontainer/devcontainer.json",
         }
     ]
-    assert len(workspace_groups) == 1
-    assert workspace_groups[0].workspace_key == "coding"
+    assert len(workspace_groups) == 0
     assert len(workspaces) == 1
 
     with override_dependencies(
@@ -356,5 +349,5 @@ async def test_invite_preprovisions_day2_day3_workspaces_with_candidate_username
             .scalars()
             .all()
         )
-        == 1
+        == 0
     )

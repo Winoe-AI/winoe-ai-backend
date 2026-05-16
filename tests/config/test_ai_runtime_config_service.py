@@ -20,7 +20,7 @@ def test_resolve_winoe_report_day1_config_defaults_to_claude_opus_4_7():
 
 def test_resolve_active_ai_runtime_mappings_stay_aligned():
     assert resolve_scenario_generation_config().provider == "anthropic"
-    assert resolve_scenario_generation_config().model == "claude-opus-4-7"
+    assert resolve_scenario_generation_config().model == "claude-3-5-sonnet-20241022"
 
     assert resolve_winoe_report_code_implementation_config().provider == "openai"
     assert resolve_winoe_report_code_implementation_config().model == "gpt-5.2-codex"

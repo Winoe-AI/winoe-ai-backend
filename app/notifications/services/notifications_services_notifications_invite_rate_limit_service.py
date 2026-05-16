@@ -21,8 +21,9 @@ from app.notifications.services.notifications_services_notifications_invite_time
 
 def should_rate_limit(candidate_session, now: datetime) -> bool:
     """Return whether rate limit."""
+    last_attempt = getattr(candidate_session, "invite_email_last_attempt_at", None)
     return rate_limited(
-        candidate_session.invite_email_last_attempt_at,
+        last_attempt,
         now,
         INVITE_EMAIL_RATE_LIMIT_SECONDS,
     )
@@ -59,5 +60,5 @@ async def record_rate_limit(
         attempted_at=now,
         idempotency_key=f"trial_invite:{getattr(candidate_session, 'id', 'unknown')}",
     )
-    await db.commit()
+    await db.flush()
     return EmailSendResult(status="rate_limited", error="Rate limited")
