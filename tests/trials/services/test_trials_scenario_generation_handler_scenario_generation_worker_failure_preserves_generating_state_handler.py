@@ -46,7 +46,7 @@ async def test_scenario_generation_worker_failure_preserves_generating_state(
     failure_records = [
         record
         for record in caplog.records
-        if record.message == "scenario_generation_job_failed"
+        if record.getMessage().startswith("scenario_generation_job_failed")
     ]
     assert start_records, "expected scenario generation start log"
     assert failure_records, "expected scenario generation failure log"

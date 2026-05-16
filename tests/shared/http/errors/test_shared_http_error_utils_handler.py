@@ -26,6 +26,18 @@ def test_map_github_error_rate_limited():
     assert api_err.retryable is True
 
 
+def test_map_github_error_bad_request_is_sanitized():
+    api_err = error_utils.map_github_error(
+        GithubError(
+            "GitHub API error (400) (https://api.github.com/repos/o/r/codespaces)",
+            status_code=400,
+        )
+    )
+    assert api_err.error_code == "GITHUB_BAD_REQUEST"
+    assert "api.github.com" not in api_err.detail
+    assert "GitHub API error" not in api_err.detail
+
+
 def test_validation_error_handler_template_key(monkeypatch):
     # Build a minimal RequestValidationError with a templateKey location to trigger details.
     err = RequestValidationError(

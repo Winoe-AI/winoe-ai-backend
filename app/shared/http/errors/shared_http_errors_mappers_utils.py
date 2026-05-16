@@ -14,7 +14,13 @@ def map_github_error(exc: GithubError) -> ApiError:
     detail = "GitHub unavailable. Please try again."
     error_code = "GITHUB_UNAVAILABLE"
     retryable = False
-    if code == 401:
+    if code == 400:
+        detail = (
+            "GitHub rejected the request while preparing the workspace. "
+            "Please verify Codespaces and repository settings, then try again."
+        )
+        error_code = "GITHUB_BAD_REQUEST"
+    elif code == 401:
         detail = "GitHub token is invalid or misconfigured."
         error_code = "GITHUB_TOKEN_INVALID"
     elif code == 403:
@@ -23,6 +29,9 @@ def map_github_error(exc: GithubError) -> ApiError:
     elif code == 404:
         detail = "GitHub repository or workflow not found."
         error_code = "GITHUB_NOT_FOUND"
+    elif code == 422:
+        detail = "GitHub could not complete the request with the current payload."
+        error_code = "GITHUB_VALIDATION_FAILED"
     elif code == 429:
         detail = "GitHub rate limit exceeded. Please retry later."
         error_code = "GITHUB_RATE_LIMITED"

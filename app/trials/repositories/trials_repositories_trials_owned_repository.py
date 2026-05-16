@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.shared.database.shared_database_models_model import Task, Trial
 from app.trials.repositories.trials_repositories_trials_trial_model import (
@@ -48,6 +49,7 @@ async def get_owned_with_tasks(
     stmt = (
         select(Trial, Task)
         .outerjoin(Task, Task.trial_id == Trial.id)
+        .options(selectinload(Trial.company))
         .where(
             Trial.id == trial_id,
             Trial.created_by == user_id,

@@ -79,13 +79,17 @@ async def test_create_candidate_invite_github_error(monkeypatch):
             "created",
         )
 
-    async def fail_workspace(_db, **_kwargs):
+    async def fail_repo(_db, **_kwargs):
         raise GithubError("nope", status_code=403)
 
     monkeypatch.setattr(trial_service, "require_owned_trial_with_tasks", fake_require)
     monkeypatch.setattr(trial_service, "lock_active_scenario_for_invites", fake_lock)
     monkeypatch.setattr(trial_service, "create_or_resend_invite", fake_create)
-    monkeypatch.setattr(trials.submission_service, "ensure_workspace", fail_workspace)
+    monkeypatch.setattr(
+        invite_workflow.invite_repo_bootstrap,
+        "provision_invite_candidate_repository",
+        fail_repo,
+    )
     with pytest.raises(error_utils.ApiError) as excinfo:
         await trials.create_candidate_invite(
             trial_id=1,

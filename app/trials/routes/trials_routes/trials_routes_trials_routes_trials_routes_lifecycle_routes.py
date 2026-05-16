@@ -16,6 +16,7 @@ from app.trials import services as trial_service
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     TrialActivateResponse,
     TrialLifecycleRequest,
+    TrialTerminateCleanupSummary,
     TrialTerminateResponse,
 )
 
@@ -31,6 +32,54 @@ def _require_confirmation(payload: TrialLifecycleRequest) -> None:
         error_code="TRIAL_CONFIRMATION_REQUIRED",
         retryable=False,
         details={},
+    )
+
+
+@router.post(
+    "/{trial_id}/approve",
+    response_model=TrialActivateResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Approve Trial",
+    description=(
+        "Lock the active Project Brief and rubric, then transition the Trial to"
+        " active inviting. Idempotent when already active inviting."
+    ),
+    responses={
+        status.HTTP_400_BAD_REQUEST: {
+            "description": "Missing brief/rubric or confirmation missing."
+        },
+        status.HTTP_403_FORBIDDEN: {"description": "Talent Partner access required."},
+        status.HTTP_404_NOT_FOUND: {"description": "Trial not found."},
+    },
+)
+async def approve_trial(
+    trial_id: int,
+    payload: TrialLifecycleRequest,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[Any, Depends(get_current_user)],
+):
+    """Approve Trial for inviting (locks scenario when needed, then activates)."""
+    ensure_talent_partner_or_none(user)
+    _require_confirmation(payload)
+    try:
+        trial = await trial_service.approve_trial_for_inviting(
+            db, trial_id=trial_id, actor_user_id=user.id
+        )
+    except AIPolicySnapshotError as exc:
+        raise ApiError(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Frozen AI policy snapshot is invalid.",
+            error_code=getattr(
+                exc, "error_code", "scenario_version_ai_policy_snapshot_invalid"
+            ),
+            retryable=False,
+            details=getattr(exc, "details", {}),
+        ) from exc
+    status_value = trial_service.normalize_trial_status_or_raise(trial.status)
+    return TrialActivateResponse(
+        trialId=trial.id,
+        status=status_value,
+        activatedAt=trial.activated_at,
     )
 
 
@@ -116,9 +165,22 @@ async def terminate_trial(
     )
     trial = terminated.trial
     status_value = trial_service.normalize_trial_status_or_raise(trial.status)
+    cleanup_payload = None
+    if terminated.cleanup is not None:
+        c = terminated.cleanup
+        cleanup_payload = TrialTerminateCleanupSummary(
+            jobsCancelled=c.jobs_cancelled,
+            invitesRevoked=c.invites_revoked,
+            failures=list(c.failures or ()),
+            asyncRepoCodespaceCleanupEnqueued=c.async_repo_codespace_cleanup_enqueued,
+            asyncRepoCodespaceCleanupJobIds=list(
+                c.async_repo_codespace_cleanup_job_ids or ()
+            ),
+        )
     return TrialTerminateResponse(
         trialId=trial.id,
         status=status_value,
         terminatedAt=trial.terminated_at,
         cleanupJobIds=terminated.cleanup_job_ids,
+        cleanup=cleanup_payload,
     )

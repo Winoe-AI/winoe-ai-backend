@@ -33,6 +33,8 @@ set -euo pipefail
     env["PATH"] = f"{bin_dir}:{env.get('PATH', '')}"
     env["TEST_COMMAND_LOG"] = str(log_file)
     env["ENV_FILE"] = str(tmp_path / "qa.env")
+    env["WINOE_LOCAL_QA_SKIP_ALEMBIC"] = "1"
+    env["WINOE_LOCAL_QA_SKIP_SEED"] = "1"
     (tmp_path / "qa.env").write_text(
         "DEV_AUTH_BYPASS=0\nWINOE_DEV_AUTH_BYPASS=0\n", encoding="utf-8"
     )
@@ -54,3 +56,10 @@ set -euo pipefail
     assert "dev_auth_bypass:1" in log_output
     assert "winoe_dev_auth_bypass:1" in log_output
     assert "scenario_generation_runtime_mode:real" in log_output
+
+
+def test_local_qa_backend_script_documents_seed_skip_env():
+    repo_root = Path(__file__).resolve().parents[2]
+    text = (repo_root / "scripts" / "local_qa_backend.sh").read_text(encoding="utf-8")
+    assert "WINOE_LOCAL_QA_SKIP_SEED" in text
+    assert "seed_local_talent_partners.py" in text

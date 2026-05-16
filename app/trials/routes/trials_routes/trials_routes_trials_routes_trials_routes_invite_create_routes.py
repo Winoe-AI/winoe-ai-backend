@@ -28,6 +28,13 @@ from app.shared.http.dependencies.shared_http_dependencies_notifications_utils i
 from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_invite_create_logic_routes import (
     create_invite_response,
 )
+from app.trials.schemas.trials_schemas_trials_invite_batch_schema import (
+    TrialInviteCandidatesRequest,
+    TrialInviteCandidatesResponse,
+)
+from app.trials.services.trials_services_trials_invite_batch_service import (
+    invite_candidates_batch,
+)
 
 router = APIRouter()
 
@@ -55,6 +62,32 @@ async def create_candidate_invite(
         payload=payload,
         user_id=user.id,
         request=request,
+        email_service=email_service,
+        github_client=github_client,
+    )
+
+
+@router.post(
+    "/{trial_id}/invite-candidates",
+    response_model=TrialInviteCandidatesResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Invite multiple candidates",
+)
+async def invite_candidates(
+    trial_id: int,
+    payload: TrialInviteCandidatesRequest,
+    db: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[Any, Depends(get_current_user)],
+    email_service: Annotated[EmailService, Depends(get_email_service)],
+    github_client: Annotated[GithubClient, Depends(get_github_client)],
+):
+    """Invite multiple candidates in one request."""
+    ensure_talent_partner_or_none(user)
+    return await invite_candidates_batch(
+        db,
+        trial_id=trial_id,
+        payload=payload,
+        user_id=user.id,
         email_service=email_service,
         github_client=github_client,
     )

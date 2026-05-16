@@ -9,6 +9,40 @@ from typing import Any
 from pydantic import BaseModel
 
 
+def anthropic_api_error_summary(exc: BaseException, *, max_len: int = 400) -> str:
+    """Return a single-line, non-secret summary for Anthropic HTTP/API errors."""
+    parts: list[str] = [type(exc).__name__]
+    status = getattr(exc, "status_code", None)
+    if isinstance(status, int):
+        parts.append(f"http={status}")
+    request_id = getattr(exc, "request_id", None)
+    if isinstance(request_id, str) and request_id.strip():
+        rid = request_id.strip()
+        parts.append(f"request_id={rid[:48]}")
+    body = getattr(exc, "body", None)
+    err_type: str | None = None
+    err_msg: str | None = None
+    if isinstance(body, dict):
+        nested = body.get("error")
+        if isinstance(nested, dict):
+            et = nested.get("type")
+            if isinstance(et, str) and et.strip():
+                err_type = et.strip()[:120]
+            em = nested.get("message")
+            if isinstance(em, str) and em.strip():
+                err_msg = " ".join(em.split())[:240]
+        if err_type is None:
+            bt = body.get("type")
+            if isinstance(bt, str) and bt.strip():
+                err_type = bt.strip()[:120]
+    if err_type:
+        parts.append(f"api_error_type={err_type}")
+    if err_msg:
+        parts.append(f"api_error_message={err_msg}")
+    out = "|".join(parts)
+    return out[:max_len]
+
+
 class AIProviderExecutionError(RuntimeError):
     """Raised when an upstream AI provider call fails or returns invalid output."""
 
@@ -255,35 +289,45 @@ def call_anthropic_json(
         timeout=timeout_seconds,
         max_retries=max_retries,
     )
+    # Prefer plain JSON-in-system first. Tool-use with large nested JSON Schemas
+    # (for example scenario generation) can return 400 from the provider even when
+    # the same contract succeeds via natural-language JSON instructions.
+    primary_exc: BaseException | None = None
     try:
         response = client.messages.create(
             model=model,
             max_tokens=max_tokens,
-            system=system_prompt.strip(),
-            tools=[
-                {
-                    "name": response_model.__name__,
-                    "description": "Return the structured response payload.",
-                    "input_schema": tool_schema,
-                }
-            ],
-            tool_choice={"type": "tool", "name": response_model.__name__},
+            system=system_text,
             messages=[{"role": "user", "content": user_prompt}],
         )
-    except Exception:  # pragma: no cover - network/provider variability
+    except Exception as exc_plain:
+        primary_exc = exc_plain
         try:
             response = client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
-                system=system_text,
+                system=system_prompt.strip(),
+                tools=[
+                    {
+                        "name": response_model.__name__,
+                        "description": "Return the structured response payload.",
+                        "input_schema": tool_schema,
+                    }
+                ],
+                tool_choice={"type": "tool", "name": response_model.__name__},
                 messages=[{"role": "user", "content": user_prompt}],
             )
-        except (
-            Exception
-        ) as fallback_exc:  # pragma: no cover - network/provider variability
+        except Exception as tool_exc:  # pragma: no cover - network/provider variability
+            tool_summary = anthropic_api_error_summary(tool_exc)
+            prior = (
+                anthropic_api_error_summary(primary_exc)
+                if primary_exc is not None
+                else "none"
+            )
             raise AIProviderExecutionError(
-                f"anthropic_request_failed:{type(fallback_exc).__name__}"
-            ) from fallback_exc
+                "anthropic_request_failed:"
+                f"{type(tool_exc).__name__}|tool_attempt={tool_summary}|json_prompt_attempt={prior}"
+            ) from tool_exc
 
     blocks = getattr(response, "content", [])
     for block in blocks:
@@ -312,6 +356,7 @@ def call_anthropic_json(
 __all__ = [
     "AIProviderExecutionError",
     "_openai_schema_validation_error",
+    "anthropic_api_error_summary",
     "api_key_configured",
     "call_anthropic_json",
     "call_openai_json_schema",

@@ -23,8 +23,31 @@ async def test_invite_github_failure_does_not_persist_failed_candidate_session(
         async def generate_repo_from_template(self, **_kwargs):
             raise AssertionError("generate_repo_from_template should not be called")
 
-        async def create_empty_repo(self, **_kwargs):
-            raise AssertionError("create_empty_repo should not be called")
+        async def create_empty_repo(
+            self, *, owner, repo_name, private=True, default_branch="main"
+        ):
+            return {
+                "owner": {"login": owner},
+                "name": repo_name,
+                "full_name": f"{owner}/{repo_name}",
+                "id": 1,
+                "default_branch": default_branch,
+            }
+
+        async def get_file_contents(self, *_args, **_kwargs):
+            from app.integrations.github import GithubError
+
+            raise GithubError("missing", status_code=404)
+
+        async def get_branch(self, *_args, **_kwargs):
+            from app.integrations.github import GithubError
+
+            raise GithubError("missing", status_code=404)
+
+        async def create_tree(self, *_args, **_kwargs):
+            from app.integrations.github import GithubError
+
+            raise GithubError("bootstrap tree failed", status_code=500)
 
     provider = MemoryEmailProvider()
     email_service = EmailService(provider, sender="noreply@test.com")
@@ -40,8 +63,7 @@ async def test_invite_github_failure_does_not_persist_failed_candidate_session(
             json={"candidateName": "Jane Doe", "inviteEmail": "jane@example.com"},
             headers={"x-dev-user-email": talent_partner_email},
         )
-    assert res.status_code == 200, res.text
-    assert res.json()["outcome"] == "created"
+    assert res.status_code in (500, 502), res.text
 
     existing = (
         (
@@ -54,30 +76,4 @@ async def test_invite_github_failure_does_not_persist_failed_candidate_session(
         .scalars()
         .all()
     )
-    assert len(existing) == 1
-    assert existing[0].github_username is None
-
-    workspaces = (
-        (
-            await async_session.execute(
-                select(Workspace).where(
-                    Workspace.candidate_session_id == existing[0].id
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    workspace_groups = (
-        (
-            await async_session.execute(
-                select(WorkspaceGroup).where(
-                    WorkspaceGroup.candidate_session_id == existing[0].id
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    assert workspace_groups == []
-    assert workspaces == []
+    assert len(existing) == 0

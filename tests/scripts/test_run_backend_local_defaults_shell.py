@@ -88,7 +88,7 @@ set -euo pipefail
     assert "uvicorn:app.api.main:app --reload --host 0.0.0.0 --port 8000" in log_output
     assert "scenario_generation_runtime_mode:real" in log_output
     assert "scenario_generation_provider:anthropic" in log_output
-    assert "scenario_generation_model:claude-opus-4-7" in log_output
+    assert "scenario_generation_model:claude-3-5-sonnet-20241022" in log_output
     assert "winoe_env:local" in log_output
 
 
@@ -238,7 +238,7 @@ set -euo pipefail
     env["WINOE_ENV"] = "local"
     env["WINOE_SCENARIO_GENERATION_RUNTIME_MODE"] = "demo"
     env["WINOE_SCENARIO_GENERATION_PROVIDER"] = "anthropic"
-    env["WINOE_SCENARIO_GENERATION_MODEL"] = "claude-opus-4-7"
+    env["WINOE_SCENARIO_GENERATION_MODEL"] = "claude-3-5-sonnet-20241022"
 
     result = subprocess.run(
         ["bash", "runBackend.sh", "api"],
@@ -253,5 +253,5 @@ set -euo pipefail
     log_output = log_file.read_text(encoding="utf-8")
     assert "scenario_generation_runtime_mode:demo" in log_output
     assert "scenario_generation_provider:anthropic" in log_output
-    assert "scenario_generation_model:claude-opus-4-7" in log_output
+    assert "scenario_generation_model:claude-3-5-sonnet-20241022" in log_output
     assert "winoe_env:local" in log_output

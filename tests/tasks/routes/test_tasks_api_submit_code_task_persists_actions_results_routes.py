@@ -69,7 +69,7 @@ async def test_submit_code_task_persists_actions_results(
     assert sub.commit_sha == "abc123"
     assert sub.workflow_run_id == "555"
     diff_summary = json.loads(sub.diff_summary_json or "{}")
-    assert diff_summary["base"] == "base-sha-123"
+    assert diff_summary["base"] == "commit-sha-789"
     assert diff_summary["head"] == "abc123"
     assert "files" in diff_summary
 
@@ -80,4 +80,4 @@ async def test_submit_code_task_persists_actions_results(
     assert detail.status_code == 200, detail.text
     detail_body = detail.json()
     assert detail_body["diffSummary"] == diff_summary
-    assert detail_body["diffUrl"].endswith("base-sha-123...abc123")
+    assert detail_body["diffUrl"].endswith("commit-sha-789...abc123")

@@ -8,6 +8,9 @@ import pytest
 
 from app.config import settings
 from app.trials.services import (
+    trials_services_trials_invite_repo_bootstrap_service as invite_repo_bootstrap,
+)
+from app.trials.services import (
     trials_services_trials_invite_workflow_service as invite_workflow,
 )
 
@@ -138,7 +141,11 @@ async def test_invite_workflow_cleans_up_created_repo_when_email_send_fails(
         return candidate_session, "created"
 
     async def _preprovision(*_args, **_kwargs):
-        return ["winoe-ai-repos/winoe-ws-77"]
+        return invite_repo_bootstrap.InviteRepoProvisionResult(
+            ("winoe-ai-repos/winoe-ws-77",),
+            "provisioning_ready",
+            None,
+        )
 
     async def _send_invite_email(*_args, **_kwargs):
         raise RuntimeError("email provider down")
@@ -164,8 +171,8 @@ async def test_invite_workflow_cleans_up_created_repo_when_email_send_fails(
         _create_or_resend,
     )
     monkeypatch.setattr(
-        invite_workflow.invite_preprovision,
-        "preprovision_workspaces",
+        invite_workflow.invite_repo_bootstrap,
+        "provision_invite_candidate_repository",
         _preprovision,
     )
     monkeypatch.setattr(
@@ -249,8 +256,8 @@ async def test_invite_workflow_cleans_up_created_repo_when_preprovision_fails(
         _create_or_resend,
     )
     monkeypatch.setattr(
-        invite_workflow.invite_preprovision,
-        "preprovision_workspaces",
+        invite_workflow.invite_repo_bootstrap,
+        "provision_invite_candidate_repository",
         _preprovision,
     )
     monkeypatch.setattr(settings.github, "GITHUB_ORG", "winoe-ai-repos")
@@ -304,7 +311,7 @@ async def test_invite_workflow_handles_none_cleanup_targets_from_preprovision(
         return candidate_session, "created"
 
     async def _preprovision(*_args, **_kwargs):
-        return None
+        return invite_repo_bootstrap.InviteRepoProvisionResult((), None, None)
 
     async def _send_invite_email(*_args, **_kwargs):
         raise RuntimeError("email provider down")
@@ -330,8 +337,8 @@ async def test_invite_workflow_handles_none_cleanup_targets_from_preprovision(
         _create_or_resend,
     )
     monkeypatch.setattr(
-        invite_workflow.invite_preprovision,
-        "preprovision_workspaces",
+        invite_workflow.invite_repo_bootstrap,
+        "provision_invite_candidate_repository",
         _preprovision,
     )
     monkeypatch.setattr(
@@ -355,3 +362,115 @@ async def test_invite_workflow_handles_none_cleanup_targets_from_preprovision(
 
     assert db.rollback_calls == 1
     assert github_client.deleted_repos == []
+
+
+@pytest.mark.asyncio
+async def test_invite_workflow_finalizes_codespace_after_email_when_pending(
+    monkeypatch,
+):
+    db = FakeDB()
+    trial = SimpleNamespace(id=8, title="Trial", role="Engineer")
+    scenario_version = SimpleNamespace(id=12)
+    candidate_session = SimpleNamespace(
+        id=80,
+        token="tok-80",
+        _invite_newly_created=True,
+    )
+    payload = SimpleNamespace(inviteEmail="jane@example.com", candidateName="Jane Doe")
+    expected_workspace = SimpleNamespace(
+        id="ws-1",
+        repo_full_name="org/repo-80",
+        default_branch="main",
+        workspace_provisioning_status="provisioning_pending",
+    )
+    finalize_calls: list[tuple[int, int]] = []
+
+    async def _require_owned(*_args, **_kwargs):
+        return trial, [SimpleNamespace(id=1, day_index=2, type="code")]
+
+    async def _lock_active(*_args, **_kwargs):
+        return scenario_version
+
+    async def _create_or_resend(*_args, **_kwargs):
+        return candidate_session, "created"
+
+    async def _preprovision(*_args, **_kwargs):
+        return invite_repo_bootstrap.InviteRepoProvisionResult(
+            ("org/repo-80",),
+            "provisioning_pending",
+            expected_workspace,
+        )
+
+    async def _finalize(
+        db_arg,
+        *,
+        workspace,
+        github_client,
+        trial_id,
+        candidate_session_id,
+    ):
+        assert db_arg is db
+        assert workspace is expected_workspace
+        finalize_calls.append((trial_id, candidate_session_id))
+        return "provisioning_failed"
+
+    async def _send_invite_email(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "require_owned_trial_with_tasks",
+        _require_owned,
+    )
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "require_trial_invitable",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "lock_active_scenario_for_invites",
+        _lock_active,
+    )
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "create_or_resend_invite",
+        _create_or_resend,
+    )
+    monkeypatch.setattr(
+        invite_workflow.invite_repo_bootstrap,
+        "provision_invite_candidate_repository",
+        _preprovision,
+    )
+    monkeypatch.setattr(
+        invite_workflow.notification_service,
+        "send_invite_email",
+        _send_invite_email,
+    )
+    monkeypatch.setattr(
+        invite_workflow,
+        "finalize_invite_workspace_codespace",
+        _finalize,
+    )
+    monkeypatch.setattr(invite_workflow.trial_service, "invite_url", lambda _t: "u")
+
+    (
+        cs,
+        _sim,
+        _outcome,
+        invite_url,
+        ws_status,
+    ) = await invite_workflow.create_candidate_invite_workflow(
+        db=db,
+        trial_id=8,
+        payload=payload,
+        user_id=9,
+        email_service=object(),
+        github_client=object(),
+        now=datetime.now(UTC),
+    )
+
+    assert cs is candidate_session
+    assert invite_url == "u"
+    assert ws_status == "provisioning_failed"
+    assert finalize_calls == [(8, 80)]

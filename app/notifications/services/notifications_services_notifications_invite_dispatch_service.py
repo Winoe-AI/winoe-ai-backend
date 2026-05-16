@@ -27,13 +27,16 @@ async def dispatch_invite_email(
 ) -> EmailSendResult:
     """Dispatch invite email."""
     subject, text, html = invite_email_content(
-        candidate_name=candidate_session.candidate_name,
+        candidate_name=str(
+            getattr(candidate_session, "candidate_name", None) or "there"
+        ).strip()
+        or "there",
         invite_url=invite_url,
         trial=trial,
-        expires_at=candidate_session.expires_at,
+        expires_at=getattr(candidate_session, "expires_at", None),
     )
     return await email_service.send_email(
-        to=candidate_session.invite_email,
+        to=str(getattr(candidate_session, "invite_email", "") or ""),
         subject=subject,
         text=text,
         html=html,
@@ -51,7 +54,10 @@ async def record_send_result(
 ) -> EmailSendResult:
     """Record send result."""
     subject, _text, _html = invite_email_content(
-        candidate_name=candidate_session.candidate_name,
+        candidate_name=str(
+            getattr(candidate_session, "candidate_name", None) or "there"
+        ).strip()
+        or "there",
         invite_url=invite_url,
         trial=trial,
         expires_at=getattr(candidate_session, "expires_at", None),
@@ -70,7 +76,7 @@ async def record_send_result(
         notification_type="trial_invite",
         candidate_session_id=getattr(candidate_session, "id", None),
         trial_id=getattr(trial, "id", None),
-        recipient_email=candidate_session.invite_email,
+        recipient_email=str(getattr(candidate_session, "invite_email", "") or ""),
         recipient_role="candidate",
         subject=subject,
         status=result.status,
@@ -80,5 +86,5 @@ async def record_send_result(
         sent_at=now if result.status == "sent" else None,
         idempotency_key=f"trial_invite:{getattr(candidate_session, 'id', 'unknown')}",
     )
-    await db.commit()
+    await db.flush()
     return result

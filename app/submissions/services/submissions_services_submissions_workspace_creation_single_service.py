@@ -67,6 +67,7 @@ async def provision_single_workspace(
         "codespace_url": codespace_url,
         "codespace_name": codespace_name,
         "codespace_state": codespace_state,
+        "workspace_provisioning_status": result.workspace_provisioning_status,
         "created_at": now,
     }
     if not commit:

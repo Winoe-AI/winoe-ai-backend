@@ -56,6 +56,11 @@ async def test_terminate_with_cleanup_sets_reason_and_enqueues_job(async_session
     assert result.trial.terminated_reason == "regenerate"
     assert result.trial.terminated_by_talent_partner_id == owner.id
     assert len(result.cleanup_job_ids) == 1
+    assert result.cleanup is not None
+    assert result.cleanup.async_repo_codespace_cleanup_enqueued is True
+    assert result.cleanup.async_repo_codespace_cleanup_job_ids == [
+        str(result.cleanup_job_ids[0])
+    ]
 
     job_rows = (
         await async_session.execute(

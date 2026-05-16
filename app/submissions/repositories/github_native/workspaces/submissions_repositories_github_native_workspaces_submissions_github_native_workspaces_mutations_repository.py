@@ -56,6 +56,7 @@ async def create_workspace(
     codespace_url: str | None = None,
     codespace_name: str | None = None,
     codespace_state: str | None = None,
+    workspace_provisioning_status: str | None = None,
     created_at,
     commit: bool = True,
     refresh: bool = True,
@@ -73,6 +74,7 @@ async def create_workspace(
         codespace_url=codespace_url,
         codespace_name=codespace_name,
         codespace_state=codespace_state,
+        workspace_provisioning_status=workspace_provisioning_status,
         created_at=created_at,
     )
     db.add(ws)

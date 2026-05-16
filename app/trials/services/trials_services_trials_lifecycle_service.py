@@ -29,6 +29,7 @@ from app.trials.services.trials_services_trials_lifecycle_status_service import 
     normalize_trial_status_or_raise,
 )
 from app.trials.services.trials_services_trials_lifecycle_termination_service import (
+    TerminateTrialCleanupSummary,
     TerminateTrialResult,
     terminate_trial_with_cleanup_impl,
 )
@@ -200,6 +201,7 @@ async def terminate_trial_with_cleanup(
 
 
 __all__ = [
+    "TerminateTrialCleanupSummary",
     "TerminateTrialResult",
     "activate_trial",
     "apply_status_transition",

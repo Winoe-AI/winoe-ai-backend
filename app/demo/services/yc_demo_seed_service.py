@@ -1238,6 +1238,7 @@ async def seed_yc_demo_dataset(
             codespace_name=repo_result.codespace_name,
             codespace_url=repo_result.codespace_url,
             codespace_state=repo_result.codespace_state,
+            workspace_provisioning_status=repo_result.workspace_provisioning_status,
             latest_commit_sha=_candidate_commit_sha(config, candidate, day=3),
             last_workflow_run_id=f"yc-demo-{candidate.label}-workflow",
             last_workflow_conclusion="success"

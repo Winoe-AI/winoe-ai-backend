@@ -8,6 +8,9 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_repository import (
+    sanitize_error,
+)
 from app.shared.jobs.worker_runtime.shared_jobs_worker_runtime_log_context_service import (
     format_error,
 )
@@ -100,7 +103,14 @@ async def retry_or_dead_letter(
         error_str=error_str,
         claim_time=claim_time,
     )
-    logger.warning("job_dead_letter", extra=log_extra)
+    summary = sanitize_error(error_str)
+    logger.warning(
+        "job_dead_letter jobId=%s jobType=%s errorSummary=%s",
+        log_extra.get("jobId"),
+        log_extra.get("jobType"),
+        summary,
+        extra={**log_extra, "errorSummary": summary},
+    )
 
 
 async def handle_handler_exception(
@@ -122,7 +132,14 @@ async def handle_handler_exception(
             error_str=format_error(error),
             claim_time=claim_time,
         )
-        logger.warning("job_dead_letter", extra=log_extra)
+        summary = sanitize_error(format_error(error))
+        logger.warning(
+            "job_dead_letter jobId=%s jobType=%s errorSummary=%s",
+            log_extra.get("jobId"),
+            log_extra.get("jobType"),
+            summary,
+            extra={**log_extra, "errorSummary": summary},
+        )
         return
     await retry_or_dead_letter(
         session_maker,

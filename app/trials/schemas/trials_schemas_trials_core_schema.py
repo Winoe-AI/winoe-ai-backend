@@ -63,6 +63,7 @@ from app.trials.schemas.trials_schemas_trials_scenario_update_schema import (
     ScenarioActiveUpdateResponse,
     ScenarioVersionPatchResponse,
     TrialActivateResponse,
+    TrialTerminateCleanupSummary,
     TrialTerminateResponse,
 )
 from app.trials.schemas.trials_schemas_trials_update_schema import (
@@ -133,6 +134,7 @@ _TRIALS_SCHEMA_REEXPORTS = (
     TrialLatestFailureSummary,
     TrialLifecycleRequest,
     TrialListItem,
+    TrialTerminateCleanupSummary,
     TrialTerminateResponse,
     TrialUpdate,
     TaskOut,
