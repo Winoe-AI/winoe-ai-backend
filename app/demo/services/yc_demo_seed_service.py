@@ -28,6 +28,9 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_day_score
     add_day_scores,
 )
 from app.integrations.github import FakeGithubClient, GithubClient
+from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_core_model import (
+    NotificationDeliveryAudit,
+)
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
     Company,
@@ -44,6 +47,9 @@ from app.shared.jobs.repositories.shared_jobs_repositories_models_repository imp
 from app.submissions.repositories.github_native.workspaces.submissions_repositories_github_native_workspaces_submissions_github_native_workspaces_core_model import (
     Workspace,
     WorkspaceGroup,
+)
+from app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_repository import (
+    replace_report_citations,
 )
 from app.submissions.repositories.submissions_repositories_submissions_winoe_report_repository import (
     upsert_marker,
@@ -330,6 +336,57 @@ def _candidate_handoff_doc(candidate: DemoCandidateProfile) -> str:
     )
 
 
+def _demo_company_rubrics() -> dict[str, dict[str, str]]:
+    """Return company-specific rubric overrides in the snapshot contract shape."""
+    return {
+        "designDocReviewer": {
+            "content": (
+                "# Company design rubric\n\n"
+                "Look for explicit architecture boundaries, tradeoffs, and a plan "
+                "that can survive a five-day delivery window."
+            ),
+            "versionId": "company-demo-v1",
+            "sourcePath": "company-rubrics/design-doc.md",
+        },
+        "codeImplementationReviewer": {
+            "content": (
+                "# Company code rubric\n\n"
+                "Prefer disciplined implementation steps, test-first habits, and "
+                "clear repo hygiene."
+            ),
+            "versionId": "company-demo-v1",
+            "sourcePath": "company-rubrics/code.md",
+        },
+        "demoPresentationReviewer": {
+            "content": (
+                "# Company demo rubric\n\n"
+                "Reward crisp handoff narration, accurate tradeoff framing, and "
+                "specific next steps."
+            ),
+            "versionId": "company-demo-v1",
+            "sourcePath": "company-rubrics/demo.md",
+        },
+        "reflectionEssayReviewer": {
+            "content": (
+                "# Company reflection rubric\n\n"
+                "Value honest self-review, concrete follow-up ideas, and clear "
+                "ownership of gaps."
+            ),
+            "versionId": "company-demo-v1",
+            "sourcePath": "company-rubrics/reflection.md",
+        },
+        "winoeReport": {
+            "content": (
+                "# Company Winoe synthesis rubric\n\n"
+                "Synthesize evidence across the five days and keep the final "
+                "judgment grounded in linked artifacts."
+            ),
+            "versionId": "company-demo-v1",
+            "sourcePath": "company-rubrics/winoe-report.md",
+        },
+    }
+
+
 def _candidate_reflection_doc(candidate: DemoCandidateProfile) -> str:
     return (
         "# Day 5 Reflection\n\n"
@@ -451,8 +508,6 @@ def _evidence_pointers(
     bootstrap_commit_sha: str,
     day2_commit_sha: str,
     day3_commit_sha: str,
-    submission_ids_by_day: dict[int, int],
-    transcript_id: int,
 ) -> dict[int, list[dict[str, Any]]]:
     def repo_commit_url(sha: str) -> str:
         return f"https://github.com/{repo_full_name}/commit/{sha}"
@@ -460,77 +515,107 @@ def _evidence_pointers(
     return {
         1: [
             {
-                "kind": "submission",
-                "ref": f"submission:{submission_ids_by_day[1]}",
+                "kind": "rubric",
+                "ref": "day1-design-doc.md:L12-L31",
                 "excerpt": "Architecture plan, tradeoffs, and testing strategy.",
                 "dayIndex": 1,
+                "sourceLabel": "Day 1 — Design Doc",
+                "dimensionKey": "architectural_coherence",
+                "dimensionLabel": "Architectural coherence",
             },
             {
                 "kind": "commit",
-                "ref": bootstrap_commit_sha,
+                "ref": f"{bootstrap_commit_sha}:README.md:L1-L24",
                 "url": repo_commit_url(bootstrap_commit_sha),
                 "excerpt": "Bootstrap commit created the empty repository, devcontainer, and README.",
                 "dayIndex": 1,
+                "sourceLabel": "Day 1 — Design Doc",
+                "dimensionKey": "project_scaffolding_quality",
+                "dimensionLabel": "Project scaffolding quality",
             },
         ],
         2: [
             {
                 "kind": "commit",
-                "ref": day2_commit_sha,
+                "ref": f"{day2_commit_sha}:src/api/trials.ts:L40-L88",
                 "url": repo_commit_url(day2_commit_sha),
                 "excerpt": "Initial implementation kickoff commit.",
                 "dayIndex": 2,
+                "sourceLabel": "Day 2/3 — Code",
+                "dimensionKey": "development_process",
+                "dimensionLabel": "Development process",
             },
             {
-                "kind": "submission",
-                "ref": f"submission:{submission_ids_by_day[2]}",
+                "kind": "tests",
+                "ref": "day2-tests.txt:L1-L4",
                 "excerpt": "Kickoff tests established the core workflow shape.",
                 "dayIndex": 2,
+                "sourceLabel": "Day 2/3 — Code",
+                "dimensionKey": "testing_discipline",
+                "dimensionLabel": "Testing discipline",
             },
         ],
         3: [
             {
                 "kind": "diff",
-                "ref": day3_commit_sha,
+                "ref": f"{day3_commit_sha}:src/services/reporting.py:L12-L76",
                 "url": repo_commit_url(day3_commit_sha),
                 "excerpt": "Wrap-up commit completed the core workflow and docs.",
                 "dayIndex": 3,
+                "sourceLabel": "Day 2/3 — Code",
+                "dimensionKey": "code_quality",
+                "dimensionLabel": "Code quality",
             },
             {
                 "kind": "submission",
-                "ref": f"submission:{submission_ids_by_day[3]}",
+                "ref": "day3-wrap-up.md:L8-L20",
                 "excerpt": "Wrap-up test results show the final pass/fail balance.",
                 "dayIndex": 3,
+                "sourceLabel": "Day 2/3 — Code",
+                "dimensionKey": "development_process",
+                "dimensionLabel": "Development process",
             },
         ],
         4: [
             {
                 "kind": "transcript",
-                "ref": f"transcript:{transcript_id}",
+                "ref": "handoff-demo-transcript.txt:02:14-02:48",
                 "excerpt": "Demo transcript with architecture, tradeoffs, and next steps.",
                 "dayIndex": 4,
                 "startMs": 0,
                 "endMs": 120000,
+                "sourceLabel": "Day 4 — Handoff + Demo",
+                "dimensionKey": "communication_handoff_demo",
+                "dimensionLabel": "Communication / Handoff + Demo",
             },
             {
                 "kind": "submission",
-                "ref": f"submission:{submission_ids_by_day[4]}",
+                "ref": "day4-handoff-summary.md:L4-L15",
                 "excerpt": "Handoff transcript and demo summary.",
                 "dayIndex": 4,
+                "sourceLabel": "Day 4 — Handoff + Demo",
+                "dimensionKey": "communication_handoff_demo",
+                "dimensionLabel": "Communication / Handoff + Demo",
             },
         ],
         5: [
             {
                 "kind": "submission",
-                "ref": f"submission:{submission_ids_by_day[5]}",
+                "ref": "day5-reflection.md:L8-L22",
                 "excerpt": "Reflection essay covering what went well, what was hard, and what changed.",
                 "dayIndex": 5,
+                "sourceLabel": "Day 5 — Reflection",
+                "dimensionKey": "reflection_self_awareness",
+                "dimensionLabel": "Reflection & self-awareness",
             },
             {
                 "kind": "submission",
-                "ref": f"submission:{submission_ids_by_day[5]}",
+                "ref": "day5-reflection.md:L23-L34",
                 "excerpt": "Reflection quality, self-awareness, and next-step realism.",
                 "dayIndex": 5,
+                "sourceLabel": "Day 5 — Reflection",
+                "dimensionKey": "reflection_self_awareness",
+                "dimensionLabel": "Reflection & self-awareness",
             },
         ],
     }
@@ -685,16 +770,12 @@ def _build_report_rows(
     bootstrap_commit_sha: str,
     day2_commit_sha: str,
     day3_commit_sha: str,
-    submission_ids_by_day: dict[int, int],
-    transcript_id: int,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     evidence = _evidence_pointers(
         repo_full_name=repo_full_name,
         bootstrap_commit_sha=bootstrap_commit_sha,
         day2_commit_sha=day2_commit_sha,
         day3_commit_sha=day3_commit_sha,
-        submission_ids_by_day=submission_ids_by_day,
-        transcript_id=transcript_id,
     )
     day_rows: list[dict[str, Any]] = []
     reviewer_rows: list[dict[str, Any]] = []
@@ -805,6 +886,7 @@ async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
     workspace_group_ids: list[int] = []
     evaluation_run_ids: list[int] = []
     recording_ids: list[int] = []
+    notification_audit_ids: list[int] = []
     if trial_ids:
         scenario_version_ids = (
             (
@@ -867,6 +949,19 @@ async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
             .scalars()
             .all()
         )
+        notification_audit_ids = (
+            (
+                await db.execute(
+                    select(NotificationDeliveryAudit.id).where(
+                        NotificationDeliveryAudit.candidate_session_id.in_(
+                            candidate_session_ids
+                        )
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
     job_ids: list[str] = []
     if candidate_session_ids or company_id is not None:
         job_filters = []
@@ -896,6 +991,12 @@ async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
     if candidate_session_ids:
         if job_ids:
             await db.execute(delete(Job).where(Job.id.in_(job_ids)))
+        if notification_audit_ids:
+            await db.execute(
+                delete(NotificationDeliveryAudit).where(
+                    NotificationDeliveryAudit.id.in_(notification_audit_ids)
+                )
+            )
         await db.execute(
             delete(Submission).where(
                 Submission.candidate_session_id.in_(candidate_session_ids)
@@ -1017,15 +1118,7 @@ async def seed_yc_demo_dataset(
             "preferredLanguageFramework": config.trial_preferred_language_framework,
             "demoMode": "yc-demo",
         },
-        company_rubric_json={
-            "dimensions": [
-                "architecture",
-                "testing",
-                "documentation",
-                "communication",
-                "judgment",
-            ]
-        },
+        company_rubric_json=_demo_company_rubrics(),
         ai_prompt_overrides_json=None,
         ai_notice_version="yc-demo-v1",
         ai_notice_text="Winoe demo notice for the YC rehearsal dataset.",
@@ -1161,8 +1254,6 @@ async def seed_yc_demo_dataset(
         day2_commit_sha = _candidate_commit_sha(config, candidate, day=2)
         day3_commit_sha = _candidate_commit_sha(config, candidate, day=3)
         recording_key = _candidate_recording_key(config, candidate)
-        submission_ids_by_day: dict[int, int] = {}
-        day4_transcript_id: int | None = None
         submissions = _candidate_submissions(
             config,
             candidate,
@@ -1212,7 +1303,6 @@ async def seed_yc_demo_dataset(
                 db.add(transcript)
                 await db.flush()
                 submission_recording_id = recording.id
-                day4_transcript_id = transcript.id
                 submission_spec["content_json"]["transcriptRecordingId"] = recording.id
             submission = Submission(
                 candidate_session_id=candidate_session.id,
@@ -1241,8 +1331,6 @@ async def seed_yc_demo_dataset(
             )
             db.add(submission)
             await db.flush()
-            submission_ids_by_day[day_index] = submission.id
-
             if day_index in {2, 3}:
                 await db.execute(
                     delete(CandidateDayAudit).where(
@@ -1272,8 +1360,6 @@ async def seed_yc_demo_dataset(
             bootstrap_commit_sha=repo_result.bootstrap_commit_sha or "",
             day2_commit_sha=day2_commit_sha,
             day3_commit_sha=day3_commit_sha,
-            submission_ids_by_day=submission_ids_by_day,
-            transcript_id=day4_transcript_id or 0,
         )
         raw_report_json = {
             "overallWinoeScore": candidate.overall_score,
@@ -1347,12 +1433,43 @@ async def seed_yc_demo_dataset(
                     },
                 )
             )
-        await upsert_marker(
+        marker = await upsert_marker(
             db,
             candidate_session_id=candidate_session.id,
             generated_at=_now(),
             commit=False,
         )
+        if marker.id is not None:
+            report_citations = []
+            for day_row in day_rows:
+                for pointer in day_row["evidence_pointers_json"]:
+                    if not isinstance(pointer, dict):
+                        continue
+                    artifact_ref = pointer.get("ref")
+                    excerpt = pointer.get("excerpt")
+                    dimension = pointer.get("dimensionKey") or pointer.get(
+                        "dimensionLabel"
+                    )
+                    kind = pointer.get("kind")
+                    if not all(
+                        isinstance(value, str) and value.strip()
+                        for value in (artifact_ref, excerpt, dimension, kind)
+                    ):
+                        continue
+                    report_citations.append(
+                        {
+                            "dimension": str(dimension).strip(),
+                            "artifact_type": str(kind).strip(),
+                            "artifact_ref": str(artifact_ref).strip(),
+                            "excerpt": str(excerpt).strip(),
+                        }
+                    )
+            await replace_report_citations(
+                db,
+                report_id=marker.id,
+                citations=report_citations,
+                commit=False,
+            )
         candidate_session.completed_at = _now()
         candidate_session.status = "completed"
 
