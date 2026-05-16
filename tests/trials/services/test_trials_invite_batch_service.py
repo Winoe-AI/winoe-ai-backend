@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from app.integrations.github import GithubError
 from app.shared.utils.shared_utils_errors_utils import ApiError
 from app.trials import services as trial_service
 from app.trials.schemas.trials_schemas_trials_invite_batch_schema import (
@@ -108,8 +109,9 @@ async def test_invite_batch_sanitizes_github_exception_messages(
         github_client,
         now=None,
     ):
-        raise RuntimeError(
-            "GitHub API error (400) (https://api.github.com/repos/o/r/codespaces)"
+        raise GithubError(
+            "GitHub API error (400) (https://api.github.com/repos/o/r/codespaces)",
+            status_code=400,
         )
 
     monkeypatch.setattr(

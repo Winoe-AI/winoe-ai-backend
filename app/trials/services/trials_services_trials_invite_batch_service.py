@@ -129,7 +129,9 @@ async def invite_candidates_batch(
         except Exception as exc:
             await _rollback_session(db)
             raw = str(exc)
-            if "api.github.com" in raw or "GitHub API error" in raw:
+            # Match GitHub REST failures from GithubClient.raise_for_status (never use URL
+            # substring checks — they confuse hostnames embedded in unrelated strings).
+            if raw.startswith("GitHub API error"):
                 invites.append(
                     _failed_item(
                         row_name=row.name.strip(),
