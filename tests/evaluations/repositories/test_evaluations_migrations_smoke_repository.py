@@ -123,7 +123,7 @@ def test_evaluation_migration_upgrade_head_smoke():
                 .scalars()
                 .all()
             )
-        assert set(version_nums) == {"202605130001"}
+        assert set(version_nums) == {"202605150001"}
 
         tables_after_upgrade = _table_names(temp_sync_url)
         assert "notification_delivery_audits" in tables_after_upgrade
@@ -138,6 +138,7 @@ def test_evaluation_migration_upgrade_head_smoke():
         citation_columns = _columns_for(temp_sync_url, "citations")
         rubric_snapshot_columns = _columns_for(temp_sync_url, "winoe_rubric_snapshots")
         trial_columns = _columns_for(temp_sync_url, "trials")
+        workspace_columns = _columns_for(temp_sync_url, "workspaces")
 
         assert "id" in run_columns
         assert "candidate_session_id" in run_columns
@@ -178,6 +179,8 @@ def test_evaluation_migration_upgrade_head_smoke():
         assert "source_path" in rubric_snapshot_columns
         assert "metadata_json" in rubric_snapshot_columns
         assert "company_rubric_json" in trial_columns
+
+        assert "workspace_provisioning_status" in workspace_columns
     finally:
         try:
             temp_db_name = make_url(temp_sync_url).database
