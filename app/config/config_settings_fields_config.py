@@ -61,7 +61,7 @@ class SettingsFields(BaseSettings):
 
     SCENARIO_GENERATION_RUNTIME_MODE: str | None = None
     SCENARIO_GENERATION_PROVIDER: str = "anthropic"
-    SCENARIO_GENERATION_MODEL: str = "claude-3-5-sonnet-20241022"
+    SCENARIO_GENERATION_MODEL: str = "claude-opus-4-7"
     SCENARIO_GENERATION_TIMEOUT_SECONDS: int = 120
     SCENARIO_GENERATION_MAX_RETRIES: int = 2
 
