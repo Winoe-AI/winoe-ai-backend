@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from fastapi.responses import FileResponse
 
 from app.integrations.storage_media import StorageMediaProvider
 from app.integrations.storage_media.integrations_storage_media_storage_media_base_client import (
@@ -37,6 +36,58 @@ def _unprocessable(detail: str, exc: Exception | None = None) -> None:
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=detail,
     ) from exc
+
+
+def _parse_byte_range(range_header: str, size_bytes: int) -> tuple[int, int] | None:
+    value = range_header.strip()
+    if not value or not value.startswith("bytes="):
+        return None
+    if "," in value:
+        raise HTTPException(
+            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+            detail="Multiple byte ranges are not supported",
+        )
+
+    byte_range = value.removeprefix("bytes=").strip()
+    start_text, end_text = byte_range.split("-", 1)
+    if not start_text and not end_text:
+        raise HTTPException(
+            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+            detail="Invalid byte range",
+        )
+
+    if start_text:
+        start = int(start_text)
+        end = size_bytes - 1 if not end_text else int(end_text)
+    else:
+        suffix_length = int(end_text)
+        if suffix_length <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+                detail="Invalid byte range",
+            )
+        start = max(size_bytes - suffix_length, 0)
+        end = size_bytes - 1
+
+    if start < 0 or start >= size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+            detail="Requested range starts beyond the media size",
+        )
+    if end < start:
+        raise HTTPException(
+            status_code=status.HTTP_416_REQUESTED_RANGE_NOT_SATISFIABLE,
+            detail="Invalid byte range",
+        )
+    return start, min(end, size_bytes - 1)
+
+
+def _media_response_headers(filename: str, *, size_bytes: int) -> dict[str, str]:
+    return {
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": f'inline; filename="{filename}"',
+        "Content-Length": str(size_bytes),
+    }
 
 
 @router.put(
@@ -104,6 +155,7 @@ async def fake_storage_upload_route(
     },
 )
 async def fake_storage_download_route(
+    request: Request,
     key: Annotated[str, Query(..., min_length=1)],
     expiresAt: Annotated[int, Query(..., gt=0)],
     sig: Annotated[str, Query(..., min_length=16)],
@@ -143,10 +195,28 @@ async def fake_storage_download_route(
             detail="Uploaded object not found",
         )
     filename = safe_key.rsplit("/", 1)[-1]
-    return FileResponse(
-        object_path,
+    media_bytes = object_path.read_bytes()
+    range_header = request.headers.get("range")
+    if range_header:
+        byte_range = _parse_byte_range(range_header, len(media_bytes))
+        if byte_range is not None:
+            start, end = byte_range
+            sliced = media_bytes[start : end + 1]
+            headers = _media_response_headers(filename, size_bytes=len(sliced))
+            headers["Content-Range"] = f"bytes {start}-{end}/{len(media_bytes)}"
+            return Response(
+                content=sliced,
+                status_code=status.HTTP_206_PARTIAL_CONTENT,
+                media_type=metadata.content_type,
+                headers=headers,
+            )
+
+    headers = _media_response_headers(filename, size_bytes=len(media_bytes))
+    return Response(
+        content=media_bytes,
+        status_code=status.HTTP_200_OK,
         media_type=metadata.content_type,
-        filename=filename,
+        headers=headers,
     )
 
 

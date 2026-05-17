@@ -368,3 +368,112 @@ def test_call_anthropic_json_rejects_missing_api_key() -> None:
             timeout_seconds=10,
             max_retries=2,
         )
+
+
+def test_call_openai_json_schema_and_anthropic_json_cover_remaining_branches(
+    monkeypatch,
+) -> None:
+    summary = provider_clients.anthropic_api_error_summary(
+        SimpleNamespace(
+            status_code=429,
+            request_id=" req-123 ",
+            body={
+                "error": {
+                    "type": "rate_limit_error",
+                    "message": " too many\nrequests ",
+                }
+            },
+        )
+    )
+    assert "http=429" in summary
+    assert "request_id=req-123" in summary
+    assert "api_error_type=rate_limit_error" in summary
+    assert "api_error_message=too many requests" in summary
+
+    class _EmptyOpenAIResponses:
+        def create(self, **_kwargs):
+            return SimpleNamespace(output_text=" ")
+
+    class _InvalidOpenAIResponses:
+        def create(self, **_kwargs):
+            return SimpleNamespace(output_text='{"value":"not-an-int"}')
+
+    class _FakeOpenAIEmpty:
+        def __init__(self, **_kwargs):
+            self.responses = _EmptyOpenAIResponses()
+
+    class _FakeOpenAIInvalid:
+        def __init__(self, **_kwargs):
+            self.responses = _InvalidOpenAIResponses()
+
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=_FakeOpenAIEmpty))
+    with pytest.raises(
+        provider_clients.AIProviderExecutionError,
+        match="openai_empty_structured_output",
+    ):
+        provider_clients.call_openai_json_schema(
+            api_key="key",
+            model="gpt-4.1",
+            system_prompt="system",
+            user_prompt="user",
+            response_model=DemoOutput,
+            timeout_seconds=10,
+            max_retries=2,
+        )
+
+    monkeypatch.setitem(
+        sys.modules,
+        "openai",
+        SimpleNamespace(OpenAI=_FakeOpenAIInvalid),
+    )
+    with pytest.raises(
+        provider_clients.AIProviderExecutionError,
+        match="openai_invalid_structured_output",
+    ):
+        provider_clients.call_openai_json_schema(
+            api_key="key",
+            model="gpt-4.1",
+            system_prompt="system",
+            user_prompt="user",
+            response_model=StrictOutput,
+            timeout_seconds=10,
+            max_retries=2,
+        )
+
+    class _FakeAnthropicMessages:
+        def create(self, **_kwargs):
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="not-json")]
+            )
+
+    class _FakeAnthropic:
+        def __init__(self, **_kwargs):
+            self.messages = _FakeAnthropicMessages()
+
+    monkeypatch.setitem(
+        sys.modules,
+        "anthropic",
+        SimpleNamespace(Anthropic=_FakeAnthropic),
+    )
+    with pytest.raises(
+        provider_clients.AIProviderExecutionError,
+        match="anthropic_invalid_json_output",
+    ):
+        provider_clients.call_anthropic_json(
+            api_key="key",
+            model="claude-3.5",
+            system_prompt="system",
+            user_prompt="user",
+            response_model=DemoOutput,
+            timeout_seconds=10,
+            max_retries=2,
+        )
+
+
+def test_anthropic_api_error_summary_covers_body_type_fallback_branch() -> None:
+    exc = RuntimeError("boom")
+    exc.body = {"type": "bad_request"}
+    summary = provider_clients.anthropic_api_error_summary(exc, max_len=200)
+
+    assert "RuntimeError" in summary
+    assert "api_error_type=bad_request" in summary

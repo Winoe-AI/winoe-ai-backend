@@ -72,6 +72,41 @@ async def test_candidate_session_review_returns_completed_artifacts(
         workflow_run_status="completed",
         workflow_run_conclusion="success",
         diff_summary_json='{"filesChanged": 2}',
+        content_json={
+            "artifactType": "implementation_kickoff",
+            "repositorySnapshot": {
+                "fileTree": [
+                    {
+                        "path": "src",
+                        "name": "src",
+                        "type": "folder",
+                        "children": [
+                            {
+                                "path": "src/api/trials.ts",
+                                "name": "trials.ts",
+                                "type": "file",
+                                "language": "typescript",
+                                "content": "export const trialApi = true;\n",
+                                "changed": True,
+                            }
+                        ],
+                    }
+                ],
+                "commits": [
+                    {
+                        "sha": "abc123",
+                        "message": "Implementation kickoff",
+                        "timestamp": "2026-05-11T11:00:00Z",
+                        "filesChanged": 2,
+                        "changedFiles": ["src/api/trials.ts"],
+                    }
+                ],
+                "selectedFilePath": "src/api/trials.ts",
+                "selectedFileContent": "export const trialApi = true;\n",
+                "selectedFileLanguage": "typescript",
+                "selectedFileName": "trials.ts",
+            },
+        },
     )
     await cs_repo.create_day_audit_once(
         async_session,
@@ -97,6 +132,41 @@ async def test_candidate_session_review_returns_completed_artifacts(
         workflow_run_status="completed",
         workflow_run_conclusion="success",
         diff_summary_json='{"filesChanged": 1}',
+        content_json={
+            "artifactType": "implementation_wrap_up",
+            "repositorySnapshot": {
+                "fileTree": [
+                    {
+                        "path": "src",
+                        "name": "src",
+                        "type": "folder",
+                        "children": [
+                            {
+                                "path": "src/services/reporting.py",
+                                "name": "reporting.py",
+                                "type": "file",
+                                "language": "python",
+                                "content": "def build_report_summary():\n    return True\n",
+                                "changed": True,
+                            }
+                        ],
+                    }
+                ],
+                "commits": [
+                    {
+                        "sha": "def456",
+                        "message": "Wrap-up implementation",
+                        "timestamp": "2026-05-12T11:00:00Z",
+                        "filesChanged": 1,
+                        "changedFiles": ["src/services/reporting.py"],
+                    }
+                ],
+                "selectedFilePath": "src/services/reporting.py",
+                "selectedFileContent": "def build_report_summary():\n    return True\n",
+                "selectedFileLanguage": "python",
+                "selectedFileName": "reporting.py",
+            },
+        },
     )
     recording = await recordings_repo.create_recording_asset(
         async_session,
