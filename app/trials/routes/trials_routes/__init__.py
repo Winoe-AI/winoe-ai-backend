@@ -36,8 +36,12 @@ from . import (
     trials_routes_trials_routes_trials_routes_scenario_routes as scenario,
 )
 from . import (
+    trials_routes_trials_routes_trials_routes_submission_review_routes as submission_review,
+)
+from . import (
     trials_routes_trials_routes_trials_routes_update_routes as update,
 )
+from . import trials_routes_trials_v1_benchmarks_routes as benchmarks_v1
 
 router = APIRouter()
 router.include_router(list_trials.router)
@@ -47,9 +51,11 @@ router.include_router(invite_create.router, prefix="/trials")
 router.include_router(invite_resend.router, prefix="/trials")
 router.include_router(candidates.router, prefix="/trials")
 router.include_router(candidates_compare.router, prefix="/trials")
+router.include_router(submission_review.router, prefix="/trials")
 router.include_router(lifecycle.router, prefix="/trials")
 router.include_router(scenario.router, prefix="/trials")
 router.include_router(update.router, prefix="/trials")
+router.include_router(benchmarks_v1.router)
 
 __all__ = [
     "candidates",
@@ -62,6 +68,8 @@ __all__ = [
     "lifecycle",
     "list_trials",
     "rate_limits",
+    "submission_review",
+    "benchmarks_v1",
     "router",
     "scenario",
     "update",

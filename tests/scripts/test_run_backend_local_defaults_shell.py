@@ -88,7 +88,7 @@ set -euo pipefail
     assert "uvicorn:app.api.main:app --reload --host 0.0.0.0 --port 8000" in log_output
     assert "scenario_generation_runtime_mode:real" in log_output
     assert "scenario_generation_provider:anthropic" in log_output
-    assert "scenario_generation_model:claude-3-5-sonnet-20241022" in log_output
+    assert "scenario_generation_model:claude-opus-4-7" in log_output
     assert "winoe_env:local" in log_output
 
 

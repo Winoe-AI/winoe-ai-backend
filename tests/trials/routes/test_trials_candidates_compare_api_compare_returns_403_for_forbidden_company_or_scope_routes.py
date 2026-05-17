@@ -33,8 +33,8 @@ async def test_compare_returns_403_for_forbidden_company_or_scope(
         f"/api/trials/{trial.id}/candidates/compare",
         headers=auth_header_factory(same_company_non_owner),
     )
-    assert same_company_response.status_code == 403
-    assert same_company_response.json()["detail"] == "Trial access forbidden"
+    assert same_company_response.status_code == 200
+    assert same_company_response.json()["candidates"] == []
 
     other_company_response = await async_client.get(
         f"/api/trials/{trial.id}/candidates/compare",

@@ -279,3 +279,244 @@ def test_require_candidate_settings_from_snapshot_returns_frozen_values() -> Non
     assert notice_version == "mvp1"
     assert notice_text == "AI assistance may be used for evaluation support."
     assert enabled["1"] is True
+
+
+def test_ai_policy_snapshot_helpers_cover_remaining_validation_branches() -> None:
+    assert policy_snapshot_service.compute_ai_policy_snapshot_digest(None) is None
+    fingerprint_none = (
+        policy_snapshot_service.compute_ai_policy_snapshot_basis_fingerprint(None)
+    )
+    fingerprint_empty = (
+        policy_snapshot_service.compute_ai_policy_snapshot_basis_fingerprint({})
+    )
+    assert isinstance(fingerprint_none, str)
+    assert isinstance(fingerprint_empty, str)
+    assert len(fingerprint_none) == 64
+    assert len(fingerprint_empty) == 64
+    assert policy_snapshot_service.get_agent_policy_snapshot(None, "prestart") is None
+    assert (
+        policy_snapshot_service.get_agent_policy_snapshot({"agents": []}, "prestart")
+        is None
+    )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_missing",
+    ):
+        policy_snapshot_service.require_ai_policy_snapshot(None, scenario_version_id=1)
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_agents_missing",
+    ):
+        policy_snapshot_service.require_agent_policy_snapshot(
+            {"agents": None},
+            "prestart",
+            scenario_version_id=1,
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_agent_missing",
+    ):
+        policy_snapshot_service.require_agent_policy_snapshot(
+            {"agents": {}},
+            "prestart",
+            scenario_version_id=1,
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_runtime_missing",
+    ):
+        policy_snapshot_service.require_agent_runtime(
+            {"agents": {"prestart": {"key": "prestart"}}},
+            "prestart",
+            scenario_version_id=1,
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_prompt_pack_version_missing",
+    ):
+        policy_snapshot_service.validate_ai_policy_snapshot_contract(
+            {
+                "candidateSettings": {"noticeVersion": "m", "noticeText": "t"},
+                "agents": {},
+            },
+            scenario_version_id=1,
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_missing",
+    ):
+        policy_snapshot_service.build_ai_policy_snapshot(trial=SimpleNamespace(id=1))
+
+
+def test_ai_policy_snapshot_internal_validation_branches() -> None:
+    assert policy_snapshot_service._normalize_eval_enabled_by_day([]) == (
+        default_ai_eval_enabled_by_day()
+    )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_runtime_missing",
+    ):
+        policy_snapshot_service._validate_runtime_payload(
+            runtime=None,
+            scenario_version_id=1,
+            agent_key="prestart",
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_runtime_provider_missing",
+    ):
+        policy_snapshot_service._validate_runtime_payload(
+            runtime={
+                "runtimeMode": "test",
+                "provider": " ",
+                "model": "gpt",
+                "timeoutSeconds": 1,
+                "maxRetries": 0,
+            },
+            scenario_version_id=1,
+            agent_key="prestart",
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_runtime_timeoutSeconds_missing",
+    ):
+        policy_snapshot_service._validate_runtime_payload(
+            runtime={
+                "runtimeMode": "test",
+                "provider": "openai",
+                "model": "gpt",
+                "timeoutSeconds": 0,
+                "maxRetries": 0,
+            },
+            scenario_version_id=1,
+            agent_key="prestart",
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_runtime_maxRetries_missing",
+    ):
+        policy_snapshot_service._validate_runtime_payload(
+            runtime={
+                "runtimeMode": "test",
+                "provider": "openai",
+                "model": "gpt",
+                "timeoutSeconds": 1,
+                "maxRetries": -1,
+            },
+            scenario_version_id=1,
+            agent_key="prestart",
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_candidate_settings_missing",
+    ):
+        policy_snapshot_service._validate_candidate_settings(
+            candidate_settings=None,
+            scenario_version_id=1,
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_candidate_settings_noticeVersion_missing",
+    ):
+        policy_snapshot_service._validate_candidate_settings(
+            candidate_settings={
+                "noticeText": "hello",
+                "evalEnabledByDay": {},
+            },
+            scenario_version_id=1,
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_candidate_settings_evalEnabledByDay_missing",
+    ):
+        policy_snapshot_service._validate_candidate_settings(
+            candidate_settings={
+                "noticeVersion": "mvp1",
+                "noticeText": "hello",
+                "evalEnabledByDay": None,
+            },
+            scenario_version_id=1,
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_agent_missing",
+    ):
+        policy_snapshot_service._validate_agent_snapshot_structure(
+            agent_snapshot=None,
+            scenario_version_id=1,
+            agent_key="prestart",
+        )
+
+    with pytest.raises(
+        policy_snapshot_service.AIPolicySnapshotError,
+        match="scenario_version_ai_policy_snapshot_agent_key_mismatch",
+    ):
+        policy_snapshot_service._validate_agent_snapshot_structure(
+            agent_snapshot={
+                "key": "other",
+                "promptVersion": "1",
+                "rubricVersion": "1",
+                "runtime": {
+                    "runtimeMode": "test",
+                    "provider": "openai",
+                    "model": "gpt",
+                    "timeoutSeconds": 1,
+                    "maxRetries": 0,
+                },
+            },
+            scenario_version_id=1,
+            agent_key="prestart",
+        )
+
+    snapshot_map = policy_snapshot_service._trial_agent_snapshot_map(
+        SimpleNamespace(
+            agent_snapshots=[
+                SimpleNamespace(agent_name=" "),
+                SimpleNamespace(agent_name="prestart"),
+            ]
+        )
+    )
+    assert list(snapshot_map.keys()) == ["prestart"]
+
+    monkeypatch = pytest.MonkeyPatch()
+    try:
+        monkeypatch.setattr(
+            policy_snapshot_service,
+            "validate_ai_policy_snapshot_contract",
+            lambda snapshot_json, scenario_version_id=None: dict(snapshot_json or {}),
+        )
+        with pytest.raises(
+            policy_snapshot_service.AIPolicySnapshotError,
+            match="scenario_version_ai_policy_snapshot_candidate_settings_missing",
+        ):
+            policy_snapshot_service.require_candidate_settings_from_snapshot(
+                {"candidateSettings": None}
+            )
+        prompt = policy_snapshot_service.build_snapshot_prompt(
+            snapshot_json={
+                "agents": {
+                    "prestart": {
+                        "resolvedInstructionsMd": "instructions",
+                        "resolvedRubricMd": "rubric",
+                    }
+                }
+            },
+            agent_key="prestart",
+        )
+        assert prompt == ("instructions", "rubric")
+    finally:
+        monkeypatch.undo()

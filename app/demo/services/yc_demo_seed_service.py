@@ -406,6 +406,72 @@ def _candidate_reflection_doc(candidate: DemoCandidateProfile) -> str:
     )
 
 
+def _demo_code_snapshot(
+    *,
+    candidate: DemoCandidateProfile,
+    repo_full_name: str,
+    commit_sha: str,
+    selected_file_path: str,
+    selected_file_name: str,
+    selected_file_language: str,
+    selected_file_content: str,
+    supporting_file_path: str,
+    supporting_file_name: str,
+    supporting_file_language: str,
+    supporting_file_content: str,
+    files_changed: int,
+) -> dict[str, Any]:
+    file_tree = [
+        {
+            "path": "src",
+            "name": "src",
+            "type": "folder",
+            "children": [
+                {
+                    "path": selected_file_path,
+                    "name": selected_file_name,
+                    "type": "file",
+                    "language": selected_file_language,
+                    "content": selected_file_content,
+                    "changed": True,
+                },
+                {
+                    "path": supporting_file_path,
+                    "name": supporting_file_name,
+                    "type": "file",
+                    "language": supporting_file_language,
+                    "content": supporting_file_content,
+                    "changed": files_changed > 1,
+                },
+            ],
+        }
+    ]
+    commit_payload = {
+        "sha": commit_sha,
+        "message": f"{candidate.name} implementation checkpoint",
+        "timestamp": datetime.now(tz=UTC).isoformat(),
+        "filesChanged": files_changed,
+        "changedFiles": [selected_file_path, supporting_file_path],
+    }
+    return {
+        "repositorySnapshot": {
+            "fileTree": file_tree,
+            "commits": [commit_payload],
+            "selectedFilePath": selected_file_path,
+            "selectedFileContent": selected_file_content,
+            "selectedFileLanguage": selected_file_language,
+            "selectedFileName": selected_file_name,
+        },
+        "fileTree": file_tree,
+        "commits": [commit_payload],
+        "selectedFilePath": selected_file_path,
+        "selectedFileContent": selected_file_content,
+        "selectedFileLanguage": selected_file_language,
+        "selectedFileName": selected_file_name,
+        "repoFullName": repo_full_name,
+    }
+
+
 def _candidate_submissions(
     config: DemoSeedConfig,
     candidate: DemoCandidateProfile,
@@ -439,6 +505,38 @@ def _candidate_submissions(
                 "repoFullName": repo_full_name,
                 "bootstrapCommitSha": bootstrap_commit_sha,
                 "summary": candidate.summary_line,
+                **_demo_code_snapshot(
+                    candidate=candidate,
+                    repo_full_name=repo_full_name,
+                    commit_sha=day2_commit_sha,
+                    selected_file_path="src/api/trials.ts",
+                    selected_file_name="trials.ts",
+                    selected_file_language="typescript",
+                    selected_file_content="\n".join(
+                        [
+                            "export function buildTrialSubmissionLink(trialId: string, candidateId: string) {",
+                            "  return `/talent-partner/trials/${trialId}/candidates/${candidateId}/submission`;",
+                            "}",
+                            "",
+                            "export function buildBenchmarkLink(trialId: string) {",
+                            "  return `/talent-partner/trials/${trialId}/benchmarks`;",
+                            "}",
+                        ]
+                    ),
+                    supporting_file_path="src/components/task-sequencing.ts",
+                    supporting_file_name="task-sequencing.ts",
+                    supporting_file_language="typescript",
+                    supporting_file_content="\n".join(
+                        [
+                            "export const TASK_SEQUENCE = [1, 2, 3, 4, 5] as const;",
+                            "",
+                            "export function isCodeDay(dayIndex: number) {",
+                            "  return dayIndex === 2 || dayIndex === 3;",
+                            "}",
+                        ]
+                    ),
+                    files_changed=2,
+                ),
             },
             "code_repo_path": repo_full_name,
             "commit_sha": day2_commit_sha,
@@ -459,6 +557,41 @@ def _candidate_submissions(
                 "repoFullName": repo_full_name,
                 "finalCommitSha": day3_commit_sha,
                 "summary": candidate.summary_line,
+                **_demo_code_snapshot(
+                    candidate=candidate,
+                    repo_full_name=repo_full_name,
+                    commit_sha=day3_commit_sha,
+                    selected_file_path="src/services/reporting.py",
+                    selected_file_name="reporting.py",
+                    selected_file_language="python",
+                    selected_file_content="\n".join(
+                        [
+                            "def build_report_summary(total_candidates: int, ready_reports: int) -> dict[str, int]:",
+                            "    return {",
+                            "        'totalCandidates': total_candidates,",
+                            "        'readyReports': ready_reports,",
+                            "    }",
+                            "",
+                            "def build_compare_entry(candidate_name: str, commit_sha: str) -> dict[str, str]:",
+                            "    return {",
+                            "        'candidateName': candidate_name,",
+                            "        'commitSha': commit_sha,",
+                            "    }",
+                        ]
+                    ),
+                    supporting_file_path="src/services/submission_review.py",
+                    supporting_file_name="submission_review.py",
+                    supporting_file_language="python",
+                    supporting_file_content="\n".join(
+                        [
+                            "def normalize_day(day_index: int) -> int:",
+                            "    if day_index in (2, 3):",
+                            "        return day_index",
+                            "    return 0",
+                        ]
+                    ),
+                    files_changed=3,
+                ),
             },
             "code_repo_path": repo_full_name,
             "commit_sha": day3_commit_sha,

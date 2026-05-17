@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.database.shared_database_models_model import Company, User
+from app.trials.routes.trials_routes import (
+    trials_routes_trials_routes_trials_v4_routes as v4_routes,
+)
+from app.trials.schemas.trials_schemas_trials_v4_schema import TrialCreateV4Request
 
 
 @pytest.mark.asyncio
@@ -146,3 +152,57 @@ async def test_trial_v4_create_forbidden_for_non_talent_partner(
             },
         )
         assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_trial_v4_route_helpers_cover_success_and_stream_branches(
+    monkeypatch,
+):
+    monkeypatch.setattr(v4_routes, "ensure_talent_partner_or_none", lambda _user: None)
+
+    async def _fake_create_trial_with_tasks(_db, _create_body, _user):
+        return SimpleNamespace(id=321), [], SimpleNamespace(id=654)
+
+    async def _fake_events(*_args, **_kwargs):
+        yield "event: progress\n"
+        yield "data: done\n\n"
+
+    monkeypatch.setattr(
+        v4_routes.trial_service,
+        "create_trial_with_tasks",
+        _fake_create_trial_with_tasks,
+    )
+    monkeypatch.setattr(
+        v4_routes,
+        "trial_generation_progress_events",
+        _fake_events,
+    )
+    monkeypatch.setattr(v4_routes, "async_session_maker", SimpleNamespace())
+
+    request = TrialCreateV4Request.model_validate(
+        {
+            "role_title": "Backend Engineer",
+            "seniority": "mid",
+            "preferred_language_framework": "Python + FastAPI",
+            "focus_notes": "Build internal automation APIs",
+            "evaluation_focus_areas": ["API design"],
+        }
+    )
+    response = await v4_routes.create_trial_v4(
+        request,
+        SimpleNamespace(),
+        SimpleNamespace(company_id=1),
+    )
+    assert response.trial_id == "321"
+    assert response.job_id == "654"
+    assert response.status == "generating"
+
+    stream = await v4_routes.trial_generation_progress(
+        123,
+        SimpleNamespace(company_id=1),
+    )
+    assert stream.media_type == "text/event-stream"
+    chunks: list[bytes | str] = []
+    async for chunk in stream.body_iterator:
+        chunks.append(chunk)
+    assert chunks == ["event: progress\n", "data: done\n\n"]

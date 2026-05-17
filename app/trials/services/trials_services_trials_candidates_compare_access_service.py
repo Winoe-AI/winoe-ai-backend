@@ -26,7 +26,7 @@ async def require_trial_compare_access(
     trial = (
         await db.execute(
             select(Trial)
-            .options(load_only(Trial.id, Trial.company_id, Trial.created_by))
+            .options(load_only(Trial.id, Trial.company_id))
             .where(Trial.id == trial_id)
         )
     ).scalar_one_or_none()
@@ -39,11 +39,6 @@ async def require_trial_compare_access(
         trial_company_id=trial.company_id,
         expected_company_id=getattr(user, "company_id", None),
     ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Trial access forbidden",
-        )
-    if trial.created_by != user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Trial access forbidden",
