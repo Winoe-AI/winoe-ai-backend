@@ -27,15 +27,13 @@ def _real_github_client_singleton() -> GithubClient:
 
 def get_github_provisioning_client() -> GithubClient | FakeGithubClient:
     """Return the configured GitHub provider for workspace provisioning."""
+    raw_demo_mode_requested = _is_truthy(getattr(settings, "DEMO_MODE", None))
+    if raw_demo_mode_requested and settings.is_production_environment():
+        raise RuntimeError(
+            "DEMO_MODE/WINOE_DEMO_MODE is forbidden in production environments."
+        )
     if settings.demo_mode_enabled:
         return get_fake_github_client()
-    if _is_truthy(getattr(settings, "DEMO_MODE", None)) and (
-        settings.is_production_environment()
-    ):
-        logger.warning(
-            "DEMO_MODE requested but disabled in production; using real GitHub provider.",
-            extra={"env": str(getattr(settings, "ENV", "") or "").lower()},
-        )
     return _real_github_client_singleton()
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,6 +15,9 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
     EvaluationDayScore,
     EvaluationReviewerReport,
     EvaluationRun,
+)
+from app.evaluations.repositories.evaluations_repositories_evaluations_create_run_with_scores_repository import (
+    create_run_with_day_scores,
 )
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_api_service import (
     fetch_winoe_report,
@@ -42,7 +46,15 @@ from app.submissions.repositories.github_native.workspaces.submissions_repositor
 from app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_model import (
     WinoeReportCitation,
 )
+from app.submissions.repositories.submissions_repositories_submissions_winoe_report_repository import (
+    upsert_marker,
+)
 from scripts import seed_demo as seed_demo_script
+from tests.shared.factories import (
+    create_candidate_session,
+    create_talent_partner,
+    create_trial,
+)
 
 
 class _SharedSessionContext:
@@ -72,9 +84,9 @@ def _session_maker(async_session):
 def _seed_args(
     *,
     reset_db: bool = False,
-    talent_partner_email: str = "talent.partner.demo@winoe.ai",
-    talent_partner_name: str = "Winoe Demo Talent Partner",
-    company_name: str = "Winoe Demo Company",
+    talent_partner_email: str = "demo@winoe.ai",
+    talent_partner_name: str = "Demo Partner",
+    company_name: str = "Acme",
     github_provider: str = "fake",
     allow_production_write: bool = False,
 ) -> SimpleNamespace:
@@ -216,34 +228,39 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
 
     assert company_count == 1
     assert user_count == 1
-    assert trial_count == 1
-    assert candidate_session_count == 2
-    assert submission_count == 10
-    assert report_count == 2
-    assert run_count == 2
-    assert day_score_count == 10
-    assert reviewer_count == 10
-    assert workspace_count == 2
-    assert workspace_group_count == 2
-    assert recording_count == 2
-    assert transcript_count == 2
-    assert audit_count == 4
+    assert trial_count == 3
+    assert candidate_session_count == 4
+    assert submission_count == 5
+    assert report_count == 1
+    assert run_count == 1
+    assert day_score_count == 5
+    assert reviewer_count == 5
+    assert workspace_count == 1
+    assert workspace_group_count == 1
+    assert recording_count == 1
+    assert transcript_count == 1
+    assert audit_count == 2
     assert citation_count and citation_count > 0
-    assert scenario_version_count == 1
-    assert task_count == 5
+    assert scenario_version_count == 3
+    assert task_count == 15
 
     talent_partner = await async_session.scalar(
-        select(User).where(User.email == "talent.partner.demo@winoe.ai")
+        select(User).where(User.email == "demo@winoe.ai")
     )
     assert talent_partner is not None
 
     trial = await async_session.scalar(
-        select(Trial).where(Trial.title == "YC Demo Backend Engineer Trial")
+        select(Trial).where(Trial.title == "Senior Frontend Engineer Trial")
     )
     assert trial is not None
     assert trial.scenario_template == ""
-    assert trial.status == "ready_for_review"
-    assert "from-scratch backend API" in trial.focus
+    assert trial.status == "completed"
+    assert "from-scratch product surface" in trial.focus
+    assert trial.company_context == {
+        "companyName": "Acme",
+        "preferredLanguageFramework": "TypeScript + React",
+        "demoMode": "yc-demo",
+    }
     assert isinstance(trial.company_rubric_json, dict)
     assert set(trial.company_rubric_json).issuperset(
         {
@@ -265,10 +282,14 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
         )
     )
 
-    brief_text = await async_session.scalar(select(ScenarioVersion.project_brief_md))
+    brief_text = await async_session.scalar(
+        select(ScenarioVersion.project_brief_md).where(
+            ScenarioVersion.trial_id == trial.id
+        )
+    )
     assert brief_text is not None
     assert "Project Brief" in brief_text
-    assert "from-scratch backend service" in brief_text
+    assert "from-scratch work Trial" in brief_text
     _assert_no_retired_terms(str(brief_text))
 
     candidate_sessions = (
@@ -281,20 +302,43 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
         .all()
     )
     assert [row.candidate_name for row in candidate_sessions] == [
-        "Avery Chen",
-        "Jordan Patel",
+        "Marcus Okonjo",
+        "Priya Patel",
+        "Sarah Chen",
+        "Nina Alvarez",
     ]
-    assert [row.status for row in candidate_sessions] == ["completed", "completed"]
-    assert [row.completed_at is not None for row in candidate_sessions] == [True, True]
-    assert [len(row.day_windows_json or []) for row in candidate_sessions] == [5, 5]
-    for row in candidate_sessions:
-        assert [day["status"] for day in row.day_windows_json or []] == [
-            "submitted",
-            "submitted",
-            "submitted",
-            "submitted",
-            "submitted",
-        ]
+    assert [row.status for row in candidate_sessions] == [
+        "not_started",
+        "not_started",
+        "completed",
+        "not_started",
+    ]
+    assert [row.completed_at is not None for row in candidate_sessions] == [
+        False,
+        False,
+        True,
+        False,
+    ]
+    assert [len(row.day_windows_json or []) for row in candidate_sessions] == [
+        0,
+        0,
+        5,
+        0,
+    ]
+    awaiting_trial = await async_session.scalar(
+        select(Trial).where(Trial.id == candidate_sessions[3].trial_id)
+    )
+    assert awaiting_trial is not None
+    assert awaiting_trial.status == "active_inviting"
+    assert candidate_sessions[3].status == "not_started"
+    assert candidate_sessions[3].completed_at is None
+    assert [day["status"] for day in candidate_sessions[2].day_windows_json or []] == [
+        "submitted",
+        "submitted",
+        "submitted",
+        "submitted",
+        "submitted",
+    ]
 
     submission_rows = (
         await async_session.execute(
@@ -303,7 +347,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
             .order_by(Submission.candidate_session_id, Task.day_index)
         )
     ).all()
-    assert len(submission_rows) == 10
+    assert len(submission_rows) == 5
     expected_artifacts = {
         1: "design_document",
         2: "implementation_kickoff",
@@ -343,72 +387,83 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
         .scalars()
         .all()
     )
-    assert len(recording_rows) == 2
-    assert len(transcript_rows) == 2
+    assert len(recording_rows) == 1
+    assert len(transcript_rows) == 1
 
     reports = (
         (await async_session.execute(select(WinoeReport).order_by(WinoeReport.id)))
         .scalars()
         .all()
     )
-    assert len(reports) == 2
+    assert len(reports) == 1
 
     first_report = await fetch_winoe_report(
         async_session,
-        candidate_session_id=candidate_sessions[0].id,
-        user=talent_partner,
-    )
-    second_report = await fetch_winoe_report(
-        async_session,
-        candidate_session_id=candidate_sessions[1].id,
+        candidate_session_id=candidate_sessions[2].id,
         user=talent_partner,
     )
 
     assert first_report["status"] == "ready"
-    assert second_report["status"] == "ready"
-    assert (
-        first_report["report"]["overallWinoeScore"]
-        > second_report["report"]["overallWinoeScore"]
+    report = first_report["report"]
+    assert isinstance(report["overallWinoeScore"], float)
+    assert len(report["dayScores"]) == 5
+    assert len(report["reviewerReports"]) == 5
+    assert len(report["dimensions"]) == 8
+    assert len(report["citations"]) == 16
+    assert report["verdictOneLiner"]
+    assert report["narrativeAssessment"]
+    assert report["cohortContext"]
+    assert [dimension["name"] for dimension in report["dimensions"]] == [
+        "Architecture & Design",
+        "Problem Understanding",
+        "Implementation Quality",
+        "Code Quality",
+        "Testing Discipline",
+        "Development Process",
+        "Communication",
+        "Reflection & Ownership",
+    ]
+    assert {citation["dimension"] for citation in report["citations"]} == {
+        "Architecture & Design",
+        "Problem Understanding",
+        "Implementation Quality",
+        "Code Quality",
+        "Testing Discipline",
+        "Development Process",
+        "Communication",
+        "Reflection & Ownership",
+    }
+    assert any(
+        isinstance(citation, dict) and citation.get("dimensionKey")
+        for day_score in report["dayScores"]
+        for citation in day_score["evidence"]
     )
-
-    for _candidate_session, payload in zip(
-        candidate_sessions, (first_report, second_report), strict=True
-    ):
-        report = payload["report"]
-        assert isinstance(report["overallWinoeScore"], float)
-        assert len(report["dayScores"]) == 5
-        assert len(report["reviewerReports"]) == 5
-        assert any(
-            isinstance(citation, dict) and citation.get("dimensionKey")
-            for day_score in report["dayScores"]
-            for citation in day_score["evidence"]
-        )
-        assert {
-            citation.get("dimensionKey")
-            for day_score in report["dayScores"]
-            for citation in day_score["evidence"]
-            if isinstance(citation, dict) and citation.get("dimensionKey")
-        }.issuperset(
-            {
-                "architectural_coherence",
-                "development_process",
-                "testing_discipline",
-                "communication_handoff_demo",
-                "reflection_self_awareness",
-            }
-        )
-        for reviewer_report in report["reviewerReports"]:
-            assert reviewer_report["dimensionalScores"]
-            assert len(reviewer_report["dimensionalScores"]) >= 3
-            assert reviewer_report["strengths"]
-            assert reviewer_report["concerns"]
-        await _assert_evidence_links(
-            reviewer_reports=report["reviewerReports"],
-        )
-
-    assert (
-        first_report["report"]["reviewerReports"][0]["strengths"]
-        != second_report["report"]["reviewerReports"][0]["strengths"]
+    assert {
+        citation.get("dimensionKey")
+        for day_score in report["dayScores"]
+        for citation in day_score["evidence"]
+        if isinstance(citation, dict) and citation.get("dimensionKey")
+    }.issuperset(
+        {
+            "architectural_coherence",
+            "scope_control",
+            "implementation_discipline",
+            "testing_discipline",
+            "code_quality",
+            "dependency_hygiene",
+            "communication_handoff_demo",
+            "evidence_trail_traceability",
+            "reflection_self_awareness",
+            "growth_orientation",
+        }
+    )
+    for reviewer_report in report["reviewerReports"]:
+        assert reviewer_report["dimensionalScores"]
+        assert len(reviewer_report["dimensionalScores"]) >= 8
+        assert reviewer_report["strengths"]
+        assert reviewer_report["concerns"]
+    await _assert_evidence_links(
+        reviewer_reports=report["reviewerReports"],
     )
 
     submission_texts = (
@@ -425,6 +480,66 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
 
 
 @pytest.mark.asyncio
+async def test_seed_demo_cli_accepts_custom_talent_partner_email_and_lists_trials(
+    async_client, async_session, monkeypatch
+):
+    custom_email = "winoetalentpartner@gmail.com"
+    monkeypatch.setattr(seed_demo_script, "_run_migrations", lambda _root: None)
+    monkeypatch.setattr(
+        seed_demo_script,
+        "async_session_maker",
+        _session_maker(async_session),
+    )
+    monkeypatch.setattr(
+        seed_demo_script, "_build_github_client", lambda _mode: FakeGithubClient()
+    )
+
+    await seed_demo_script._main_async(
+        _seed_args(
+            talent_partner_email=custom_email,
+            talent_partner_name="TalentPartner",
+            company_name="Acme",
+        )
+    )
+
+    talent_partner = await async_session.scalar(
+        select(User).where(User.email == custom_email)
+    )
+    assert talent_partner is not None
+    assert talent_partner.name == "TalentPartner"
+
+    allowed_statuses = {"not_started", "in_progress", "completed", "expired"}
+    active_trial = await async_session.scalar(
+        select(Trial).where(Trial.title == "Senior Backend Engineer Trial")
+    )
+    awaiting_trial = await async_session.scalar(
+        select(Trial).where(Trial.title == "Staff Engineer Trial")
+    )
+    assert active_trial is not None
+    assert awaiting_trial is not None
+
+    active_res = await async_client.get(
+        f"/api/trials/{active_trial.id}/candidates",
+        headers={"x-dev-user-email": custom_email},
+    )
+    awaiting_res = await async_client.get(
+        f"/api/trials/{awaiting_trial.id}/candidates",
+        headers={"x-dev-user-email": custom_email},
+    )
+    assert active_res.status_code == 200
+    assert awaiting_res.status_code == 200
+
+    active_rows = active_res.json()
+    awaiting_rows = awaiting_res.json()
+    assert active_rows
+    assert awaiting_rows
+    assert {row["status"] for row in active_rows} == {"not_started"}
+    assert {row["status"] for row in awaiting_rows} == {"not_started"}
+    assert all(row["status"] in allowed_statuses for row in active_rows)
+    assert all(row["status"] in allowed_statuses for row in awaiting_rows)
+
+
+@pytest.mark.asyncio
 async def test_demo_rerun_preserves_non_demo_rows(async_session, monkeypatch):
     monkeypatch.setattr(seed_demo_script, "_run_migrations", lambda _root: None)
     monkeypatch.setattr(
@@ -438,17 +553,67 @@ async def test_demo_rerun_preserves_non_demo_rows(async_session, monkeypatch):
 
     await seed_demo_script._main_async(_seed_args())
 
-    other_company = Company(name="Acme Research")
-    async_session.add(other_company)
-    await async_session.flush()
-    other_user = User(
-        name="Acme Operator",
+    other_partner = await create_talent_partner(
+        async_session,
         email="operator@acme.example",
-        role="talent_partner",
-        company_id=other_company.id,
-        password_hash="",
+        company_name="Acme Research",
+        name="Acme Operator",
     )
-    async_session.add(other_user)
+    other_trial, _other_tasks = await create_trial(
+        async_session,
+        created_by=other_partner,
+        title="Non Demo Trial",
+        role="Backend Engineer",
+        focus="Outside the demo scope",
+        company_context={"demoMode": "not-demo"},
+    )
+    now = datetime.now(UTC)
+    other_candidate_session = await create_candidate_session(
+        async_session,
+        trial=other_trial,
+        candidate_name="Other Candidate",
+        invite_email="other@example.com",
+        candidate_email="other@example.com",
+        status="completed",
+        completed_at=now,
+        started_at=now,
+    )
+    await create_run_with_day_scores(
+        async_session,
+        candidate_session_id=other_candidate_session.id,
+        scenario_version_id=other_candidate_session.scenario_version_id,
+        model_name="gpt-5.2",
+        model_version="gpt-5.2",
+        prompt_version="demo",
+        rubric_version="demo",
+        day2_checkpoint_sha="a" * 40,
+        day3_final_sha="b" * 40,
+        cutoff_commit_sha="b" * 40,
+        transcript_reference="transcript:other",
+        day_scores=[
+            {
+                "day_index": 1,
+                "score": 0.5,
+                "rubric_results_json": {"signal": 0.5},
+                "evidence_pointers_json": [],
+            }
+        ],
+        overall_winoe_score=0.5,
+        recommendation="positive_signal",
+        confidence=0.5,
+        generated_at=now,
+        raw_report_json={"overallWinoeScore": 0.5, "dimensions": [], "citations": []},
+        status="completed",
+        started_at=now,
+        completed_at=now,
+        commit=False,
+    )
+    await upsert_marker(
+        async_session,
+        candidate_session_id=other_candidate_session.id,
+        generated_at=now,
+        commit=False,
+    )
     await async_session.commit()
 
     await seed_demo_script._main_async(_seed_args())
@@ -462,14 +627,10 @@ async def test_demo_rerun_preserves_non_demo_rows(async_session, monkeypatch):
         .where(User.email == "operator@acme.example")
     )
     demo_company_count = await async_session.scalar(
-        select(func.count())
-        .select_from(Company)
-        .where(Company.name == "Winoe Demo Company")
+        select(func.count()).select_from(Company).where(Company.name == "Acme")
     )
     demo_user_count = await async_session.scalar(
-        select(func.count())
-        .select_from(User)
-        .where(User.email == "talent.partner.demo@winoe.ai")
+        select(func.count()).select_from(User).where(User.email == "demo@winoe.ai")
     )
 
     assert other_company_count == 1
@@ -600,10 +761,11 @@ def test_checklist_contains_seed_command_and_current_winoe_language():
     checklist_text = (
         Path(__file__).resolve().parents[3] / "YC_DEMO_CHECKLIST.md"
     ).read_text(encoding="utf-8")
-    assert (
-        "poetry run python -m scripts.seed_demo --github-provider fake --reset-db"
-        in checklist_text
-    )
+    assert "export WINOE_ENV=local" in checklist_text
+    assert "export WINOE_DEMO_MODE=true" in checklist_text
+    assert "./scripts/seed_demo.sh" in checklist_text
+    assert "http://localhost:3000/login" in checklist_text
+    assert "http://localhost:3000/talent-partner/trials" in checklist_text
     assert "Talent Partner" in checklist_text
     assert "Evidence Trail" in checklist_text
     assert "Winoe Report" in checklist_text
@@ -627,16 +789,11 @@ async def test_clear_demo_scope_nulls_trial_fk_before_scenario_version_delete(
         def all(self):
             return list(self._values)
 
-    class _FakeCompany:
-        id = 1
-
     class _RecordingSession:
         def __init__(self):
             self.calls = []
 
         async def scalar(self, stmt):
-            if "companies" in str(stmt):
-                return _FakeCompany()
             return None
 
         async def execute(self, stmt):
@@ -645,7 +802,7 @@ async def test_clear_demo_scope_nulls_trial_fk_before_scenario_version_delete(
             if "SELECT users.id" in stmt_text:
                 return _ScalarResult([2])
             if "SELECT trials.id" in stmt_text:
-                return _ScalarResult([11])
+                return _ScalarResult([SimpleNamespace(id=11, company_id=1)])
             if "SELECT candidate_sessions.id" in stmt_text:
                 return _ScalarResult([21])
             if "SELECT scenario_versions.id" in stmt_text:
@@ -669,9 +826,9 @@ async def test_clear_demo_scope_nulls_trial_fk_before_scenario_version_delete(
 
     session = _RecordingSession()
     config = SimpleNamespace(
-        trial_title="YC Demo Backend Engineer Trial",
-        company_name="Winoe Demo Company",
-        talent_partner_email="talent.partner.demo@winoe.ai",
+        trial_title="Senior Frontend Engineer Trial",
+        company_name="Acme",
+        talent_partner_email="demo@winoe.ai",
     )
     await _clear_demo_scope(session, config)
 

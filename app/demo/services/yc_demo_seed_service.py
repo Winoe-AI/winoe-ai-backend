@@ -14,7 +14,6 @@ from app.candidates.candidate_sessions.repositories.candidates_candidate_session
     CandidateDayAudit,
 )
 from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
-    EVALUATION_RECOMMENDATION_LEAN_HIRE,
     EVALUATION_RECOMMENDATION_STRONG_HIRE,
     EVALUATION_RUN_STATUS_COMPLETED,
     EvaluationDayScore,
@@ -64,6 +63,8 @@ from app.trials.repositories.scenario_versions.trials_repositories_scenario_vers
     ScenarioVersion as TrialScenarioVersion,
 )
 from app.trials.repositories.trials_repositories_trials_trial_status_constants import (
+    TRIAL_STATUS_ACTIVE_INVITING,
+    TRIAL_STATUS_COMPLETED,
     TRIAL_STATUS_GENERATING,
     TRIAL_STATUS_READY_FOR_REVIEW,
 )
@@ -79,18 +80,18 @@ from app.trials.services.trials_services_trials_task_seed_service import (
 class DemoSeedConfig:
     """Configuration for the YC demo seed."""
 
-    talent_partner_email: str = "talent.partner.demo@winoe.ai"
-    talent_partner_name: str = "Winoe Demo Talent Partner"
-    company_name: str = "Winoe Demo Company"
-    trial_title: str = "YC Demo Backend Engineer Trial"
-    trial_role: str = "Backend Engineer"
-    trial_seniority: str = "Senior"
+    talent_partner_email: str = "demo@winoe.ai"
+    talent_partner_name: str = "Demo Partner"
+    company_name: str = "Acme"
+    trial_title: str = "Senior Frontend Engineer Trial"
+    trial_role: str = "Senior Frontend Engineer"
+    trial_seniority: str = "senior"
     trial_focus: str = (
-        "Design and ship a from-scratch backend API for a B2B operations workflow."
+        "Design and ship a from-scratch product surface for a candidate work Trial."
     )
-    trial_preferred_language_framework: str = "Python, FastAPI, PostgreSQL"
+    trial_preferred_language_framework: str = "TypeScript + React"
     git_owner: str = "winoe-ai-demo"
-    repo_prefix: str = "yc-demo-candidate-"
+    repo_prefix: str = "winoe-ws-"
     codespace_workspace_key: str = "coding"
     timezone: str = "America/New_York"
     reset_db: bool = False
@@ -116,6 +117,28 @@ class DemoCandidateProfile:
 
 
 @dataclass(slots=True)
+class DemoInviteCandidateProfile:
+    """Deterministic profile for an invited but not yet started candidate."""
+
+    name: str
+    email: str
+    github_username: str
+
+
+@dataclass(slots=True)
+class DemoTrialProfile:
+    """Seed plan for a demo Trial."""
+
+    title: str
+    role: str
+    seniority: str
+    preferred_language_framework: str
+    focus: str
+    status: str
+    candidates: list[DemoInviteCandidateProfile]
+
+
+@dataclass(slots=True)
 class DemoSeedSummary:
     """High-level summary of the seeded demo dataset."""
 
@@ -123,6 +146,22 @@ class DemoSeedSummary:
     trial_id: int
     candidate_session_ids: list[int]
     repo_full_names: list[str]
+
+
+DEMO_MODE_MARKER = "yc-demo"
+DEMO_TRIAL_TITLES = [
+    "Senior Backend Engineer Trial",
+    "Senior Frontend Engineer Trial",
+    "Staff Engineer Trial",
+]
+DEMO_INVITE_EMAILS = [
+    "marcus.okonjo.demo@winoe.ai",
+    "priya.patel.demo@winoe.ai",
+    "sarah.chen.demo@winoe.ai",
+    "nina.alvarez.demo@winoe.ai",
+]
+DEMO_TALENT_PARTNER_EMAIL = "demo@winoe.ai"
+SARAH_CHEN_DEMO_EMAIL = "sarah.chen.demo@winoe.ai"
 
 
 def _apply_legacy_trial_fields(trial: Trial) -> None:
@@ -144,31 +183,31 @@ def _demo_trial_brief_markdown(config: DemoSeedConfig) -> str:
     return (
         "# Project Brief\n\n"
         "## Business Context\n\n"
-        f"{config.company_name} needs a lightweight internal API for coordinating "
-        "candidate evidence, review notes, and hiring decision prep.\n\n"
+        f"{config.company_name} needs a lightweight system for coordinating "
+        "candidate evidence, review notes, and Trial progression.\n\n"
         "## Product Goal\n\n"
-        "Build a from-scratch backend service that can track an intake workflow, "
-        "surface evidence-backed progress, and support Talent Partner review.\n\n"
+        "Build a from-scratch work Trial experience that keeps every step "
+        "evidence-backed and easy to review.\n\n"
         "## Technical Constraints\n\n"
         "- Start from an empty repository.\n"
         "- Commit a devcontainer so the project is reproducible.\n"
         "- Use clear validation, idempotent writes, and readable API boundaries.\n"
         "- Keep the architecture simple enough to finish in five days.\n\n"
         "## Expected Deliverables\n\n"
-        "- A stable API with create, read, and status endpoints.\n"
+        "- A stable product surface with create, read, and status endpoints.\n"
         "- Tests that prove the core workflow.\n"
         "- Documentation that explains the design and tradeoffs.\n\n"
         "## Risks\n\n"
         "- Overengineering the storage model.\n"
         "- Missing edge-case handling around duplicate requests.\n"
-        "- Treating the demo as a toy instead of a real hiring workflow.\n"
+        "- Treating the demo as a toy instead of a real work Trial.\n"
     )
 
 
 def _demo_scenario_storyline() -> str:
     return (
         "A Talent Partner needs a reliable evidence trail for a five-day "
-        "from-scratch build and wants to compare two candidates with a clear "
+        "from-scratch work Trial and wants to compare candidates with a clear "
         "Winoe Report."
     )
 
@@ -188,55 +227,92 @@ def _demo_task_prompts(tasks: list[Task]) -> list[dict[str, Any]]:
 def _demo_candidate_profiles() -> list[DemoCandidateProfile]:
     return [
         DemoCandidateProfile(
-            label="candidate-a",
-            name="Avery Chen",
-            email="avery.chen.demo@winoe.ai",
-            repo_suffix="avery-chen",
-            overall_score=0.91,
-            confidence=0.88,
-            recommendation="strong_signal",
+            label="sarah-chen",
+            name="Sarah Chen",
+            email="sarah.chen.demo@winoe.ai",
+            repo_suffix="sarah-chen",
+            overall_score=0.78,
+            confidence=0.86,
+            recommendation="positive_signal",
             internal_recommendation=EVALUATION_RECOMMENDATION_STRONG_HIRE,
             strength_points=[
-                "Clear architecture notes with strong API boundaries",
-                "Consistent testing discipline across the build",
-                "Good documentation and handoff clarity",
+                "The repository stays small and readable while still covering the full Trial scope.",
+                "The implementation and tests progress in a disciplined way across the build window.",
+                "The handoff documents the work clearly and keeps the evidence trail easy to follow.",
             ],
             concern_points=[
-                "Would benefit from one more load-focused test",
-                "Day 3 could call out a couple more rollback risks",
+                "A deeper rollback note would make the Day 3 wrap-up stronger.",
+                "The Day 4 demo could call out one more edge case explicitly.",
             ],
             summary_line=(
-                "Avery shows strong from-scratch judgment, with only minor gaps "
-                "around deeper operational hardening."
+                "Sarah shows strong from-scratch judgment, with one or two operational "
+                "gaps that are easy to discuss without weakening the overall signal."
             ),
-            day_scores={1: 0.93, 2: 0.92, 3: 0.91, 4: 0.89, 5: 0.90},
-            test_summary={1: (14, 0), 2: (18, 0), 3: (20, 0)},
+            day_scores={1: 0.79, 2: 0.77, 3: 0.80, 4: 0.78, 5: 0.76},
+            test_summary={1: (16, 0), 2: (20, 0), 3: (22, 0)},
         ),
-        DemoCandidateProfile(
-            label="candidate-b",
-            name="Jordan Patel",
-            email="jordan.patel.demo@winoe.ai",
-            repo_suffix="jordan-patel",
-            overall_score=0.74,
-            confidence=0.76,
-            recommendation="mixed_signal",
-            internal_recommendation=EVALUATION_RECOMMENDATION_LEAN_HIRE,
-            strength_points=[
-                "Delivered a functional backend and a credible review path",
-                "Handoff communication is clear and professional",
-                "Reflection is honest about tradeoffs and next steps",
-            ],
-            concern_points=[
-                "Tests are narrower than the strongest submission",
-                "Implementation notes could be more systematic",
-                "Documentation is useful but less complete",
-            ],
-            summary_line=(
-                "Jordan is credible and productive, but the evidence is thinner "
-                "and the overall story is less disciplined."
+    ]
+
+
+def _demo_invite_candidate_profiles() -> dict[str, list[DemoInviteCandidateProfile]]:
+    return {
+        "active_inviting": [
+            DemoInviteCandidateProfile(
+                name="Marcus Okonjo",
+                email="marcus.okonjo.demo@winoe.ai",
+                github_username="marcusokonjo",
             ),
-            day_scores={1: 0.76, 2: 0.73, 3: 0.72, 4: 0.74, 5: 0.75},
-            test_summary={1: (10, 0), 2: (11, 1), 3: (12, 1)},
+            DemoInviteCandidateProfile(
+                name="Priya Patel",
+                email="priya.patel.demo@winoe.ai",
+                github_username="priyapatel",
+            ),
+        ],
+        "awaiting_candidate": [
+            DemoInviteCandidateProfile(
+                name="Nina Alvarez",
+                email="nina.alvarez.demo@winoe.ai",
+                github_username="ninaalvarez",
+            )
+        ],
+    }
+
+
+def _demo_trial_profiles(config: DemoSeedConfig) -> list[DemoTrialProfile]:
+    invites = _demo_invite_candidate_profiles()
+    return [
+        DemoTrialProfile(
+            title="Senior Backend Engineer Trial",
+            role="Senior Backend Engineer",
+            seniority="senior",
+            preferred_language_framework="Python + FastAPI",
+            focus="Build a reliable backend surface for a five-day evidence-backed Trial.",
+            status="active_inviting",
+            candidates=invites["active_inviting"],
+        ),
+        DemoTrialProfile(
+            title=config.trial_title,
+            role=config.trial_role,
+            seniority=config.trial_seniority,
+            preferred_language_framework=config.trial_preferred_language_framework,
+            focus=config.trial_focus,
+            status="active_inviting",
+            candidates=[
+                DemoInviteCandidateProfile(
+                    name="Sarah Chen",
+                    email="sarah.chen.demo@winoe.ai",
+                    github_username="sarahchen",
+                )
+            ],
+        ),
+        DemoTrialProfile(
+            title="Staff Engineer Trial",
+            role="Staff Engineer",
+            seniority="staff",
+            preferred_language_framework="Go",
+            focus="Keep the architecture minimal while leaving a crisp evidence trail.",
+            status="active_inviting",
+            candidates=invites["awaiting_candidate"],
         ),
     ]
 
@@ -663,8 +739,8 @@ def _evidence_pointers(
                 "excerpt": "Bootstrap commit created the empty repository, devcontainer, and README.",
                 "dayIndex": 1,
                 "sourceLabel": "Day 1 — Design Doc",
-                "dimensionKey": "project_scaffolding_quality",
-                "dimensionLabel": "Project scaffolding quality",
+                "dimensionKey": "scope_control",
+                "dimensionLabel": "Scope control",
             },
         ],
         2: [
@@ -675,8 +751,8 @@ def _evidence_pointers(
                 "excerpt": "Initial implementation kickoff commit.",
                 "dayIndex": 2,
                 "sourceLabel": "Day 2/3 — Code",
-                "dimensionKey": "development_process",
-                "dimensionLabel": "Development process",
+                "dimensionKey": "implementation_discipline",
+                "dimensionLabel": "Implementation discipline",
             },
             {
                 "kind": "tests",
@@ -705,8 +781,8 @@ def _evidence_pointers(
                 "excerpt": "Wrap-up test results show the final pass/fail balance.",
                 "dayIndex": 3,
                 "sourceLabel": "Day 2/3 — Code",
-                "dimensionKey": "development_process",
-                "dimensionLabel": "Development process",
+                "dimensionKey": "dependency_hygiene",
+                "dimensionLabel": "Dependency hygiene",
             },
         ],
         4: [
@@ -727,8 +803,8 @@ def _evidence_pointers(
                 "excerpt": "Handoff transcript and demo summary.",
                 "dayIndex": 4,
                 "sourceLabel": "Day 4 — Handoff + Demo",
-                "dimensionKey": "communication_handoff_demo",
-                "dimensionLabel": "Communication / Handoff + Demo",
+                "dimensionKey": "evidence_trail_traceability",
+                "dimensionLabel": "Evidence trail traceability",
             },
         ],
         5: [
@@ -747,8 +823,8 @@ def _evidence_pointers(
                 "excerpt": "Reflection quality, self-awareness, and next-step realism.",
                 "dayIndex": 5,
                 "sourceLabel": "Day 5 — Reflection",
-                "dimensionKey": "reflection_self_awareness",
-                "dimensionLabel": "Reflection & self-awareness",
+                "dimensionKey": "growth_orientation",
+                "dimensionLabel": "Growth orientation",
             },
         ],
     }
@@ -757,47 +833,94 @@ def _evidence_pointers(
 def _dimensional_scores(
     candidate: DemoCandidateProfile, *, day_index: int
 ) -> dict[str, float]:
-    if candidate.label == "candidate-a":
-        base = {
-            1: {"architecture": 0.95, "planning": 0.93, "communication": 0.94},
-            2: {"implementation": 0.93, "testing": 0.92, "discipline": 0.91},
-            3: {"implementation": 0.92, "testing": 0.93, "docs": 0.90},
-            4: {"communication": 0.91, "judgment": 0.88, "delivery": 0.89},
-            5: {"reflection": 0.90, "self-awareness": 0.89, "tooling": 0.88},
+    if candidate.label != "sarah-chen":
+        return {
+            "architecture": 0.78,
+            "scope_control": 0.76,
+            "implementation_discipline": 0.75,
+            "testing_discipline": 0.74,
+            "code_quality": 0.73,
+            "dependency_hygiene": 0.72,
+            "communication_handoff_demo": 0.76,
+            "reflection_self_awareness": 0.75,
         }
-    else:
-        base = {
-            1: {"architecture": 0.78, "planning": 0.76, "communication": 0.77},
-            2: {"implementation": 0.75, "testing": 0.72, "discipline": 0.73},
-            3: {"implementation": 0.74, "testing": 0.71, "docs": 0.72},
-            4: {"communication": 0.76, "judgment": 0.72, "delivery": 0.73},
-            5: {"reflection": 0.75, "self-awareness": 0.74, "tooling": 0.73},
-        }
+    base = {
+        1: {
+            "architecture": 0.88,
+            "scope_control": 0.86,
+            "planning": 0.87,
+            "evidence_trail_traceability": 0.85,
+            "communication_handoff_demo": 0.84,
+            "documentation": 0.86,
+            "testing_discipline": 0.83,
+            "judgment": 0.85,
+        },
+        2: {
+            "architecture": 0.87,
+            "scope_control": 0.84,
+            "implementation_discipline": 0.88,
+            "testing_discipline": 0.86,
+            "code_quality": 0.85,
+            "dependency_hygiene": 0.84,
+            "communication_handoff_demo": 0.83,
+            "judgment": 0.84,
+        },
+        3: {
+            "architecture": 0.86,
+            "scope_control": 0.85,
+            "implementation_discipline": 0.89,
+            "testing_discipline": 0.87,
+            "code_quality": 0.88,
+            "dependency_hygiene": 0.87,
+            "documentation": 0.86,
+            "evidence_trail_traceability": 0.85,
+        },
+        4: {
+            "architecture": 0.84,
+            "scope_control": 0.83,
+            "communication_handoff_demo": 0.88,
+            "judgment": 0.85,
+            "delivery_clarity": 0.87,
+            "evidence_trail_traceability": 0.86,
+            "documentation": 0.84,
+            "reflection_self_awareness": 0.83,
+        },
+        5: {
+            "architecture": 0.82,
+            "scope_control": 0.84,
+            "reflection_self_awareness": 0.86,
+            "growth_orientation": 0.85,
+            "tooling_judgment": 0.83,
+            "communication_handoff_demo": 0.82,
+            "documentation": 0.81,
+            "evidence_trail_traceability": 0.84,
+        },
+    }
     return base[day_index]
 
 
 def _assessment_text(candidate: DemoCandidateProfile, *, day_index: int) -> str:
-    if candidate.label == "candidate-a":
+    if candidate.label == "sarah-chen":
         assessments = {
-            1: "Clear, practical design with sensible boundaries and low-risk tradeoffs.",
-            2: "Strong kickoff momentum and disciplined setup for a from-scratch build.",
-            3: "Well-finished implementation with good hygiene and useful documentation.",
-            4: "Confident demo delivery with honest caveats and a coherent narrative.",
-            5: "Reflective and specific about tradeoffs, growth areas, and next steps.",
+            1: "The design is practical and keeps the Trial small enough to defend.",
+            2: "The kickoff moves cleanly from plan to execution without noisy scaffolding.",
+            3: "The wrap-up shows disciplined implementation and a tidy closing pass.",
+            4: "The handoff is calm, specific, and anchored in concrete artifacts.",
+            5: "The reflection is honest about the edges and clear about what to improve next.",
         }
     else:
         assessments = {
-            1: "Solid design, though the plan is lighter on operational detail.",
-            2: "Functional implementation kickoff with a narrower testing story.",
-            3: "Useful wrap-up, but the documentation and structure are less complete.",
-            4: "Clear handoff, with less depth on tradeoffs and failure modes.",
-            5: "Honest reflection that identifies real gaps without fully resolving them.",
+            1: "Clear but lightweight design notes with modest detail.",
+            2: "Functional kickoff with enough structure to keep moving.",
+            3: "Useful wrap-up, but the evidence trail is thinner than ideal.",
+            4: "Clear handoff, with fewer concrete artifacts behind the story.",
+            5: "Honest reflection that names the main gaps without overclaiming.",
         }
     return assessments[day_index]
 
 
 def _strengths(candidate: DemoCandidateProfile, *, day_index: int) -> list[str]:
-    if candidate.label == "candidate-a":
+    if candidate.label == "sarah-chen":
         strengths = {
             1: [
                 "The architecture is easy to follow",
@@ -847,7 +970,7 @@ def _strengths(candidate: DemoCandidateProfile, *, day_index: int) -> list[str]:
 
 
 def _concerns(candidate: DemoCandidateProfile, *, day_index: int) -> list[str]:
-    if candidate.label == "candidate-a":
+    if candidate.label == "sarah-chen":
         concerns = {
             1: [
                 "Operational hardening is not fully explored",
@@ -977,27 +1100,301 @@ def _build_report_rows(
     return day_rows, reviewer_rows
 
 
+def _build_demo_report_dimensions(
+    candidate: DemoCandidateProfile,
+) -> list[dict[str, Any]]:
+    if candidate.label != "sarah-chen":
+        return [
+            {
+                "name": "Architecture & Design",
+                "score": 0.78,
+                "justification": "The Trial stays small, practical, and easy to explain.",
+            },
+            {
+                "name": "Problem Understanding",
+                "score": 0.77,
+                "justification": "The work stays anchored to the five-day evidence-backed Trial.",
+            },
+            {
+                "name": "Implementation Quality",
+                "score": 0.76,
+                "justification": "The build shows a steady but modest implementation cadence.",
+            },
+            {
+                "name": "Code Quality",
+                "score": 0.75,
+                "justification": "The repository remains readable and lightweight.",
+            },
+            {
+                "name": "Testing Discipline",
+                "score": 0.74,
+                "justification": "The test story is present, though not especially deep.",
+            },
+            {
+                "name": "Development Process",
+                "score": 0.74,
+                "justification": "The cadence is usable and the handoff remains coherent.",
+            },
+            {
+                "name": "Communication",
+                "score": 0.76,
+                "justification": "The handoff is direct and keeps the narrative readable.",
+            },
+            {
+                "name": "Reflection & Ownership",
+                "score": 0.75,
+                "justification": "The reflection names gaps plainly and stays grounded.",
+            },
+        ]
+    return [
+        {
+            "name": "Architecture & Design",
+            "score": 0.88,
+            "justification": "The Day 1 design doc keeps the scope small, testable, and easy to defend.",
+        },
+        {
+            "name": "Problem Understanding",
+            "score": 0.86,
+            "justification": "The brief and project setup stay tightly aligned to the actual Trial problem.",
+        },
+        {
+            "name": "Implementation Quality",
+            "score": 0.89,
+            "justification": "The Day 2 and Day 3 commits show steady progress without noisy scaffolding.",
+        },
+        {
+            "name": "Code Quality",
+            "score": 0.88,
+            "justification": "The repository stays readable, compact, and easy to audit.",
+        },
+        {
+            "name": "Testing Discipline",
+            "score": 0.87,
+            "justification": "The day-by-day test evidence shows deliberate validation rather than hand-waving.",
+        },
+        {
+            "name": "Development Process",
+            "score": 0.86,
+            "justification": "The implementation cadence, commit history, and docs all point in the same direction.",
+        },
+        {
+            "name": "Communication",
+            "score": 0.88,
+            "justification": "The Day 4 handoff and demo keep the explanation specific and evidence-first.",
+        },
+        {
+            "name": "Reflection & Ownership",
+            "score": 0.84,
+            "justification": "The Day 5 reflection is candid about tradeoffs and the remaining edges.",
+        },
+    ]
+
+
+def _build_demo_report_citations(
+    *,
+    bootstrap_commit_sha: str,
+    day2_commit_sha: str,
+    day3_commit_sha: str,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "dimension": "Architecture & Design",
+            "artifact_type": "design_doc",
+            "artifact_ref": "day1-design-doc.md:L1-L20",
+            "excerpt": "Use a small FastAPI service with one core domain module and a service layer.",
+        },
+        {
+            "dimension": "Architecture & Design",
+            "artifact_type": "commit",
+            "artifact_ref": f"{bootstrap_commit_sha}:README.md:L1-L24",
+            "excerpt": "Bootstrap commit created the empty repository, devcontainer, and README.",
+        },
+        {
+            "dimension": "Problem Understanding",
+            "artifact_type": "brief",
+            "artifact_ref": "project-brief.md:L1-L20",
+            "excerpt": "Build a from-scratch work Trial experience that keeps every step evidence-backed.",
+        },
+        {
+            "dimension": "Problem Understanding",
+            "artifact_type": "submission",
+            "artifact_ref": "day1-design-doc.md:L21-L36",
+            "excerpt": "The design doc spells out the constraints, deliverables, and risks clearly.",
+        },
+        {
+            "dimension": "Implementation Quality",
+            "artifact_type": "commit",
+            "artifact_ref": f"{day2_commit_sha}:src/api/trials.ts:L40-L88",
+            "excerpt": "Initial implementation kickoff commit.",
+        },
+        {
+            "dimension": "Implementation Quality",
+            "artifact_type": "diff",
+            "artifact_ref": f"{day3_commit_sha}:src/services/reporting.py:L12-L76",
+            "excerpt": "Wrap-up commit completed the core workflow and docs.",
+        },
+        {
+            "dimension": "Code Quality",
+            "artifact_type": "diff",
+            "artifact_ref": f"{day3_commit_sha}:src/services/reporting.py:L12-L76",
+            "excerpt": "The code stays readable, compact, and easy to audit.",
+        },
+        {
+            "dimension": "Code Quality",
+            "artifact_type": "submission",
+            "artifact_ref": "day3-wrap-up.md:L8-L20",
+            "excerpt": "Documentation tracks the implementation and the remaining gaps are explicit.",
+        },
+        {
+            "dimension": "Testing Discipline",
+            "artifact_type": "tests",
+            "artifact_ref": "day2-tests.txt:L1-L4",
+            "excerpt": "Kickoff tests established the core workflow shape.",
+        },
+        {
+            "dimension": "Testing Discipline",
+            "artifact_type": "submission",
+            "artifact_ref": "day3-wrap-up.md:L21-L30",
+            "excerpt": "The final pass/fail balance shows the build was checked, not just described.",
+        },
+        {
+            "dimension": "Development Process",
+            "artifact_type": "commit",
+            "artifact_ref": f"{bootstrap_commit_sha}:README.md:L1-L24",
+            "excerpt": "Bootstrap commit created the empty repository, devcontainer, and README.",
+        },
+        {
+            "dimension": "Development Process",
+            "artifact_type": "commit",
+            "artifact_ref": f"{day2_commit_sha}:src/api/trials.ts:L40-L88",
+            "excerpt": "Implementation moved in a disciplined, reviewable sequence.",
+        },
+        {
+            "dimension": "Communication",
+            "artifact_type": "transcript",
+            "artifact_ref": "handoff-demo-transcript.txt:02:14-02:48",
+            "excerpt": "Demo transcript with architecture, tradeoffs, and next steps.",
+        },
+        {
+            "dimension": "Communication",
+            "artifact_type": "submission",
+            "artifact_ref": "day4-handoff-summary.md:L4-L15",
+            "excerpt": "The handoff summary keeps the story tight and evidence-backed.",
+        },
+        {
+            "dimension": "Reflection & Ownership",
+            "artifact_type": "submission",
+            "artifact_ref": "day5-reflection.md:L8-L22",
+            "excerpt": "Reflection essay covering what went well, what was hard, and what changed.",
+        },
+        {
+            "dimension": "Reflection & Ownership",
+            "artifact_type": "submission",
+            "artifact_ref": "day5-reflection.md:L23-L34",
+            "excerpt": "The next-step plan is concrete and honest about the remaining edges.",
+        },
+    ]
+
+
+async def _seed_trial_scaffold(
+    db: AsyncSession,
+    *,
+    company_id: int,
+    created_by: int,
+    title: str,
+    role: str,
+    seniority: str,
+    preferred_language_framework: str,
+    focus: str,
+    status: str,
+    company_name: str,
+    project_brief_md: str,
+    storyline_md: str,
+    ai_notice_version: str,
+    trial_focus_note: str,
+) -> tuple[Trial, list[Task], TrialScenarioVersion]:
+    trial = Trial(
+        company_id=company_id,
+        title=title,
+        role=role,
+        preferred_language_framework=preferred_language_framework,
+        seniority=seniority,
+        focus=focus,
+        company_context={
+            "companyName": company_name,
+            "preferredLanguageFramework": preferred_language_framework,
+            "demoMode": "yc-demo",
+        },
+        company_rubric_json=_demo_company_rubrics(),
+        ai_prompt_overrides_json=None,
+        ai_notice_version=ai_notice_version,
+        ai_notice_text="Winoe demo notice for the YC rehearsal dataset.",
+        ai_eval_enabled_by_day={
+            "1": True,
+            "2": True,
+            "3": True,
+            "4": True,
+            "5": True,
+        },
+        day_window_overrides_enabled=True,
+        day_window_overrides_json={"5": {"startLocal": "09:00", "endLocal": "21:00"}},
+        created_by=created_by,
+        status=TRIAL_STATUS_GENERATING,
+        generating_at=_now(),
+    )
+    db.add(trial)
+    _apply_legacy_trial_fields(trial)
+    await db.flush()
+
+    tasks = await seed_default_tasks(db, trial.id, trial.template_key)
+    scenario_version = await create_initial_scenario_version(
+        db, trial=trial, tasks=tasks
+    )
+    scenario_version.storyline_md = storyline_md
+    scenario_version.task_prompts_json = _demo_task_prompts(tasks)
+    scenario_version.rubric_json = {
+        "dimensions": [
+            {"key": "architecture", "weight": 0.18},
+            {"key": "scope_control", "weight": 0.10},
+            {"key": "implementation_discipline", "weight": 0.16},
+            {"key": "testing_discipline", "weight": 0.14},
+            {"key": "code_quality", "weight": 0.12},
+            {"key": "dependency_hygiene", "weight": 0.10},
+            {"key": "communication_handoff_demo", "weight": 0.10},
+            {"key": "reflection_self_awareness", "weight": 0.10},
+        ]
+    }
+    scenario_version.project_brief_md = project_brief_md
+    scenario_version.focus_notes = trial_focus_note
+    scenario_version.preferred_language_framework = preferred_language_framework
+    scenario_version.seniority = seniority
+    scenario_version.locked_at = _now()
+    trial.ready_for_review_at = _now()
+    trial.activated_at = _now()
+    trial.active_scenario_version_id = scenario_version.id
+    trial.status = status
+    await db.flush()
+    return trial, tasks, scenario_version
+
+
 async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
     """Remove any existing demo-scoped rows before reseeding."""
-    candidate_emails = [candidate.email for candidate in _demo_candidate_profiles()]
-    company = await db.scalar(
-        select(Company).where(Company.name == config.company_name)
-    )
-    company_id = company.id if company is not None else None
-    user_filters = [User.email == config.talent_partner_email]
-    if candidate_emails:
-        user_filters.append(User.email.in_(candidate_emails))
-    if company_id is not None:
-        user_filters.append(User.company_id == company_id)
+    candidate_emails = [config.talent_partner_email, *DEMO_INVITE_EMAILS]
+    demo_trial_rows = (
+        await db.execute(
+            select(Trial.id, Trial.company_id).where(
+                Trial.company_context["demoMode"].as_string() == DEMO_MODE_MARKER
+            )
+        )
+    ).all()
+    trial_ids = [row.id for row in demo_trial_rows]
+    company_ids = sorted({row.company_id for row in demo_trial_rows})
+
+    user_filters = [User.email.in_(candidate_emails)]
+    if company_ids:
+        user_filters.append(User.company_id.in_(company_ids))
     user_ids = (
         (await db.execute(select(User.id).where(or_(*user_filters)))).scalars().all()
-    )
-
-    trial_filters = [Trial.title == config.trial_title]
-    if company_id is not None:
-        trial_filters.append(Trial.company_id == company_id)
-    trial_ids = (
-        (await db.execute(select(Trial.id).where(or_(*trial_filters)))).scalars().all()
     )
 
     candidate_session_filters = [CandidateSession.invite_email.in_(candidate_emails)]
@@ -1096,12 +1493,12 @@ async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
             .all()
         )
     job_ids: list[str] = []
-    if candidate_session_ids or company_id is not None:
+    if candidate_session_ids or company_ids:
         job_filters = []
         if candidate_session_ids:
             job_filters.append(Job.candidate_session_id.in_(candidate_session_ids))
-        if company_id is not None:
-            job_filters.append(Job.company_id == company_id)
+        if company_ids:
+            job_filters.append(Job.company_id.in_(company_ids))
         job_ids = (
             (await db.execute(select(Job.id).where(or_(*job_filters)))).scalars().all()
         )
@@ -1184,8 +1581,8 @@ async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
 
     if user_ids:
         await db.execute(delete(User).where(User.id.in_(user_ids)))
-    if company is not None:
-        await db.execute(delete(Company).where(Company.id == company.id))
+    if company_ids:
+        await db.execute(delete(Company).where(Company.id.in_(company_ids)))
 
     await db.commit()
 
@@ -1239,378 +1636,432 @@ async def seed_yc_demo_dataset(
     db.add(talent_partner)
     await db.flush()
 
-    trial = Trial(
-        company_id=company.id,
-        title=config.trial_title,
-        role=config.trial_role,
-        preferred_language_framework=config.trial_preferred_language_framework,
-        seniority=config.trial_seniority,
-        focus=config.trial_focus,
-        company_context={
-            "companyName": config.company_name,
-            "preferredLanguageFramework": config.trial_preferred_language_framework,
-            "demoMode": "yc-demo",
-        },
-        company_rubric_json=_demo_company_rubrics(),
-        ai_prompt_overrides_json=None,
-        ai_notice_version="yc-demo-v1",
-        ai_notice_text="Winoe demo notice for the YC rehearsal dataset.",
-        ai_eval_enabled_by_day={
-            "1": True,
-            "2": True,
-            "3": True,
-            "4": True,
-            "5": True,
-        },
-        day_window_overrides_enabled=True,
-        day_window_overrides_json={"5": {"startLocal": "09:00", "endLocal": "21:00"}},
-        created_by=talent_partner.id,
-        status=TRIAL_STATUS_GENERATING,
-        generating_at=_now(),
-    )
-    db.add(trial)
-    _apply_legacy_trial_fields(trial)
-    await db.flush()
-
-    tasks = await seed_default_tasks(db, trial.id, trial.template_key)
-    scenario_version = await create_initial_scenario_version(
-        db, trial=trial, tasks=tasks
-    )
-    scenario_version.storyline_md = _demo_scenario_storyline()
-    scenario_version.task_prompts_json = _demo_task_prompts(tasks)
-    scenario_version.rubric_json = {
-        "dimensions": [
-            {"key": "architecture", "weight": 0.25},
-            {"key": "implementation", "weight": 0.35},
-            {"key": "testing", "weight": 0.20},
-            {"key": "documentation", "weight": 0.10},
-            {"key": "judgment", "weight": 0.10},
-        ]
-    }
-    scenario_version.project_brief_md = _demo_trial_brief_markdown(config)
-    scenario_version.focus_notes = config.trial_focus
-    scenario_version.preferred_language_framework = (
-        config.trial_preferred_language_framework
-    )
-    scenario_version.seniority = config.trial_seniority
-    scenario_version.locked_at = _now()
-    trial.status = TRIAL_STATUS_READY_FOR_REVIEW
-    trial.ready_for_review_at = _now()
-    trial.activated_at = _now()
-    await db.flush()
-
+    invite_groups = _demo_invite_candidate_profiles()
     candidate_sessions: list[CandidateSession] = []
     repo_full_names: list[str] = []
-    for candidate in _demo_candidate_profiles():
-        candidate_session = CandidateSession(
-            trial_id=trial.id,
-            scenario_version_id=scenario_version.id,
+
+    brief_md = _demo_trial_brief_markdown(config)
+    storyline_md = _demo_scenario_storyline()
+
+    active_trial_a, _active_tasks_a, active_scenario_a = await _seed_trial_scaffold(
+        db,
+        company_id=company.id,
+        created_by=talent_partner.id,
+        title="Senior Backend Engineer Trial",
+        role="Senior Backend Engineer",
+        seniority="senior",
+        preferred_language_framework="Python + FastAPI",
+        focus="Build a reliable backend surface for a five-day evidence-backed Trial.",
+        status=TRIAL_STATUS_ACTIVE_INVITING,
+        company_name=config.company_name,
+        project_brief_md=brief_md,
+        storyline_md=storyline_md,
+        ai_notice_version="yc-demo-v1",
+        trial_focus_note="Python + FastAPI backend with clean evidence capture.",
+    )
+    for invite in invite_groups["active_inviting"]:
+        session = CandidateSession(
+            trial_id=active_trial_a.id,
+            scenario_version_id=active_scenario_a.id,
             candidate_user_id=None,
-            candidate_name=candidate.name,
-            invite_email=candidate.email,
-            candidate_email=candidate.email,
-            candidate_auth0_email=candidate.email,
-            token=_candidate_token(config, candidate),
-            status="completed",
-            started_at=_now() - timedelta(days=4),
-            completed_at=_now(),
-            claimed_at=_now() - timedelta(days=4),
+            candidate_name=invite.name,
+            invite_email=invite.email,
+            candidate_email=invite.email,
+            candidate_auth0_email=invite.email,
+            token=_stable_hex(config.company_name, invite.email, "invite", length=32),
+            status="not_started",
+            claimed_at=None,
+            scheduled_start_at=None,
+            started_at=None,
+            completed_at=None,
             expires_at=_now() + timedelta(days=7),
             invite_email_status="sent",
-            invite_email_sent_at=_now() - timedelta(days=4),
-            invite_email_last_attempt_at=_now() - timedelta(days=4),
-            scheduled_start_at=_now() - timedelta(days=4),
+            invite_email_sent_at=_now() - timedelta(hours=6),
+            invite_email_last_attempt_at=_now() - timedelta(hours=6),
             candidate_timezone=config.timezone,
-            github_username=candidate.repo_suffix.replace("-", ""),
+            github_username=invite.github_username,
             consent_version="yc-demo-v1",
-            consent_timestamp=_now() - timedelta(days=4),
+            consent_timestamp=None,
             ai_notice_version="yc-demo-v1",
-            day_windows_json=[
-                {"dayIndex": day_index, "status": "submitted"}
-                for day_index in range(1, 6)
-            ],
-            schedule_locked_at=_now() - timedelta(days=4),
+            day_windows_json=[],
         )
-        db.add(candidate_session)
+        db.add(session)
         await db.flush()
-        candidate_sessions.append(candidate_session)
+        candidate_sessions.append(session)
 
-        repo_name = _candidate_repo_name(config, candidate)
-        repo_result = await bootstrap_empty_candidate_repo(
-            github_client=github_client,
-            candidate_session=candidate_session,
-            trial=trial,
-            scenario_version=scenario_version,
-            task=tasks[1],
-            repo_prefix=config.repo_prefix,
-            destination_owner=config.git_owner,
-            repo_name=repo_name,
-        )
-        repo_full_names.append(repo_result.repo_full_name)
+    completed_candidate = _demo_candidate_profiles()[0]
+    completed_trial, completed_tasks, completed_scenario = await _seed_trial_scaffold(
+        db,
+        company_id=company.id,
+        created_by=talent_partner.id,
+        title=config.trial_title,
+        role=config.trial_role,
+        seniority=config.trial_seniority,
+        preferred_language_framework=config.trial_preferred_language_framework,
+        focus=config.trial_focus,
+        status=TRIAL_STATUS_READY_FOR_REVIEW,
+        company_name=config.company_name,
+        project_brief_md=brief_md,
+        storyline_md=storyline_md,
+        ai_notice_version="yc-demo-v1",
+        trial_focus_note=config.trial_focus,
+    )
+    candidate_session = CandidateSession(
+        trial_id=completed_trial.id,
+        scenario_version_id=completed_scenario.id,
+        candidate_user_id=None,
+        candidate_name=completed_candidate.name,
+        invite_email=completed_candidate.email,
+        candidate_email=completed_candidate.email,
+        candidate_auth0_email=completed_candidate.email,
+        token=_candidate_token(config, completed_candidate),
+        status="completed",
+        started_at=_now() - timedelta(days=4),
+        completed_at=_now(),
+        claimed_at=_now() - timedelta(days=4),
+        expires_at=_now() + timedelta(days=7),
+        invite_email_status="sent",
+        invite_email_sent_at=_now() - timedelta(days=4),
+        invite_email_last_attempt_at=_now() - timedelta(days=4),
+        scheduled_start_at=_now() - timedelta(days=4),
+        candidate_timezone=config.timezone,
+        github_username=completed_candidate.repo_suffix.replace("-", ""),
+        consent_version="yc-demo-v1",
+        consent_timestamp=_now() - timedelta(days=4),
+        ai_notice_version="yc-demo-v1",
+        day_windows_json=[
+            {"dayIndex": day_index, "status": "submitted"} for day_index in range(1, 6)
+        ],
+        schedule_locked_at=_now() - timedelta(days=4),
+    )
+    db.add(candidate_session)
+    await db.flush()
+    candidate_sessions.append(candidate_session)
 
-        workspace_group = WorkspaceGroup(
-            candidate_session_id=candidate_session.id,
-            workspace_key=config.codespace_workspace_key,
-            template_repo_full_name=None,
-            repo_full_name=repo_result.repo_full_name,
-            default_branch=repo_result.default_branch,
-            bootstrap_commit_sha=repo_result.bootstrap_commit_sha,
-            created_at=_now(),
-        )
-        db.add(workspace_group)
-        await db.flush()
-        workspace = Workspace(
-            workspace_group_id=workspace_group.id,
-            candidate_session_id=candidate_session.id,
-            task_id=tasks[1].id,
-            template_repo_full_name=None,
-            repo_full_name=repo_result.repo_full_name,
-            repo_id=repo_result.repo_id,
-            default_branch=repo_result.default_branch,
-            bootstrap_commit_sha=repo_result.bootstrap_commit_sha,
-            codespace_name=repo_result.codespace_name,
-            codespace_url=repo_result.codespace_url,
-            codespace_state=repo_result.codespace_state,
-            workspace_provisioning_status=repo_result.workspace_provisioning_status,
-            latest_commit_sha=_candidate_commit_sha(config, candidate, day=3),
-            last_workflow_run_id=f"yc-demo-{candidate.label}-workflow",
-            last_workflow_conclusion="success"
-            if candidate.label == "candidate-a"
-            else "neutral",
-            last_test_summary_json=(
-                f'{{"passed": {candidate.test_summary[2][0]}, "failed": {candidate.test_summary[2][1]}}}'
-            ),
-            created_at=_now(),
-        )
-        db.add(workspace)
-        await db.flush()
+    repo_name = _candidate_repo_name(config, completed_candidate)
+    repo_result = await bootstrap_empty_candidate_repo(
+        github_client=github_client,
+        candidate_session=candidate_session,
+        trial=completed_trial,
+        scenario_version=completed_scenario,
+        task=completed_tasks[1],
+        repo_prefix=config.repo_prefix,
+        destination_owner=config.git_owner,
+        repo_name=repo_name,
+    )
+    repo_full_names.append(repo_result.repo_full_name)
 
-        day2_commit_sha = _candidate_commit_sha(config, candidate, day=2)
-        day3_commit_sha = _candidate_commit_sha(config, candidate, day=3)
-        recording_key = _candidate_recording_key(config, candidate)
-        submissions = _candidate_submissions(
-            config,
-            candidate,
-            repo_full_name=repo_result.repo_full_name,
-            bootstrap_commit_sha=repo_result.bootstrap_commit_sha or "",
-            day2_commit_sha=day2_commit_sha,
-            day3_commit_sha=day3_commit_sha,
-            recording_key=recording_key,
-        )
-        for day_index, task in enumerate(tasks, start=1):
-            submission_spec = submissions[day_index]
-            submission_recording_id: int | None = None
-            if day_index == 4:
-                recording = RecordingAsset(
-                    candidate_session_id=candidate_session.id,
-                    task_id=task.id,
-                    storage_key=recording_key,
-                    content_type="video/mp4",
-                    bytes=2_048_000,
-                    asset_kind="recording",
-                    duration_seconds=120,
-                    status="ready",
-                    consent_version="yc-demo-v1",
-                    consent_timestamp=_now() - timedelta(days=1),
-                    ai_notice_version="yc-demo-v1",
-                    retention_expires_at=_now() + timedelta(days=30),
-                )
-                db.add(recording)
-                await db.flush()
-                transcript = Transcript(
-                    recording_id=recording.id,
-                    text=(
-                        f"{candidate.name} explained the design, tradeoffs, and next steps "
-                        f"for the {config.company_name} demo."
-                    ),
-                    segments_json=[
-                        {"start": 0, "end": 60, "text": candidate.summary_line},
-                        {
-                            "start": 60,
-                            "end": 120,
-                            "text": "The evidence trail is grounded in the submitted artifacts.",
-                        },
-                    ],
-                    model_name="demo-transcribe",
-                    status="ready",
-                )
-                db.add(transcript)
-                await db.flush()
-                submission_recording_id = recording.id
-                submission_spec["content_json"]["transcriptRecordingId"] = recording.id
-            submission = Submission(
+    workspace_group = WorkspaceGroup(
+        candidate_session_id=candidate_session.id,
+        workspace_key=config.codespace_workspace_key,
+        template_repo_full_name=None,
+        repo_full_name=repo_result.repo_full_name,
+        default_branch=repo_result.default_branch,
+        bootstrap_commit_sha=repo_result.bootstrap_commit_sha,
+        created_at=_now(),
+    )
+    db.add(workspace_group)
+    await db.flush()
+    workspace = Workspace(
+        workspace_group_id=workspace_group.id,
+        candidate_session_id=candidate_session.id,
+        task_id=completed_tasks[1].id,
+        template_repo_full_name=None,
+        repo_full_name=repo_result.repo_full_name,
+        repo_id=repo_result.repo_id,
+        default_branch=repo_result.default_branch,
+        bootstrap_commit_sha=repo_result.bootstrap_commit_sha,
+        codespace_name=repo_result.codespace_name,
+        codespace_url=repo_result.codespace_url,
+        codespace_state=repo_result.codespace_state,
+        workspace_provisioning_status=repo_result.workspace_provisioning_status,
+        latest_commit_sha=_candidate_commit_sha(config, completed_candidate, day=3),
+        last_workflow_run_id=f"yc-demo-{completed_candidate.label}-workflow",
+        last_workflow_conclusion="success",
+        last_test_summary_json=(
+            f'{{"passed": {completed_candidate.test_summary[3][0]}, "failed": {completed_candidate.test_summary[3][1]}}}'
+        ),
+        created_at=_now(),
+    )
+    db.add(workspace)
+    await db.flush()
+
+    day2_commit_sha = _candidate_commit_sha(config, completed_candidate, day=2)
+    day3_commit_sha = _candidate_commit_sha(config, completed_candidate, day=3)
+    recording_key = _candidate_recording_key(config, completed_candidate)
+    submissions = _candidate_submissions(
+        config,
+        completed_candidate,
+        repo_full_name=repo_result.repo_full_name,
+        bootstrap_commit_sha=repo_result.bootstrap_commit_sha or "",
+        day2_commit_sha=day2_commit_sha,
+        day3_commit_sha=day3_commit_sha,
+        recording_key=recording_key,
+    )
+    for day_index, task in enumerate(completed_tasks, start=1):
+        submission_spec = submissions[day_index]
+        submission_recording_id: int | None = None
+        if day_index == 4:
+            recording = RecordingAsset(
                 candidate_session_id=candidate_session.id,
                 task_id=task.id,
-                recording_id=submission_recording_id,
-                submitted_at=_now() - timedelta(days=5 - day_index),
-                content_text=submission_spec["content_text"],
-                content_json=submission_spec["content_json"],
-                code_repo_path=submission_spec["code_repo_path"],
-                commit_sha=submission_spec["commit_sha"],
-                final_sha=submission_spec["commit_sha"] if day_index == 3 else None,
-                workflow_run_id=(
-                    f"yc-demo-{candidate.label}-day{day_index}"
-                    if day_index in {2, 3}
-                    else None
-                ),
-                workflow_run_attempt=1 if day_index in {2, 3} else None,
-                workflow_run_status="completed" if day_index in {2, 3} else None,
-                workflow_run_conclusion="success" if day_index in {2, 3} else None,
-                workflow_run_completed_at=_now() if day_index in {2, 3} else None,
-                diff_summary_json=submission_spec["diff_summary_json"],
-                tests_passed=submission_spec["tests_passed"],
-                tests_failed=submission_spec["tests_failed"],
-                test_output=submission_spec["test_output"],
-                last_run_at=_now() if day_index in {2, 3} else None,
+                storage_key=recording_key,
+                content_type="video/mp4",
+                bytes=2_048_000,
+                asset_kind="recording",
+                duration_seconds=120,
+                status="ready",
+                consent_version="yc-demo-v1",
+                consent_timestamp=_now() - timedelta(days=1),
+                ai_notice_version="yc-demo-v1",
+                retention_expires_at=_now() + timedelta(days=30),
             )
-            db.add(submission)
+            db.add(recording)
             await db.flush()
-            if day_index in {2, 3}:
-                await db.execute(
-                    delete(CandidateDayAudit).where(
-                        CandidateDayAudit.candidate_session_id == candidate_session.id,
-                        CandidateDayAudit.day_index == day_index,
-                    )
-                )
-                db.add(
-                    CandidateDayAudit(
-                        candidate_session_id=candidate_session.id,
-                        day_index=day_index,
-                        cutoff_at=_now() - timedelta(days=5 - day_index),
-                        cutoff_commit_sha=(
-                            day2_commit_sha if day_index == 2 else day3_commit_sha
-                        ),
-                        eval_basis_ref=(
-                            f"{repo_result.repo_full_name}@"
-                            f"{day2_commit_sha if day_index == 2 else day3_commit_sha}"
-                        ),
-                    )
-                )
-                await db.flush()
-
-        day_rows, reviewer_rows = _build_report_rows(
-            candidate=candidate,
-            repo_full_name=repo_result.repo_full_name,
-            bootstrap_commit_sha=repo_result.bootstrap_commit_sha or "",
-            day2_commit_sha=day2_commit_sha,
-            day3_commit_sha=day3_commit_sha,
-        )
-        raw_report_json = {
-            "overallWinoeScore": candidate.overall_score,
-            "recommendation": candidate.recommendation,
-            "confidence": candidate.confidence,
-            "dayScores": day_rows,
-            "reviewerReports": reviewer_rows,
-        }
-        run = await create_run(
-            db,
-            candidate_session_id=candidate_session.id,
-            scenario_version_id=scenario_version.id,
-            model_name="demo-winoe-report",
-            model_version="demo-1",
-            prompt_version="demo-1",
-            rubric_version="demo-1",
-            day2_checkpoint_sha=day2_commit_sha,
-            day3_final_sha=day3_commit_sha,
-            cutoff_commit_sha=day3_commit_sha,
-            transcript_reference=f"transcript:{recording_key}",
-            job_id=None,
-            basis_fingerprint=_stable_hex(
-                candidate.email, repo_result.repo_full_name, "basis", length=64
-            ),
-            overall_winoe_score=candidate.overall_score,
-            recommendation=candidate.internal_recommendation,
-            confidence=candidate.confidence,
-            generated_at=_now(),
-            raw_report_json=raw_report_json,
-            status=EVALUATION_RUN_STATUS_COMPLETED,
-            started_at=_now() - timedelta(hours=1),
-            completed_at=_now(),
-            metadata_json={
-                "aiPolicyProvider": "demo-seed",
-                "aiPolicySnapshotDigest": (
-                    scenario_version.ai_policy_snapshot_json or {}
-                ).get("snapshotDigest"),
-                "rubricSnapshots": [
+            transcript = Transcript(
+                recording_id=recording.id,
+                text=(
+                    f"{completed_candidate.name} explained the design, tradeoffs, and next steps "
+                    f"for the {config.company_name} demo."
+                ),
+                segments_json=[
+                    {"start": 0, "end": 60, "text": completed_candidate.summary_line},
                     {
-                        "scope": "winoe",
-                        "rubricKind": "demo",
-                        "rubricKey": candidate.label,
-                        "rubricVersion": "demo-1",
-                    }
-                ],
-            },
-            commit=False,
-        )
-        await add_day_scores(
-            db,
-            run=run,
-            day_scores=day_rows,
-            commit=False,
-        )
-        for reviewer_row in reviewer_rows:
-            db.add(
-                EvaluationReviewerReport(
-                    run_id=run.id,
-                    reviewer_agent_key=reviewer_row["reviewer_agent_key"],
-                    day_index=reviewer_row["day_index"],
-                    submission_kind=reviewer_row["submission_kind"],
-                    score=reviewer_row["score"],
-                    dimensional_scores_json=reviewer_row["dimensional_scores_json"],
-                    evidence_citations_json=reviewer_row["evidence_citations_json"],
-                    assessment_text=reviewer_row["assessment_text"],
-                    strengths_json=reviewer_row["strengths_json"],
-                    risks_json=reviewer_row["risks_json"],
-                    raw_output_json={
-                        "summary": candidate.summary_line,
-                        "candidate": candidate.name,
+                        "start": 60,
+                        "end": 120,
+                        "text": "The evidence trail is grounded in the submitted artifacts.",
                     },
+                ],
+                model_name="demo-transcribe",
+                status="ready",
+            )
+            db.add(transcript)
+            await db.flush()
+            submission_recording_id = recording.id
+            submission_spec["content_json"]["transcriptRecordingId"] = recording.id
+        submission = Submission(
+            candidate_session_id=candidate_session.id,
+            task_id=task.id,
+            recording_id=submission_recording_id,
+            submitted_at=_now() - timedelta(days=5 - day_index),
+            content_text=submission_spec["content_text"],
+            content_json=submission_spec["content_json"],
+            code_repo_path=submission_spec["code_repo_path"],
+            commit_sha=submission_spec["commit_sha"],
+            final_sha=submission_spec["commit_sha"] if day_index == 3 else None,
+            workflow_run_id=(
+                f"yc-demo-{completed_candidate.label}-day{day_index}"
+                if day_index in {2, 3}
+                else None
+            ),
+            workflow_run_attempt=1 if day_index in {2, 3} else None,
+            workflow_run_status="completed" if day_index in {2, 3} else None,
+            workflow_run_conclusion="success" if day_index in {2, 3} else None,
+            workflow_run_completed_at=_now() if day_index in {2, 3} else None,
+            diff_summary_json=submission_spec["diff_summary_json"],
+            tests_passed=submission_spec["tests_passed"],
+            tests_failed=submission_spec["tests_failed"],
+            test_output=submission_spec["test_output"],
+            last_run_at=_now() if day_index in {2, 3} else None,
+        )
+        db.add(submission)
+        await db.flush()
+        if day_index in {2, 3}:
+            await db.execute(
+                delete(CandidateDayAudit).where(
+                    CandidateDayAudit.candidate_session_id == candidate_session.id,
+                    CandidateDayAudit.day_index == day_index,
                 )
             )
-        marker = await upsert_marker(
+            db.add(
+                CandidateDayAudit(
+                    candidate_session_id=candidate_session.id,
+                    day_index=day_index,
+                    cutoff_at=_now() - timedelta(days=5 - day_index),
+                    cutoff_commit_sha=(
+                        day2_commit_sha if day_index == 2 else day3_commit_sha
+                    ),
+                    eval_basis_ref=(
+                        f"{repo_result.repo_full_name}@"
+                        f"{day2_commit_sha if day_index == 2 else day3_commit_sha}"
+                    ),
+                )
+            )
+            await db.flush()
+
+    day_rows, reviewer_rows = _build_report_rows(
+        candidate=completed_candidate,
+        repo_full_name=repo_result.repo_full_name,
+        bootstrap_commit_sha=repo_result.bootstrap_commit_sha or "",
+        day2_commit_sha=day2_commit_sha,
+        day3_commit_sha=day3_commit_sha,
+    )
+    report_dimensions = _build_demo_report_dimensions(completed_candidate)
+    report_citations = _build_demo_report_citations(
+        bootstrap_commit_sha=repo_result.bootstrap_commit_sha or "",
+        day2_commit_sha=day2_commit_sha,
+        day3_commit_sha=day3_commit_sha,
+    )
+    raw_report_json = {
+        "overallWinoeScore": completed_candidate.overall_score,
+        "recommendation": completed_candidate.recommendation,
+        "confidence": completed_candidate.confidence,
+        "verdictOneLiner": (
+            "Sarah's Trial is cohesive, evidence-backed, and easy to explain without overclaiming."
+        ),
+        "narrativeAssessment": (
+            "Sarah kept the work tight and readable. The Day 1 design doc set a clear boundary, "
+            "the Day 2 and Day 3 commits moved steadily, and the Day 4 transcript tied the story back "
+            "to concrete artifacts. The strongest signals are architecture discipline, implementation "
+            "discipline, and communication clarity. The discussable gaps are operational hardening and "
+            "one more explicit edge-case pass."
+        ),
+        "cohortContext": (
+            "This completed Trial has the densest evidence trail in the seeded demo set, with a clean chain from brief to handoff."
+        ),
+        "dimensions": report_dimensions,
+        "citations": report_citations,
+        "dayScores": day_rows,
+        "reviewerReports": reviewer_rows,
+    }
+    run = await create_run(
+        db,
+        candidate_session_id=candidate_session.id,
+        scenario_version_id=completed_scenario.id,
+        model_name="demo-winoe-report",
+        model_version="demo-1",
+        prompt_version="demo-1",
+        rubric_version="demo-1",
+        day2_checkpoint_sha=day2_commit_sha,
+        day3_final_sha=day3_commit_sha,
+        cutoff_commit_sha=day3_commit_sha,
+        transcript_reference=f"transcript:{recording_key}",
+        job_id=None,
+        basis_fingerprint=_stable_hex(
+            completed_candidate.email, repo_result.repo_full_name, "basis", length=64
+        ),
+        overall_winoe_score=completed_candidate.overall_score,
+        recommendation=completed_candidate.internal_recommendation,
+        confidence=completed_candidate.confidence,
+        generated_at=_now(),
+        raw_report_json=raw_report_json,
+        status=EVALUATION_RUN_STATUS_COMPLETED,
+        started_at=_now() - timedelta(hours=1),
+        completed_at=_now(),
+        metadata_json={
+            "aiPolicyProvider": "demo-seed",
+            "aiPolicySnapshotDigest": (
+                completed_scenario.ai_policy_snapshot_json or {}
+            ).get("snapshotDigest"),
+            "rubricSnapshots": [
+                {
+                    "scope": "winoe",
+                    "rubricKind": "demo",
+                    "rubricKey": completed_candidate.label,
+                    "rubricVersion": "demo-1",
+                }
+            ],
+        },
+        commit=False,
+    )
+    await add_day_scores(
+        db,
+        run=run,
+        day_scores=day_rows,
+        commit=False,
+    )
+    for reviewer_row in reviewer_rows:
+        db.add(
+            EvaluationReviewerReport(
+                run_id=run.id,
+                reviewer_agent_key=reviewer_row["reviewer_agent_key"],
+                day_index=reviewer_row["day_index"],
+                submission_kind=reviewer_row["submission_kind"],
+                score=reviewer_row["score"],
+                dimensional_scores_json=reviewer_row["dimensional_scores_json"],
+                evidence_citations_json=reviewer_row["evidence_citations_json"],
+                assessment_text=reviewer_row["assessment_text"],
+                strengths_json=reviewer_row["strengths_json"],
+                risks_json=reviewer_row["risks_json"],
+                raw_output_json={
+                    "summary": completed_candidate.summary_line,
+                    "candidate": completed_candidate.name,
+                },
+            )
+        )
+    marker = await upsert_marker(
+        db,
+        candidate_session_id=candidate_session.id,
+        generated_at=_now(),
+        commit=False,
+    )
+    if marker.id is not None:
+        await replace_report_citations(
             db,
-            candidate_session_id=candidate_session.id,
-            generated_at=_now(),
+            report_id=marker.id,
+            citations=report_citations,
             commit=False,
         )
-        if marker.id is not None:
-            report_citations = []
-            for day_row in day_rows:
-                for pointer in day_row["evidence_pointers_json"]:
-                    if not isinstance(pointer, dict):
-                        continue
-                    artifact_ref = pointer.get("ref")
-                    excerpt = pointer.get("excerpt")
-                    dimension = pointer.get("dimensionKey") or pointer.get(
-                        "dimensionLabel"
-                    )
-                    kind = pointer.get("kind")
-                    if not all(
-                        isinstance(value, str) and value.strip()
-                        for value in (artifact_ref, excerpt, dimension, kind)
-                    ):
-                        continue
-                    report_citations.append(
-                        {
-                            "dimension": str(dimension).strip(),
-                            "artifact_type": str(kind).strip(),
-                            "artifact_ref": str(artifact_ref).strip(),
-                            "excerpt": str(excerpt).strip(),
-                        }
-                    )
-            await replace_report_citations(
-                db,
-                report_id=marker.id,
-                citations=report_citations,
-                commit=False,
-            )
-        candidate_session.completed_at = _now()
-        candidate_session.status = "completed"
+    candidate_session.completed_at = _now()
+    candidate_session.status = "completed"
+    completed_trial.completed_at = _now()
+    completed_trial.status = TRIAL_STATUS_COMPLETED
+
+    awaiting_trial, _, awaiting_scenario = await _seed_trial_scaffold(
+        db,
+        company_id=company.id,
+        created_by=talent_partner.id,
+        title="Staff Engineer Trial",
+        role="Staff Engineer",
+        seniority="staff",
+        preferred_language_framework="Go",
+        focus="Keep the architecture minimal while leaving a crisp evidence trail.",
+        status=TRIAL_STATUS_ACTIVE_INVITING,
+        company_name=config.company_name,
+        project_brief_md=brief_md,
+        storyline_md="A staff-level Trial that is ready to invite a candidate and wait for start.",
+        ai_notice_version="yc-demo-v1",
+        trial_focus_note="Go-oriented staff level work with an invite still pending.",
+    )
+    awaiting_candidate = invite_groups["awaiting_candidate"][0]
+    awaiting_session = CandidateSession(
+        trial_id=awaiting_trial.id,
+        scenario_version_id=awaiting_scenario.id,
+        candidate_user_id=None,
+        candidate_name=awaiting_candidate.name,
+        invite_email=awaiting_candidate.email,
+        candidate_email=awaiting_candidate.email,
+        candidate_auth0_email=awaiting_candidate.email,
+        token=_stable_hex(
+            config.company_name, awaiting_candidate.email, "invite", length=32
+        ),
+        status="not_started",
+        claimed_at=None,
+        scheduled_start_at=None,
+        started_at=None,
+        completed_at=None,
+        expires_at=_now() + timedelta(days=7),
+        invite_email_status="sent",
+        invite_email_sent_at=_now() - timedelta(hours=6),
+        invite_email_last_attempt_at=_now() - timedelta(hours=6),
+        candidate_timezone=config.timezone,
+        github_username=awaiting_candidate.github_username,
+        consent_version="yc-demo-v1",
+        consent_timestamp=None,
+        ai_notice_version="yc-demo-v1",
+        day_windows_json=[],
+    )
+    db.add(awaiting_session)
+    await db.flush()
+    candidate_sessions.append(awaiting_session)
+
+    for trial in (active_trial_a, completed_trial, awaiting_trial):
+        trial.activated_at = trial.activated_at or _now()
 
     await db.commit()
     return DemoSeedSummary(
         company_id=company.id,
-        trial_id=trial.id,
+        trial_id=completed_trial.id,
         candidate_session_ids=[candidate.id for candidate in candidate_sessions],
         repo_full_names=repo_full_names,
     )

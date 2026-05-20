@@ -180,6 +180,9 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-root
 
+      - name: Check demo-visible legacy GitHub refs
+        run: bash scripts/check_no_legacy_demo_refs.sh
+
       - name: Run Alembic migrations
         run: poetry run alembic upgrade heads
 

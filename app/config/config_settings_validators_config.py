@@ -99,3 +99,11 @@ class SettingsValidationMixin:
         if any("*" in origin for origin in origins):
             raise ValueError("Wildcard CORS origins are not allowed outside local/test")
         return self
+
+    @model_validator(mode="after")
+    def _reject_demo_mode_in_production(self):
+        if bool(self.DEMO_MODE) and self.is_production_environment():
+            raise ValueError(
+                "DEMO_MODE/WINOE_DEMO_MODE cannot be enabled in production."
+            )
+        return self

@@ -51,6 +51,23 @@ class WinoeReportReviewerReportOut(APIModel):
     concerns: list[str] = Field(default_factory=list)
 
 
+class WinoeReportDimensionOut(APIModel):
+    """Represent a scored Winoe Report dimension."""
+
+    name: str
+    score: float
+    justification: str
+
+
+class WinoeReportCitationOut(APIModel):
+    """Represent a persisted Evidence Trail citation."""
+
+    dimension: str
+    artifact_type: str
+    artifact_ref: str
+    excerpt: str
+
+
 class WinoeReportDayScoreOut(APIModel):
     """Represent winoe report day score out data and behavior."""
 
@@ -85,6 +102,11 @@ class WinoeReportReportOut(APIModel):
         "limited_signal",
     ]
     confidence: float
+    verdictOneLiner: str | None = None
+    narrativeAssessment: str | None = None
+    cohortContext: str | None = None
+    dimensions: list[WinoeReportDimensionOut] = Field(default_factory=list)
+    citations: list[WinoeReportCitationOut] = Field(default_factory=list)
     dayScores: list[WinoeReportDayScoreOut] = Field(default_factory=list)
     reviewerReports: list[WinoeReportReviewerReportOut] = Field(default_factory=list)
     version: WinoeReportVersionOut
@@ -102,8 +124,10 @@ class WinoeReportStatusResponse(APIModel):
 
 __all__ = [
     "WinoeReportDayScoreOut",
+    "WinoeReportCitationOut",
     "WinoeReportEvidenceOut",
     "WinoeReportGenerateResponse",
+    "WinoeReportDimensionOut",
     "WinoeReportReportOut",
     "WinoeReportReviewerReportOut",
     "WinoeReportStatusResponse",

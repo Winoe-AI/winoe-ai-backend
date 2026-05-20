@@ -145,6 +145,16 @@ def compose_report(run: EvaluationRun) -> dict[str, Any]:
     )
     if disabled_indexes:
         report["disabledDayIndexes"] = sorted(disabled_indexes)
+    if isinstance(persisted_report.get("verdictOneLiner"), str):
+        report["verdictOneLiner"] = str(persisted_report["verdictOneLiner"])
+    if isinstance(persisted_report.get("narrativeAssessment"), str):
+        report["narrativeAssessment"] = str(persisted_report["narrativeAssessment"])
+    if isinstance(persisted_report.get("cohortContext"), str):
+        report["cohortContext"] = str(persisted_report["cohortContext"])
+    if isinstance(persisted_report.get("dimensions"), list):
+        report["dimensions"] = list(persisted_report["dimensions"])
+    if isinstance(persisted_report.get("citations"), list):
+        report["citations"] = list(persisted_report["citations"])
     return report
 
 
