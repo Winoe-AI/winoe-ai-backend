@@ -23,6 +23,9 @@ from app.trials.services import scenario_generation
 from app.trials.services import (
     trials_services_trials_scenario_generation_runtime_service as scenario_generation_runtime,
 )
+from app.trials.services.trials_services_trials_scenario_generation_story_service import (
+    build_project_brief_markdown,
+)
 from tests.shared.factories import build_trial_agent_snapshots
 
 
@@ -196,6 +199,20 @@ def test_project_brief_stays_open_ended_for_context_changes() -> None:
     assert "codespace" not in payload.project_brief_md.lower()
     assert "python" in payload.project_brief_md.lower()
     assert "template" not in payload.project_brief_md.lower()
+
+
+def test_project_brief_reads_preferred_stack_from_company_context() -> None:
+    brief = build_project_brief_markdown(
+        role="Backend Engineer",
+        focus="billing operations",
+        company_context={
+            "name": "Acme",
+            "preferredLanguageFramework": "Go + HTMX",
+        },
+    )
+
+    assert "Acme is trying to improve billing operations." in brief
+    assert "Preferred language/framework context: Go + HTMX." in brief
 
 
 def test_deterministic_template_generation_uses_demo_and_reflection_language() -> None:

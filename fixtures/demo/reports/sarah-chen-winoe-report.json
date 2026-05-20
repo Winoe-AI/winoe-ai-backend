@@ -1,0 +1,20 @@
+{
+  "overallWinoeScore": 0.78,
+  "verdictOneLiner": "The Trial is cohesive, evidence-backed, and easy to defend.",
+  "narrativeAssessment": "Sarah kept the work tight and readable. The Day 1 design doc set a clear boundary, the Day 2 and Day 3 commits moved steadily, and the Day 4 transcript tied the story back to concrete artifacts.",
+  "cohortContext": "This was the strongest completed Trial in the seeded demo cohort.",
+  "dimensions": [
+    {"name": "Architectural coherence", "score": 0.88, "justification": "The Day 1 brief keeps the scope bounded."},
+    {"name": "Scope control", "score": 0.86, "justification": "The repo stays focused on the Trial."},
+    {"name": "Implementation discipline", "score": 0.89, "justification": "Day 2 and Day 3 show steady progress."},
+    {"name": "Testing discipline", "score": 0.87, "justification": "Tests are present and tied to the build."},
+    {"name": "Code quality", "score": 0.88, "justification": "The code snapshots stay readable."},
+    {"name": "Dependency hygiene", "score": 0.85, "justification": "The stack stays clean."},
+    {"name": "Communication / Handoff + Demo", "score": 0.86, "justification": "The handoff is grounded in artifacts."},
+    {"name": "Reflection & self-awareness", "score": 0.84, "justification": "The reflection is candid and specific."}
+  ],
+  "citations": [
+    {"dimension": "architectural_coherence", "artifact_type": "rubric", "artifact_ref": "day1-design-doc.md:L12-L31", "excerpt": "Architecture plan, tradeoffs, and testing strategy."},
+    {"dimension": "scope_control", "artifact_type": "commit", "artifact_ref": "c9b4a58f4d8e11b1c1c9b7d2e9fd0b7f0d7e8e11:README.md:L1-L24", "excerpt": "Bootstrap commit created the empty repository, devcontainer, and README."}
+  ]
+}

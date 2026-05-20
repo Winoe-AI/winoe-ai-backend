@@ -1,132 +1,102 @@
-# Task 7: Add Benchmarks APIs, Submission Review artifacts, and seekable media support
+# Task 10 — Demo Infrastructure
 
 ## Summary
+- Added fake GitHub provider support for demo mode so seeded demo environments do not make real GitHub network calls.
+- Wired `WINOE_DEMO_MODE` / `DEMO_MODE` selection behavior so demo mode is explicit and production-safe.
+- Added a hard production guard that rejects demo mode when `WINOE_ENV=production`.
+- Built the one-command demo seed flow and made the seeded YC demo dataset deterministic and idempotent.
+- Seeded the Sarah Chen completed Trial with a Winoe Report, Evidence Trail, and Day 1-5 artifacts.
+- Added legacy demo-reference cleanup guardrails and a documented YC demo checklist.
+- Cleaned up the migration graph so the fake placeholder migration is removed and the canonical Alembic head remains intact.
 
-This backend PR supports Task 7 by adding:
+## Backend Change List
+- Fake GitHub provider behavior:
+  - deterministic fake repo, Codespace, workflow, and artifact behavior
+  - no real GitHub network calls in demo mode
+  - fake/demo evidence links used for seeded demo content
+- Demo mode config:
+  - `WINOE_DEMO_MODE=true`
+  - `WINOE_ENV=production` rejection
+- Seed script:
+  - `scripts/seed_demo.sh`
+  - custom env vars:
+    - `DEMO_TALENT_PARTNER_EMAIL`
+    - `DEMO_TALENT_PARTNER_NAME`
+    - `DEMO_COMPANY_NAME`
+  - idempotent seeded dataset
+- Demo dataset:
+  - 1 Talent Partner
+  - 3 Trials
+  - 4 candidate sessions
+  - Sarah Chen completed Trial
+  - 5 submissions
+  - 1 Winoe Report
+  - 1 EvaluationRun
+- Trial A / Trial C candidate list:
+  - invited / not-yet-started seeded candidates use schema-valid `not_started`
+- Legacy cleanup:
+  - `scripts/check_no_legacy_demo_refs.sh`
+  - CI guard
+- Demo runbook:
+  - `YC_DEMO_CHECKLIST.md`
+- Migration graph:
+  - fake placeholder migration removed
+  - canonical Alembic head preserved
+  - stale local DB recovery documented
 
-- Benchmarks list API
-- Benchmarks compare API
-- query-level Talent Partner ownership isolation
-- same-Trial-only comparison
-- Submission Review artifact payloads
-- Day 2 / Day 3 code artifact normalization
-- demo seed support for real code snapshot artifacts
-- fake-storage byte-range support for seekable Day 4 media
+## Verification
+```bash
+bash -n scripts/seed_demo.sh
+bash -n scripts/check_no_legacy_demo_refs.sh
+bash scripts/check_no_legacy_demo_refs.sh
+poetry run pytest -q tests/demo/services/test_demo_yc_seed_service.py tests/trials/routes/test_trials_candidates_list_populated_routes.py -o addopts=''
+./precommit.sh
+```
 
-The backend enforces the data rules for the Talent Partner review surfaces rather than relying on frontend routing alone.
+Final seed command:
 
-## What changed
+```bash
+WINOE_ENV=local \
+WINOE_DEMO_MODE=true \
+DEMO_TALENT_PARTNER_EMAIL="winoetalentpartner@gmail.com" \
+DEMO_TALENT_PARTNER_NAME="TalentPartner" \
+DEMO_COMPANY_NAME="Acme" \
+./scripts/seed_demo.sh
+```
 
-### Benchmarks API
+Final outcome:
+- exit code `0`
+- fake GitHub provider used
+- seeded dataset verified
+- asyncpg / SQLAlchemy shutdown warning is non-blocking if it appears after success
 
-Added:
+## Manual QA Evidence
+- `/health` passed.
+- `/ready` passed and GitHub was skipped / fake-safe in demo mode.
+- dashboard showed 3 Trials.
+- Trial A candidate list worked.
+- Trial C candidate list worked.
+- Sarah Chen Winoe Report data seeded correctly.
+- legacy UI sweep passed.
 
-- `GET /api/v1/benchmarks?trial_id={id}`
-- `GET /api/v1/benchmarks/compare?candidate_ids=id1,id2,id3`
+## Known Warnings / Follow-ups
+- Local stale Alembic stamp recovery may require the documented reset path.
+- Seed teardown warning should be cleaned up later if desired.
+- PDF export is frontend-owned and currently behaves as print mode.
 
-The list API returns same-Trial cohort data with:
+## Final QA Result
 
-- cohort summary fields for `n`, median, mean, range, and sufficient flag
-- pagination
-- candidate rows with:
-  - candidate identity
-  - Trial identity
-  - Winoe Score
-  - dimensions
-  - report ID
-  - status
-  - submitted timestamp
-- honest inclusion of candidates whose reports are not ready yet
-- `null` for missing scores instead of fake `0`
+`Task 10 FINAL QA PASS — ready to finish / raise PRs.`
 
-The compare API returns 2-3 candidate side-by-side data with strict same-Trial validation.
-
-### Data isolation
-
-Data isolation is enforced at the query/service layer, not only in frontend route selection.
-
-Explicit validation and rejection behavior includes:
-
-- fewer than 2 candidates
-- more than 3 candidates
-- duplicate IDs
-- malformed IDs
-- mixed-Trial candidates
-- unauthorized candidates
-- nonexistent candidates using repo-standard error behavior
-
-Talent Partner access is resolved through the Trial relationship, so the API only exposes data the caller is allowed to see.
-
-### Submission Review payloads
-
-The submission-review endpoint returns:
-
-- candidate metadata
-- Trial metadata
-- Day 1 markdown
-- Day 2 code payload
-- Day 3 code payload
-- Day 4 demo / transcript / media payload
-- Day 5 markdown
-
-Day 2 and Day 3 normalize repository or code snapshot artifacts into:
-
-- `fileTree`
-- selected file metadata
-- selected file content
-- language
-- commit timeline
-
-Fallback handling remains for older or simpler payload shapes where appropriate.
-
-### Demo seed data
-
-- YC demo seed now includes realistic code snapshot artifacts for Day 2 and Day 3.
-- The seed supports manual QA of real file tree, code, and commit rendering.
-- This is backend-provided demo data, not frontend fake state.
-
-### Media Range support
-
-The fake-storage media download route now supports browser byte-range requests:
-
-- `Range: bytes=...`
-- `206 Partial Content`
-- `Accept-Ranges: bytes`
-- `Content-Range`
-
-This fixed local Day 4 transcript seek, where the browser could not seek the media element until the response became seekable.
-
-The full `200 OK` path still works for normal downloads, and the parser is intentionally narrow for browser-needed byte-range patterns.
-
-## Manual QA support / proof
-
-- Browser QA proved Day 4 click-to-seek:
-  - route `/talent-partner/trials/2/candidates/5/submission`
-  - clicked `00:35 Implementation walkthrough.`
-  - `video.currentTime: 0 → 35`
-  - active highlight updated
-- Backend API QA passed for:
-  - Benchmarks list
-  - Compare 2 candidates
-  - Compare 3 candidates
-  - validation errors
-  - data isolation
-- QA artifacts and media remained local-only and were not committed.
-
-## Tests
-
-- `pytest -o addopts='' tests/candidates/routes/test_candidates_session_review_returns_completed_artifacts_routes.py tests/trials/routes/test_trials_benchmarks_and_submission_review_routes.py tests/trials/services/test_trials_benchmarks_service.py`
-- `./precommit.sh`
-
-Final backend precommit passed:
-
-- `2093 passed`
-- `coverage 96.05%`
-- `precommit passed`
-
-## Risk / follow-up
-
-- Fake-storage Range support is intentionally narrow.
-- The local QA media file was not committed.
-- Production media/storage providers should already support byte ranges, or they should be verified separately before scaling up video playback.
-- No Task 7 functional blocker remains.
+Final verification confirmed:
+- normal seed command exits 0 after documented reset repair path
+- seeded data is idempotent and stable
+- fake GitHub provider is used in demo mode
+- production demo mode is rejected
+- dashboard shows 3 Trials
+- Trial A and Trial C candidate lists work
+- Sarah Chen Winoe Report renders with Winoe Score 78 and exactly 8 dimensions
+- Evidence Trail and Day 1-5 artifacts are accessible
+- legacy guard passes
+- backend precommit passes
+- frontend precommit passes

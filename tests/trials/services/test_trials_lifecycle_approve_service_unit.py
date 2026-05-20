@@ -71,6 +71,24 @@ async def test_approve_trial_rejects_generating():
 
 
 @pytest.mark.asyncio
+async def test_approve_trial_rejects_terminated():
+    db = AsyncMock()
+    trial = MagicMock()
+    trial.status = "terminated"
+
+    with patch.object(
+        approve_mod,
+        "require_owner_for_lifecycle",
+        new_callable=AsyncMock,
+        return_value=trial,
+    ), pytest.raises(ApiError) as exc:
+        await approve_mod.approve_trial_for_inviting(db, trial_id=1, actor_user_id=7)
+
+    assert exc.value.error_code == "TRIAL_TERMINATED"
+    db.commit.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_approve_trial_rejects_wrong_status():
     db = AsyncMock()
     trial = MagicMock()
@@ -170,6 +188,14 @@ async def test_approve_trial_rejects_empty_rubric_dict():
     ), pytest.raises(ApiError) as exc:
         await approve_mod.approve_trial_for_inviting(db, trial_id=1, actor_user_id=7)
     assert exc.value.error_code == "TRIAL_RUBRIC_MISSING"
+
+
+def test_approve_trial_helper_rejects_non_string_brief_and_invalid_rubric():
+    scenario = _scenario(brief="Brief.", rubric="invalid")
+    scenario.project_brief_md = 123
+
+    assert approve_mod._brief_present(scenario=scenario) is False
+    assert approve_mod._rubric_present(scenario) is False
 
 
 @pytest.mark.asyncio

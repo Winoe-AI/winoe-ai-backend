@@ -1,0 +1,17 @@
+{
+  "repository": "winoe-ws-sarah-chen",
+  "commits": [
+    {
+      "sha": "c9b4a58f4d8e11b1c1c9b7d2e9fd0b7f0d7e8e11",
+      "message": "Initialize empty Trial workspace"
+    },
+    {
+      "sha": "d7f1a6b15c06e2b2c1ab52f6b1f4c2e1c1f4a98aa",
+      "message": "Add devcontainer and project brief"
+    },
+    {
+      "sha": "e4c8f6d1a7b2c3d4e5f60718293a4b5c6d7e8f90",
+      "message": "Finish the implementation and evidence trail"
+    }
+  ]
+}

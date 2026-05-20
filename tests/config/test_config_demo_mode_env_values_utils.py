@@ -32,19 +32,41 @@ def test_demo_mode_env_values_parse_as_expected(monkeypatch, env_value, expected
 def test_demo_mode_is_disabled_in_production_even_when_requested(
     monkeypatch, env_key, env_value
 ):
-    monkeypatch.setenv("WINOE_DEMO_MODE", "true")
-    monkeypatch.setenv(env_key, env_value)
-
     settings = Settings(
         _env_file=None,
+        ENV="test",
         AUTH0_DOMAIN="example.auth0.com",
         AUTH0_API_AUDIENCE="https://api.example.com",
         CORS_ALLOW_ORIGINS=["https://frontend.winoe.ai"],
     )
+    object.__setattr__(settings, "DEMO_MODE", True)
+    monkeypatch.setenv(env_key, env_value)
 
     assert settings.is_production_environment() is True
     assert settings.DEMO_MODE is True
     assert settings.demo_mode_enabled is False
+
+
+@pytest.mark.parametrize(
+    ("env_key", "env_value"),
+    [
+        ("WINOE_ENV", "production"),
+        ("ENV", "production"),
+    ],
+)
+def test_demo_mode_rejected_during_settings_validation_in_production(
+    monkeypatch, env_key, env_value
+):
+    monkeypatch.setenv("WINOE_DEMO_MODE", "true")
+    monkeypatch.setenv(env_key, env_value)
+
+    with pytest.raises(ValueError, match="DEMO_MODE/WINOE_DEMO_MODE"):
+        Settings(
+            _env_file=None,
+            AUTH0_DOMAIN="example.auth0.com",
+            AUTH0_API_AUDIENCE="https://api.example.com",
+            CORS_ALLOW_ORIGINS=["https://frontend.winoe.ai"],
+        )
 
 
 @pytest.mark.parametrize("raw_value", ["false", "0", "", None])

@@ -38,19 +38,29 @@
 - Winoe Score
 
 ## Words I Avoid
-- Eliminate
-- Reject
-- Filter out
-- Screen out
-- Discard
-- Recruiter
-- Simulation
+- Exclusionary language
+- Tenon
+- SimuHire
+- recruiter
+- simulation
 - Fit Profile
 - Fit Score
-- Tenon
-- Best candidate
-- Top talent
+- template catalog
+- precommit
+- Codespace Specializor
+- eliminate
+- reject
+- filter out
+- screen out
+- discard
 - A-player
-- Culture fit
-- Metrics
-- KPIs
+- culture fit
+- hiring recommendation language that implies Winoe decides
+- Legacy product terms
+- Vague performance clichés
+- Undisciplined metrics talk
+
+## Governance Note
+- The terms above are forbidden in generated Winoe prose.
+- They may appear only here as internal examples of language Winoe must avoid.
+- Never emit them in Winoe Report output, Evidence Trail narration, or Talent Partner-facing prose.

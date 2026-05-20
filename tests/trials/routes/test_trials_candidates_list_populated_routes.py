@@ -77,3 +77,59 @@ async def test_trial_with_multiple_sessions_returns_all_and_has_report(
     assert by_id[cs2.id]["candidateName"] == "Bob"
     assert by_id[cs2.id]["status"] == "completed"
     assert by_id[cs2.id]["hasWinoeReport"] is True
+
+
+@pytest.mark.asyncio
+async def test_trial_candidates_list_uses_schema_valid_statuses(
+    async_client, async_session
+):
+    user, company = await seed_talent_partner(
+        async_session,
+        email="r3@acme.com",
+        company_name="Acme3",
+        name="TalentPartner Three",
+    )
+    sim = await create_trial(
+        async_session, user_id=user.id, company_id=company.id, title="Schema Valid Sim"
+    )
+    scenario = await attach_active_scenario(async_session, sim)
+
+    invited = CandidateSession(
+        trial_id=sim.id,
+        scenario_version_id=scenario.id,
+        candidate_name="Invited Candidate",
+        invite_email="invited@example.com",
+        token="tok-invited",
+        status="not_started",
+        invite_email_status="sent",
+        invite_email_sent_at=datetime.now(UTC),
+        expires_at=None,
+    )
+    in_progress = CandidateSession(
+        trial_id=sim.id,
+        scenario_version_id=scenario.id,
+        candidate_name="Working Candidate",
+        invite_email="working@example.com",
+        token="tok-working",
+        status="in_progress",
+        started_at=datetime.now(UTC),
+        expires_at=None,
+    )
+    async_session.add_all([invited, in_progress])
+    await async_session.commit()
+
+    resp = await async_client.get(
+        f"/api/trials/{sim.id}/candidates",
+        headers={"x-dev-user-email": user.email},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert {row["status"] for row in data} <= {
+        "not_started",
+        "in_progress",
+        "completed",
+        "expired",
+    }
+    invited_row = next(row for row in data if row["candidateSessionId"] == invited.id)
+    assert invited_row["status"] == "not_started"
+    assert invited_row["inviteEmailStatus"] == "sent"

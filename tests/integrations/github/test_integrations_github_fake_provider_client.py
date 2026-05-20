@@ -108,8 +108,8 @@ async def test_provider_selection_honors_demo_mode_and_production_override(monke
         production_real_singleton,
     )
 
-    client = get_github_provisioning_client()
-    assert client is real_marker
+    with pytest.raises(RuntimeError, match="forbidden in production"):
+        get_github_provisioning_client()
     assert fake_called["count"] == 0
 
 

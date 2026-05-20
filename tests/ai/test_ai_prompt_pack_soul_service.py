@@ -40,6 +40,28 @@ def test_soul_markdown_exists_and_defines_required_sections() -> None:
         assert heading in text
 
 
+def test_soul_markdown_lists_explicit_forbidden_terms() -> None:
+    text = SOUL_PATH.read_text(encoding="utf-8")
+
+    for term in (
+        "Tenon",
+        "SimuHire",
+        "recruiter",
+        "simulation",
+        "Fit Profile",
+        "Fit Score",
+        "template catalog",
+        "precommit",
+        "Codespace Specializor",
+        "A-player",
+        "culture fit",
+        "hiring recommendation language that implies Winoe decides",
+    ):
+        assert term in text
+    assert "Governance Note" in text
+    assert "internal examples of language Winoe must avoid" in text
+
+
 def test_winoe_report_prompt_pack_entry_includes_soul_persona_governance() -> None:
     entry = build_prompt_pack_entry("winoeReport")
 
@@ -49,6 +71,8 @@ def test_winoe_report_prompt_pack_entry_includes_soul_persona_governance() -> No
     assert "Reveal" in entry.instructions_md
     assert "Evidence Trail" in entry.instructions_md
     assert "Winoe Score" in entry.instructions_md
+    assert "Tenon" in entry.instructions_md
+    assert "forbidden examples" in entry.instructions_md
 
 
 def test_winoe_report_snapshot_prompt_loads_soul_and_run_context() -> None:
@@ -64,6 +88,8 @@ def test_winoe_report_snapshot_prompt_loads_soul_and_run_context() -> None:
     assert "Warm but honest" in system_prompt
     assert "Anti-black-box" in system_prompt
     assert "Never make hiring decisions" in system_prompt
+    assert "hiring recommendation language that implies Winoe decides" in system_prompt
+    assert "internal examples of language Winoe must avoid" in system_prompt
     assert "## Run Context" in system_prompt
     assert "Candidate session ID: 101" in system_prompt
 

@@ -7,14 +7,31 @@ import subprocess
 import sys
 from pathlib import Path
 
+from sqlalchemy import func, select
+
 from app.config import settings
 from app.demo.services.yc_demo_seed_service import (
     DemoSeedConfig,
     _reset_database,
     seed_yc_demo_dataset,
 )
+from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
+    EVALUATION_RUN_STATUS_COMPLETED,
+)
 from app.integrations.github import FakeGithubClient, GithubClient
 from app.shared.database import async_session_maker, engine
+from app.shared.database.shared_database_models_model import (
+    CandidateSession,
+    Company,
+    EvaluationRun,
+    Submission,
+    Trial,
+    User,
+    WinoeReport,
+)
+from app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_model import (
+    WinoeReportCitation,
+)
 
 
 def _is_truthy(value: object) -> bool:
@@ -31,15 +48,15 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--talent-partner-email",
-        default=os.getenv("DEMO_TALENT_PARTNER_EMAIL", "talent.partner.demo@winoe.ai"),
+        default=os.getenv("DEMO_TALENT_PARTNER_EMAIL", "demo@winoe.ai"),
     )
     parser.add_argument(
         "--talent-partner-name",
-        default=os.getenv("DEMO_TALENT_PARTNER_NAME", "Winoe Demo Talent Partner"),
+        default=os.getenv("DEMO_TALENT_PARTNER_NAME", "Demo Partner"),
     )
     parser.add_argument(
         "--company-name",
-        default=os.getenv("DEMO_COMPANY_NAME", "Winoe Demo Company"),
+        default=os.getenv("DEMO_COMPANY_NAME", "Acme"),
     )
     parser.add_argument(
         "--github-provider",
@@ -130,6 +147,118 @@ def _resolve_github_provider_label(mode: str) -> str:
     return "fake" if settings.demo_mode_enabled else "real"
 
 
+async def _verify_seeded_dataset(summary, config: DemoSeedConfig) -> None:
+    async with async_session_maker() as db:
+        company_count = await db.scalar(
+            select(func.count())
+            .select_from(Company)
+            .where(Company.id == summary.company_id)
+        )
+        candidate_sessions = (
+            (
+                await db.execute(
+                    select(CandidateSession).where(
+                        CandidateSession.id.in_(summary.candidate_session_ids)
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        trial_ids = sorted({row.trial_id for row in candidate_sessions})
+        trials = (
+            (await db.execute(select(Trial).where(Trial.id.in_(trial_ids))))
+            .scalars()
+            .all()
+        )
+        demo_trials = [
+            trial
+            for trial in trials
+            if isinstance(trial.company_context, dict)
+            and trial.company_context.get("demoMode") == "yc-demo"
+        ]
+        talent_partner_count = await db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.email == config.talent_partner_email)
+        )
+        completed_session = next(
+            (
+                session
+                for session in candidate_sessions
+                if session.candidate_name == "Sarah Chen"
+                and session.candidate_email == "sarah.chen.demo@winoe.ai"
+                and session.status == "completed"
+            ),
+            None,
+        )
+        if completed_session is None:
+            raise RuntimeError(
+                "YC demo verification failed: Sarah Chen completed session missing"
+            )
+        report_count = await db.scalar(
+            select(func.count())
+            .select_from(WinoeReport)
+            .where(WinoeReport.candidate_session_id == completed_session.id)
+        )
+        run_count = await db.scalar(
+            select(func.count())
+            .select_from(EvaluationRun)
+            .where(
+                EvaluationRun.candidate_session_id == completed_session.id,
+                EvaluationRun.status == EVALUATION_RUN_STATUS_COMPLETED,
+            )
+        )
+        submission_count = await db.scalar(
+            select(func.count())
+            .select_from(Submission)
+            .where(Submission.candidate_session_id == completed_session.id)
+        )
+        citation_count = await db.scalar(
+            select(func.count())
+            .select_from(WinoeReportCitation)
+            .join(WinoeReport, WinoeReport.id == WinoeReportCitation.report_id)
+            .where(WinoeReport.candidate_session_id == completed_session.id)
+        )
+
+    if company_count != 1:
+        raise RuntimeError("YC demo verification failed: company count mismatch")
+    if talent_partner_count != 1:
+        raise RuntimeError(
+            "YC demo verification failed: demo talent partner count mismatch"
+        )
+    if len(demo_trials) != 3:
+        raise RuntimeError("YC demo verification failed: demo trial count mismatch")
+    if len(candidate_sessions) != 4:
+        raise RuntimeError(
+            "YC demo verification failed: seeded candidate session count mismatch"
+        )
+    if report_count != 1 or run_count != 1:
+        raise RuntimeError(
+            "YC demo verification failed: seeded report/run count mismatch"
+        )
+    if submission_count != 5:
+        raise RuntimeError(
+            "YC demo verification failed: Sarah Chen submission count mismatch"
+        )
+    if citation_count is None or citation_count < 8:
+        raise RuntimeError("YC demo verification failed: citation count mismatch")
+
+    report_run = await db.scalar(
+        select(EvaluationRun).where(
+            EvaluationRun.candidate_session_id == completed_session.id,
+            EvaluationRun.status == EVALUATION_RUN_STATUS_COMPLETED,
+        )
+    )
+    if report_run is None or not isinstance(report_run.raw_report_json, dict):
+        raise RuntimeError("YC demo verification failed: missing report payload")
+    report_json = report_run.raw_report_json
+    if len(report_json.get("dimensions") or []) != 8:
+        raise RuntimeError("YC demo verification failed: report dimension count")
+    if not report_json.get("citations"):
+        raise RuntimeError("YC demo verification failed: report citations missing")
+
+
 async def _main_async(args: argparse.Namespace) -> None:
     project_root = Path(__file__).resolve().parents[1]
     _ensure_safe_environment(
@@ -169,8 +298,10 @@ async def _main_async(args: argparse.Namespace) -> None:
             github_client=github_client,
         )
 
+    await _verify_seeded_dataset(summary, config)
+
     print(
-        "YC demo seed ready: "
+        "YC demo seed verified: "
         f"company_id={summary.company_id}, "
         f"trial_id={summary.trial_id}, "
         f"candidate_session_ids={summary.candidate_session_ids}, "
