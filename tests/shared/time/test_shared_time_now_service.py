@@ -17,3 +17,19 @@ def test_parse_test_now_accepts_legacy_naive_contract_live_format():
     assert shared_time_now_service._parse_test_now("2026-04-03 09:00:00") == datetime(
         2026, 4, 3, 9, 0, 0, tzinfo=UTC
     )
+
+
+def test_parse_test_now_handles_blank_invalid_offset_and_missing_env(monkeypatch):
+    for key in shared_time_now_service._TEST_NOW_ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
+
+    before = datetime.now(UTC)
+    fallback_now = shared_time_now_service.utcnow()
+    after = datetime.now(UTC)
+
+    assert before <= fallback_now <= after
+    assert shared_time_now_service._parse_test_now("   ") is None
+    assert shared_time_now_service._parse_test_now("not-a-date") is None
+    assert shared_time_now_service._parse_test_now(
+        "2026-04-03T09:00:00-04:00"
+    ) == datetime(2026, 4, 3, 13, 0, 0, tzinfo=UTC)

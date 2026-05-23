@@ -4,6 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.media.services import (
+    media_services_media_retention_jobs_service as retention_jobs,
+)
 from app.media.services.media_services_media_retention_jobs_service import (
     MEDIA_RETENTION_PURGE_JOB_TYPE,
 )
@@ -69,3 +72,21 @@ def test_media_retention_purge_is_registered_builtin_handler():
         assert worker.has_handler(MEDIA_RETENTION_PURGE_JOB_TYPE)
     finally:
         worker.clear_handlers()
+
+
+def test_media_retention_purge_payload_helpers():
+    assert retention_jobs.media_retention_purge_idempotency_key() == (
+        "media_retention_purge:global"
+    )
+    assert retention_jobs.build_media_retention_purge_payload(
+        batch_limit=0, retention_days=7
+    ) == {
+        "batchLimit": 1,
+        "retentionDays": 7,
+    }
+    assert retention_jobs.build_media_retention_purge_payload() == {
+        "batchLimit": 200,
+        "retentionDays": int(
+            retention_jobs.settings.storage_media.MEDIA_RETENTION_DAYS
+        ),
+    }
