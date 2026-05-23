@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException, status
@@ -18,6 +18,7 @@ from app.shared.utils.shared_utils_errors_utils import (
     SCHEDULE_INVALID_TIMEZONE,
     SCHEDULE_INVALID_WINDOW,
     SCHEDULE_START_IN_PAST,
+    SCHEDULE_START_OUTSIDE_WINDOW,
     ApiError,
 )
 
@@ -87,6 +88,30 @@ async def schedule_candidate_session_impl(
                 retryable=False,
             ) from exc
         raise
+    candidate_zone = ZoneInfo(normalized_timezone)
+    if isinstance(scheduled_start_at, datetime):
+        proposed_date = (
+            coerce_utc_datetime(scheduled_start_at).astimezone(candidate_zone).date()
+            if scheduled_start_at.tzinfo is not None
+            else scheduled_start_at.date()
+        )
+    else:
+        proposed_date = scheduled_start_at
+    today_local = resolved_now.astimezone(candidate_zone).date()
+    if proposed_date < today_local:
+        raise ApiError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Scheduled start cannot be before today in your timezone.",
+            error_code=SCHEDULE_START_IN_PAST,
+            retryable=False,
+        )
+    if proposed_date > today_local + timedelta(days=14):
+        raise ApiError(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Start date must be within the next 14 days.",
+            error_code=SCHEDULE_START_OUTSIDE_WINDOW,
+            retryable=False,
+        )
     scheduled_start_at_utc = _normalize_candidate_proposed_start_at(
         scheduled_start_at=scheduled_start_at,
         normalized_timezone=normalized_timezone,

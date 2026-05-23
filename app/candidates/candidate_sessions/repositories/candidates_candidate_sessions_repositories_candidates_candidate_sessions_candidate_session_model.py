@@ -47,6 +47,9 @@ class CandidateSession(Base):
         ForeignKey("users.id"), nullable=True
     )
     candidate_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    preferred_display_name: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
     invite_email: Mapped[str] = mapped_column(String(255), nullable=False)
     candidate_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     candidate_auth0_sub: Mapped[str | None] = mapped_column(String(255), nullable=True)

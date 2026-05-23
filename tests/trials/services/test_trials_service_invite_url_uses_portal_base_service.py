@@ -7,6 +7,4 @@ def test_invite_url_uses_portal_base(monkeypatch):
     monkeypatch.setattr(
         trial_service.settings, "CANDIDATE_PORTAL_BASE_URL", "https://portal.test"
     )
-    assert (
-        trial_service.invite_url("abc") == "https://portal.test/candidate/session/abc"
-    )
+    assert trial_service.invite_url("abc") == "https://portal.test/invite/abc"

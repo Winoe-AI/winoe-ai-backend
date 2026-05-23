@@ -24,6 +24,7 @@ class CandidateSessionResolveResponse(APIModel):
     startedAt: datetime | None
     completedAt: datetime | None
     candidateName: str
+    preferredDisplayName: str | None = None
     trial: CandidateTrialSummary
     aiNoticeText: str
     aiNoticeVersion: str

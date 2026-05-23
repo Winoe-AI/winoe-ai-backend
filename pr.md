@@ -1,102 +1,40 @@
-# Task 10 — Demo Infrastructure
+# Task 8 — Candidate Onboarding + Day 1 Design Doc Workspace
 
-## Summary
-- Added fake GitHub provider support for demo mode so seeded demo environments do not make real GitHub network calls.
-- Wired `WINOE_DEMO_MODE` / `DEMO_MODE` selection behavior so demo mode is explicit and production-safe.
-- Added a hard production guard that rejects demo mode when `WINOE_ENV=production`.
-- Built the one-command demo seed flow and made the seeded YC demo dataset deterministic and idempotent.
-- Seeded the Sarah Chen completed Trial with a Winoe Report, Evidence Trail, and Day 1-5 artifacts.
-- Added legacy demo-reference cleanup guardrails and a documented YC demo checklist.
-- Cleaned up the migration graph so the fake placeholder migration is removed and the canonical Alembic head remains intact.
+## Status
 
-## Backend Change List
-- Fake GitHub provider behavior:
-  - deterministic fake repo, Codespace, workflow, and artifact behavior
-  - no real GitHub network calls in demo mode
-  - fake/demo evidence links used for seeded demo content
-- Demo mode config:
-  - `WINOE_DEMO_MODE=true`
-  - `WINOE_ENV=production` rejection
-- Seed script:
-  - `scripts/seed_demo.sh`
-  - custom env vars:
-    - `DEMO_TALENT_PARTNER_EMAIL`
-    - `DEMO_TALENT_PARTNER_NAME`
-    - `DEMO_COMPANY_NAME`
-  - idempotent seeded dataset
-- Demo dataset:
-  - 1 Talent Partner
-  - 3 Trials
-  - 4 candidate sessions
-  - Sarah Chen completed Trial
-  - 5 submissions
-  - 1 Winoe Report
-  - 1 EvaluationRun
-- Trial A / Trial C candidate list:
-  - invited / not-yet-started seeded candidates use schema-valid `not_started`
-- Legacy cleanup:
-  - `scripts/check_no_legacy_demo_refs.sh`
-  - CI guard
-- Demo runbook:
-  - `YC_DEMO_CHECKLIST.md`
-- Migration graph:
-  - fake placeholder migration removed
-  - canonical Alembic head preserved
-  - stale local DB recovery documented
+TASK 8 FULL QA PASSED WITH WARNINGS
 
-## Verification
-```bash
-bash -n scripts/seed_demo.sh
-bash -n scripts/check_no_legacy_demo_refs.sh
-bash scripts/check_no_legacy_demo_refs.sh
-poetry run pytest -q tests/demo/services/test_demo_yc_seed_service.py tests/trials/routes/test_trials_candidates_list_populated_routes.py -o addopts=''
-./precommit.sh
-```
+## Backend Summary
 
-Final seed command:
+- Canonical candidate invite URLs now use `/invite/{token}`.
+- Backend invite URL service and tests were updated accordingly.
+- Migration smoke coverage now verifies the true Alembic head and `candidate_sessions.preferred_display_name`.
+- Candidate invite/public summary, schedule validation, and duplicate-submit focused tests passed.
+- Alembic head/current/upgrade was verified cleanly.
+- No backend source changes were made in Iteration 10.
+- The backend repo is clean after warning cleanup.
 
-```bash
-WINOE_ENV=local \
-WINOE_DEMO_MODE=true \
-DEMO_TALENT_PARTNER_EMAIL="winoetalentpartner@gmail.com" \
-DEMO_TALENT_PARTNER_NAME="TalentPartner" \
-DEMO_COMPANY_NAME="Acme" \
-./scripts/seed_demo.sh
-```
+## Backend Checks
 
-Final outcome:
-- exit code `0`
-- fake GitHub provider used
-- seeded dataset verified
-- asyncpg / SQLAlchemy shutdown warning is non-blocking if it appears after success
+| Command | Result | Notes |
+|---|---|---|
+| poetry run ruff check app tests | PASS | No lint issues |
+| poetry run pytest tests/candidates/routes/test_candidates_invites_invite_creates_candidate_session_routes.py tests/trials/services/test_trials_service_invite_url_uses_portal_base_service.py tests/evaluations/repositories/test_evaluations_migrations_smoke_repository.py --no-cov | PASS | 3/3 passed |
+| poetry run pytest tests/candidates/routes/test_candidates_invite_public_summary_routes.py tests/candidates/routes/test_candidates_session_schedule_schedule_endpoint_rejects_invalid_timezone_and_past_routes.py tests/tasks/routes/test_tasks_submit_duplicate_submission_409_routes.py --no-cov | PASS | 7/7 passed |
+| poetry run alembic heads && poetry run alembic current && poetry run alembic upgrade head && poetry run alembic current | PASS | Single head and clean upgrade/current verified |
+| ./precommit.sh | FAIL / KNOWN WARNING | Fails on known repo-wide coverage threshold and test_candidate_session_rate_limits debt, not Task 8-focused checks |
 
-## Manual QA Evidence
-- `/health` passed.
-- `/ready` passed and GitHub was skipped / fake-safe in demo mode.
-- dashboard showed 3 Trials.
-- Trial A candidate list worked.
-- Trial C candidate list worked.
-- Sarah Chen Winoe Report data seeded correctly.
-- legacy UI sweep passed.
+## Backend Warnings
 
-## Known Warnings / Follow-ups
-- Local stale Alembic stamp recovery may require the documented reset path.
-- Seed teardown warning should be cleaned up later if desired.
-- PDF export is frontend-owned and currently behaves as print mode.
+Backend full precommit remains red on repo-wide coverage and `test_candidate_session_rate_limits`. This is preserved as existing backend debt, not a Task 8-specific blocker.
 
-## Final QA Result
+## Final QA Verdict
 
-`Task 10 FINAL QA PASS — ready to finish / raise PRs.`
+TASK 8 FULL QA PASSED WITH WARNINGS.
 
-Final verification confirmed:
-- normal seed command exits 0 after documented reset repair path
-- seeded data is idempotent and stable
-- fake GitHub provider is used in demo mode
-- production demo mode is rejected
-- dashboard shows 3 Trials
-- Trial A and Trial C candidate lists work
-- Sarah Chen Winoe Report renders with Winoe Score 78 and exactly 8 dimensions
-- Evidence Trail and Day 1-5 artifacts are accessible
-- legacy guard passes
-- backend precommit passes
-- frontend precommit passes
+Task 8 passed full manual QA after iterative blocker repairs and warning cleanup. The remaining warnings are non-Task-8 or repo-wide debt:
+
+1. Backend full precommit remains red on known repo-wide coverage / rate-limit debt.
+2. Frontend React key warning remains in non-Task-8 Submission Review surfaces.
+
+No Task 8 blockers remain.

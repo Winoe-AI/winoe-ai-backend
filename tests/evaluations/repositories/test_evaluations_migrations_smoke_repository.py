@@ -123,7 +123,7 @@ def test_evaluation_migration_upgrade_head_smoke():
                 .scalars()
                 .all()
             )
-        assert set(version_nums) == {"202605150001"}
+        assert set(version_nums) == {"202605150001_prefdisp"}
 
         tables_after_upgrade = _table_names(temp_sync_url)
         assert "notification_delivery_audits" in tables_after_upgrade
@@ -139,6 +139,8 @@ def test_evaluation_migration_upgrade_head_smoke():
         rubric_snapshot_columns = _columns_for(temp_sync_url, "winoe_rubric_snapshots")
         trial_columns = _columns_for(temp_sync_url, "trials")
         workspace_columns = _columns_for(temp_sync_url, "workspaces")
+        candidate_session_columns = _columns_for(temp_sync_url, "candidate_sessions")
+        assert "preferred_display_name" in candidate_session_columns
 
         assert "id" in run_columns
         assert "candidate_session_id" in run_columns

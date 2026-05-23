@@ -52,7 +52,7 @@ async def test_invite_creates_candidate_session(
     assert len(body["token"]) >= 32
 
     assert isinstance(body["inviteUrl"], str)
-    assert body["inviteUrl"].endswith(f"/candidate/session/{body['token']}")
+    assert body["inviteUrl"].endswith(f"/invite/{body['token']}")
     assert body["outcome"] == "created"
 
     # Verify DB row

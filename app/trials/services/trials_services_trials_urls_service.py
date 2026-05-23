@@ -7,4 +7,4 @@ from app.config import settings
 
 def invite_url(token: str) -> str:
     """Construct candidate portal URL for an invite token."""
-    return f"{settings.CANDIDATE_PORTAL_BASE_URL.rstrip('/')}/candidate/session/{token}"
+    return f"{settings.CANDIDATE_PORTAL_BASE_URL.rstrip('/')}/invite/{token}"

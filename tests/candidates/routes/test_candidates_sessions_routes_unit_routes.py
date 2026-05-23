@@ -78,7 +78,7 @@ async def test_candidate_session_rate_limits(monkeypatch):
         ),
     )
 
-    async def fake_claim(db, token, principal, now):
+    async def fake_claim(db, token, principal, *, now, profile=None):
         return cs_obj
 
     async def fake_fetch(db, cs_id, principal, now):
