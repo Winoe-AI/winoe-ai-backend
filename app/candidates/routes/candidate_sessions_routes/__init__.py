@@ -9,6 +9,9 @@ from . import (
     candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_current_task_routes as current_task,
 )
 from . import (
+    candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_invite_public_routes as invite_public,
+)
+from . import (
     candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_invites_routes as invites,
 )
 from . import (
@@ -34,6 +37,7 @@ from . import (
 )
 
 router = APIRouter()
+router.include_router(invite_public.router)
 router.include_router(resolve.router)
 router.include_router(review.router)
 router.include_router(schedule.router)
@@ -44,6 +48,7 @@ router.include_router(privacy.router)
 __all__ = [
     "current_task",
     "current_task_logic",
+    "invite_public",
     "invites",
     "privacy",
     "rate_limits",

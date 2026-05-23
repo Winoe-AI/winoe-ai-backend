@@ -41,6 +41,7 @@ def render_claim_response(
         startedAt=cs.started_at,
         completedAt=cs.completed_at,
         candidateName=cs.candidate_name,
+        preferredDisplayName=getattr(cs, "preferred_display_name", None),
         trial=resolve_trial_summary(
             cs, include_content_sections=include_content_sections
         ),

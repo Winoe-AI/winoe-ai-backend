@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Path, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate_sessions_routes_candidates_candidate_sessions_routes_claim_logic_routes import (
@@ -14,6 +14,9 @@ from app.candidates.routes.candidate_sessions_routes.candidates_routes_candidate
 from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_core_schema import (
     CandidateSessionResolveResponse,
 )
+from app.candidates.schemas.candidates_schemas_candidates_invite_public_schema import (
+    CandidateSessionClaimRequest,
+)
 from app.shared.auth.principal import Principal
 from app.shared.auth.shared_auth_candidate_access_utils import (
     require_candidate_principal,
@@ -24,6 +27,8 @@ from app.shared.http.shared_http_deprecation_headers import (
 )
 
 router = APIRouter()
+
+_OPTIONAL_CLAIM_BODY = Body(default=None)
 
 
 @router.get(
@@ -70,9 +75,12 @@ async def claim_candidate_session(
     response: Response,
     db: Annotated[AsyncSession, Depends(get_session)],
     principal: Annotated[Principal, Depends(require_candidate_principal)],
+    body: CandidateSessionClaimRequest | None = _OPTIONAL_CLAIM_BODY,
 ) -> CandidateSessionResolveResponse:
-    """Idempotent claim endpoint for authenticated candidates (no email body required)."""
+    """Claim a Trial invite; optional body updates name, display name, and timezone."""
     mark_legacy_candidate_session_route(
         request, response, canonical_path=f"/api/candidate/trials/{token}/claim"
     )
-    return render_claim_response(await claim_token(token, request, principal, db))
+    return render_claim_response(
+        await claim_token(token, request, principal, db, profile=body)
+    )

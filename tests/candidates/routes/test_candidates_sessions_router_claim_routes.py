@@ -42,7 +42,7 @@ async def test_claim_route_uses_claim_service(monkeypatch):
         ),
     )
 
-    async def _verify(db, token, principal, now):
+    async def _verify(db, token, principal, now, profile=None):
         assert token == "t" * 24
         assert principal.email == "test@example.com"
         assert isinstance(now, datetime)
