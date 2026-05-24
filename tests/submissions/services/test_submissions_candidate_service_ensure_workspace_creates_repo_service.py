@@ -12,6 +12,9 @@ async def test_ensure_workspace_creates_repo(async_session):
     cs = await create_candidate_session(async_session, trial=sim, status="in_progress")
 
     class StubGithubClient:
+        def __init__(self):
+            self.added_collaborators: list[tuple[str, str]] = []
+
         async def create_empty_repo(
             self, *, owner, repo_name, private=True, default_branch="main"
         ):
@@ -29,6 +32,7 @@ async def test_ensure_workspace_creates_repo(async_session):
         async def add_collaborator(
             self, repo_full_name, username, *, permission="push"
         ):
+            self.added_collaborators.append((repo_full_name, username))
             return {"invited": username}
 
         async def get_branch(self, repo_full_name, branch):
@@ -64,11 +68,12 @@ async def test_ensure_workspace_creates_repo(async_session):
                 "web_url": "https://codespace.example",
             }
 
+    stub = StubGithubClient()
     ws = await svc.ensure_workspace(
         async_session,
         candidate_session=cs,
         task=tasks[1],
-        github_client=StubGithubClient(),
+        github_client=stub,
         github_username="octocat",
         repo_prefix="prefix-",
         destination_owner="org",
@@ -76,6 +81,7 @@ async def test_ensure_workspace_creates_repo(async_session):
     )
     assert ws.repo_full_name == f"org/prefix-{cs.id}-coding"
     assert ws.bootstrap_commit_sha == "commit-sha"
+    assert stub.added_collaborators == [(ws.repo_full_name, "octocat")]
 
 
 @pytest.mark.asyncio
