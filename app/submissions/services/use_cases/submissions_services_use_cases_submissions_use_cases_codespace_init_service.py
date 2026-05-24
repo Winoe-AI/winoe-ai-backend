@@ -22,6 +22,7 @@ from app.submissions.services.submissions_services_submissions_codespace_urls_se
 )
 from app.submissions.services.submissions_services_submissions_github_user_service import (
     validate_and_normalize_github_username,
+    validate_github_username_exists,
 )
 from app.submissions.services.submissions_services_submissions_rate_limits_constants import (
     apply_rate_limit,
@@ -75,6 +76,7 @@ async def init_codespace(
     """Initialize codespace."""
     apply_rate_limit(candidate_session.id, "init")
     normalized_username = validate_and_normalize_github_username(github_username)
+    await validate_github_username_exists(github_client, normalized_username)
     stored_username = (
         getattr(candidate_session, "github_username", None) or ""
     ).strip()
@@ -85,8 +87,7 @@ async def init_codespace(
             error_code=GITHUB_USERNAME_MISMATCH,
             retryable=False,
         )
-    if stored_username != normalized_username:
-        candidate_session.github_username = normalized_username
+    candidate_session.github_username = normalized_username
     task = await _validate_codespace_request_with_legacy_fallback(
         db, candidate_session, task_id
     )

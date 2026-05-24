@@ -327,6 +327,19 @@ class FakeGithubClient:
         """Return the deterministic demo login."""
         return _DEMO_BOT_LOGIN
 
+    async def get_user(self, username: str) -> dict[str, Any]:
+        """Return a deterministic public GitHub user profile."""
+        resolved_username = (username or "").strip()
+        if not resolved_username:
+            raise GithubError("GitHub username is required", status_code=404)
+        if resolved_username.lower().startswith("missing"):
+            raise GithubError("GitHub username not found", status_code=404)
+        return {
+            "login": resolved_username,
+            "id": _stable_int(resolved_username, "user", start=1000, stop=9999),
+            "html_url": f"https://github.com/{resolved_username}",
+        }
+
     async def create_empty_repo(
         self,
         *,

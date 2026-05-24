@@ -158,6 +158,13 @@ class RepoOperations:
         login = str(payload.get("login") or payload.get("username") or "").strip()
         return login or None
 
+    async def get_user(self, username: str) -> dict:
+        """Return a public GitHub user profile."""
+        resolved_username = (username or "").strip()
+        if not resolved_username:
+            raise GithubError("GitHub username is required")
+        return await self._get_json(f"/users/{resolved_username}")
+
     async def get_codespace(self, repo_full_name: str, codespace_name: str) -> dict:
         """Return a GitHub Codespace by name."""
         expected_owner, expected_repo = split_full_name(repo_full_name)

@@ -44,3 +44,43 @@ async def test_submit_day5_reflection_persists_content_json_and_text(
         "markdown": payload["contentText"],
         "sections": payload["reflection"],
     }
+
+
+@pytest.mark.asyncio
+async def test_submit_day5_reflection_blocks_second_final_submit(
+    async_client, async_session: AsyncSession
+):
+    talent_partner = await create_talent_partner(
+        async_session, email="day5-repeat@test.com"
+    )
+    sim, tasks = await create_trial_factory(async_session, created_by=talent_partner)
+    cs = await create_candidate_session(
+        async_session,
+        trial=sim,
+        status="in_progress",
+        with_default_schedule=True,
+    )
+    for task in tasks[:4]:
+        await create_submission(
+            async_session,
+            candidate_session=cs,
+            task=task,
+            content_text=f"day{task.day_index}",
+        )
+    await async_session.commit()
+
+    payload = build_day5_reflection_payload()
+    first_response = await async_client.post(
+        f"/api/tasks/{tasks[4].id}/submit",
+        headers=candidate_headers(cs.id, f"candidate:{cs.invite_email}"),
+        json=payload,
+    )
+    assert first_response.status_code == 201, first_response.text
+
+    second_response = await async_client.post(
+        f"/api/tasks/{tasks[4].id}/submit",
+        headers=candidate_headers(cs.id, f"candidate:{cs.invite_email}"),
+        json=payload,
+    )
+    assert second_response.status_code == 409, second_response.text
+    assert second_response.json()["errorCode"] == "SUBMISSION_CONFLICT"

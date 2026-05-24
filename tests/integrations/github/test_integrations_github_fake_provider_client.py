@@ -137,6 +137,12 @@ async def test_fake_provider_covers_workspace_branch_and_artifact_state():
     removed = await client.remove_collaborator(repo_full_name, "demo-user")
     assert removed["removed"] is True
 
+    user = await client.get_user("octocat")
+    assert user["login"] == "octocat"
+    assert user["html_url"] == "https://github.com/octocat"
+    with pytest.raises(GithubError, match="GitHub username not found"):
+        await client.get_user("missing-octocat")
+
     with pytest.raises(GithubError, match="Branch not found"):
         await client.get_branch(repo_full_name, "main")
     with pytest.raises(GithubError, match="File not found"):
