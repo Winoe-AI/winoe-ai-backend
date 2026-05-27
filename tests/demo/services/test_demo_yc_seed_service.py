@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,9 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_core_mode
 from app.evaluations.repositories.evaluations_repositories_evaluations_create_run_with_scores_repository import (
     create_run_with_day_scores,
 )
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationStateRecord,
+)
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_api_service import (
     fetch_winoe_report,
 )
@@ -35,6 +39,7 @@ from app.shared.database.shared_database_models_model import (
     ScenarioVersion,
     Submission,
     Task,
+    TaskDraft,
     Trial,
     User,
     WinoeReport,
@@ -179,6 +184,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     output = capsys.readouterr().out
     assert "demo-scoped refresh only" in output
     assert "using GitHub provider=fake" in output
+    assert "using AI runtime=demo" in output
 
     company_count = await async_session.scalar(
         select(func.count()).select_from(Company)
@@ -205,6 +211,9 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     )
     reviewer_count = await async_session.scalar(
         select(func.count()).select_from(EvaluationReviewerReport)
+    )
+    evaluation_state_count = await async_session.scalar(
+        select(func.count()).select_from(TrialEvaluationStateRecord)
     )
     workspace_count = await async_session.scalar(
         select(func.count()).select_from(Workspace)
@@ -235,6 +244,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     assert run_count == 1
     assert day_score_count == 5
     assert reviewer_count == 5
+    assert evaluation_state_count == 1
     assert workspace_count == 1
     assert workspace_group_count == 1
     assert recording_count == 1
@@ -396,6 +406,15 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
         .all()
     )
     assert len(reports) == 1
+    evaluation_state = await async_session.scalar(
+        select(TrialEvaluationStateRecord).where(
+            TrialEvaluationStateRecord.candidate_session_id == candidate_sessions[2].id
+        )
+    )
+    assert evaluation_state is not None
+    assert evaluation_state.state == "notification_sent"
+    assert evaluation_state.evidence_trail_validation_status == "passed"
+    assert evaluation_state.report_finalization_status == "finalized"
 
     first_report = await fetch_winoe_report(
         async_session,
@@ -477,6 +496,49 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
         Path(__file__).resolve().parents[3] / "YC_DEMO_CHECKLIST.md"
     ).read_text(encoding="utf-8")
     _assert_no_retired_terms(checklist_text)
+
+
+@pytest.mark.asyncio
+async def test_seed_demo_rerun_clears_finalized_task_drafts_before_submissions(
+    async_session, monkeypatch
+):
+    monkeypatch.setattr(seed_demo_script, "_run_migrations", lambda _root: None)
+    monkeypatch.setattr(
+        seed_demo_script,
+        "async_session_maker",
+        _session_maker(async_session),
+    )
+    monkeypatch.setattr(
+        seed_demo_script, "_build_github_client", lambda _mode: FakeGithubClient()
+    )
+
+    args = _seed_args()
+    await seed_demo_script._main_async(args)
+
+    submission = await async_session.scalar(select(Submission).order_by(Submission.id))
+    assert submission is not None
+    finalized_at = datetime.now(UTC)
+    async_session.add(
+        TaskDraft(
+            candidate_session_id=submission.candidate_session_id,
+            task_id=submission.task_id,
+            content_text="finalized demo draft",
+            finalized_at=finalized_at,
+            finalized_submission_id=submission.id,
+        )
+    )
+    await async_session.commit()
+
+    await seed_demo_script._main_async(args)
+
+    task_draft_count = await async_session.scalar(
+        select(func.count()).select_from(TaskDraft)
+    )
+    submission_count = await async_session.scalar(
+        select(func.count()).select_from(Submission)
+    )
+    assert task_draft_count == 0
+    assert submission_count == 5
 
 
 @pytest.mark.asyncio
@@ -687,12 +749,53 @@ def test_fake_provider_mode_uses_fake_client_without_real_credentials(monkeypatc
     assert isinstance(client, FakeGithubClient)
 
 
+def test_seed_demo_defaults_local_qa_runtime_environment(monkeypatch):
+    env_names = (*seed_demo_script._DEMO_RUNTIME_ENV_VARS, "GITHUB_PROVIDER")
+    previous = {name: os.environ.get(name) for name in env_names}
+    try:
+        for name in env_names:
+            monkeypatch.delenv(name, raising=False)
+
+        seed_demo_script._default_demo_runtime_environment()
+
+        assert all(
+            os.environ[name] == "demo"
+            for name in seed_demo_script._DEMO_RUNTIME_ENV_VARS
+        )
+        assert os.environ["GITHUB_PROVIDER"] == "fake"
+    finally:
+        for name, value in previous.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
+
+
 def test_real_provider_mode_requires_github_config(monkeypatch):
     monkeypatch.setattr(seed_demo_script.settings.github, "GITHUB_ORG", "")
     monkeypatch.setattr(seed_demo_script.settings.github, "GITHUB_TOKEN", "")
 
     with pytest.raises(RuntimeError, match="WINOE_GITHUB_ORG and WINOE_GITHUB_TOKEN"):
         seed_demo_script._build_github_client("real")
+
+
+@pytest.mark.asyncio
+async def test_seed_demo_main_with_cleanup_disposes_engine(monkeypatch):
+    calls: list[str] = []
+
+    async def _fake_main(_args):
+        calls.append("main")
+
+    class _Engine:
+        async def dispose(self):
+            calls.append("dispose")
+
+    monkeypatch.setattr(seed_demo_script, "_main_async", _fake_main)
+    monkeypatch.setattr(seed_demo_script, "engine", _Engine())
+
+    await seed_demo_script._main_with_cleanup(SimpleNamespace())
+
+    assert calls == ["main", "dispose"]
 
 
 def test_demo_seed_reset_is_blocked_in_production_like_env(monkeypatch):
@@ -763,6 +866,8 @@ def test_checklist_contains_seed_command_and_current_winoe_language():
     ).read_text(encoding="utf-8")
     assert "export WINOE_ENV=local" in checklist_text
     assert "export WINOE_DEMO_MODE=true" in checklist_text
+    assert "WINOE_AI_RUNTIME_MODE=demo" in checklist_text
+    assert "GITHUB_PROVIDER=fake" in checklist_text
     assert "./scripts/seed_demo.sh" in checklist_text
     assert "http://localhost:3000/login" in checklist_text
     assert "http://localhost:3000/talent-partner/trials" in checklist_text
@@ -835,9 +940,20 @@ async def test_clear_demo_scope_nulls_trial_fk_before_scenario_version_delete(
     trial_update_index = next(
         i for i, call in enumerate(session.calls) if "UPDATE trials" in call
     )
+    evaluation_state_delete_index = next(
+        i
+        for i, call in enumerate(session.calls)
+        if "DELETE FROM trial_evaluation_states" in call
+    )
+    candidate_session_delete_index = next(
+        i
+        for i, call in enumerate(session.calls)
+        if "DELETE FROM candidate_sessions" in call
+    )
     scenario_delete_index = next(
         i
         for i, call in enumerate(session.calls)
         if "DELETE FROM scenario_versions" in call
     )
+    assert evaluation_state_delete_index < candidate_session_delete_index
     assert trial_update_index < scenario_delete_index

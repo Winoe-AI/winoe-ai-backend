@@ -9,6 +9,8 @@
 - Seed the demo data:
   - `export WINOE_ENV=local`
   - `export WINOE_DEMO_MODE=true`
+  - `export WINOE_AI_RUNTIME_MODE=demo`
+  - `export GITHUB_PROVIDER=fake`
   - `./scripts/seed_demo.sh`
 - Confirm the backend health check responds:
   - `curl -fsS http://localhost:8000/health`
@@ -28,6 +30,8 @@
 - Re-run the seed script:
   - `export WINOE_ENV=local`
   - `export WINOE_DEMO_MODE=true`
+  - `export WINOE_AI_RUNTIME_MODE=demo`
+  - `export GITHUB_PROVIDER=fake`
   - `./scripts/seed_demo.sh`
 - Re-open the dashboard and confirm the 3 seeded Trials are present.
 - Open Trial A and Trial C to confirm their states are still correct.
@@ -100,6 +104,8 @@
 - Re-run with the fake provider path:
   - `export WINOE_DEMO_MODE=true`
   - `export WINOE_ENV=local`
+  - `export WINOE_AI_RUNTIME_MODE=demo`
+  - `export GITHUB_PROVIDER=fake`
   - `./scripts/seed_demo.sh`
 
 ### Browser crashes
@@ -119,6 +125,8 @@
 - Re-run the seed before every rehearsal.
 - The seed entrypoint is:
   - `./scripts/seed_demo.sh`
+- The deterministic local QA seed environment is:
+  - `WINOE_ENV=local WINOE_DEMO_MODE=true WINOE_AI_RUNTIME_MODE=demo GITHUB_PROVIDER=fake ./scripts/seed_demo.sh`
 - If a local database has a stale Alembic stamp, repair it locally with a reset or `alembic stamp head` before seeding.
 - The demo login is:
   - `demo@winoe.ai`

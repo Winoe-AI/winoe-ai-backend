@@ -51,6 +51,7 @@ async def test_get_trial_detail_happy_path(
     assert body["scenario"]["lockedAt"] is None
     assert body["scenario"]["notes"] == sim.focus
     assert body["scenario"]["projectBriefMd"]
+    assert body["viewerCapabilities"]["canManageInternalAiControls"] is False
     assert "codespaceSpecJson" not in body["scenario"]
     assert "templateKey" not in body
     assert "techStack" not in body

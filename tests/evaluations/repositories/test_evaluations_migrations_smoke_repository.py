@@ -123,7 +123,7 @@ def test_evaluation_migration_upgrade_head_smoke():
                 .scalars()
                 .all()
             )
-        assert set(version_nums) == {"202605150001_prefdisp"}
+        assert set(version_nums) == {"202605240001_task11"}
 
         tables_after_upgrade = _table_names(temp_sync_url)
         assert "notification_delivery_audits" in tables_after_upgrade

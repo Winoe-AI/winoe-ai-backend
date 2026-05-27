@@ -25,6 +25,15 @@ from app.shared.database.shared_database_models_model import Trial, User
 
 _DEFAULT_WINDOW_START = time(hour=9, minute=0)
 _DEFAULT_WINDOW_END = time(hour=17, minute=0)
+_CANDIDATE_TEMPLATE_NAME = "start_date_confirmed.html"
+_TALENT_PARTNER_TEMPLATE_NAME = "talent_partner_schedule_confirmation.inline"
+
+
+def _provider_name(email_service: EmailService) -> str:
+    provider = getattr(email_service, "provider", None)
+    if provider is None:
+        return email_service.__class__.__name__
+    return provider.__class__.__name__
 
 
 async def _load_talent_partner_email(
@@ -98,6 +107,7 @@ async def send_schedule_confirmation_emails(
         candidate_result = EmailSendResult(status="sent", message_id=None)
     else:
         attempted_at = datetime.now(UTC)
+        provider_name = _provider_name(email_service)
         candidate_result = await email_service.send_email(
             to=candidate_email,
             subject=candidate_subject,
@@ -113,12 +123,14 @@ async def send_schedule_confirmation_emails(
             recipient_role="candidate",
             subject=candidate_subject,
             status=candidate_result.status,
+            provider=provider_name,
             provider_message_id=candidate_result.message_id,
             error=candidate_result.error,
             attempted_at=attempted_at,
             sent_at=attempted_at if candidate_result.status == "sent" else None,
             correlation_id=correlation_id,
             idempotency_key=candidate_idempotency_key,
+            payload_json={"templateName": _CANDIDATE_TEMPLATE_NAME},
         )
 
     talent_partner_email = await _load_talent_partner_email(
@@ -156,6 +168,7 @@ async def send_schedule_confirmation_emails(
         talent_partner_result = EmailSendResult(status="sent", message_id=None)
     else:
         attempted_at = datetime.now(UTC)
+        provider_name = _provider_name(email_service)
         talent_partner_result = await email_service.send_email(
             to=talent_partner_email,
             subject=talent_partner_subject,
@@ -171,12 +184,14 @@ async def send_schedule_confirmation_emails(
             recipient_role="talent_partner",
             subject=talent_partner_subject,
             status=talent_partner_result.status,
+            provider=provider_name,
             provider_message_id=talent_partner_result.message_id,
             error=talent_partner_result.error,
             attempted_at=attempted_at,
             sent_at=attempted_at if talent_partner_result.status == "sent" else None,
             correlation_id=correlation_id,
             idempotency_key=talent_partner_idempotency_key,
+            payload_json={"templateName": _TALENT_PARTNER_TEMPLATE_NAME},
         )
     await db.commit()
     return candidate_result, talent_partner_result

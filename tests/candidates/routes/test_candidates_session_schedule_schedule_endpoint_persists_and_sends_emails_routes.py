@@ -48,7 +48,9 @@ async def test_schedule_endpoint_persists_and_sends_emails(
     recipients = {message.to for message in provider.sent}
     assert cs.invite_email in recipients
     assert talent_partner.email in recipients
-    assert any("Schedule confirmed" in message.subject for message in provider.sent)
+    assert any(
+        "Your Winoe Trial begins" in message.subject for message in provider.sent
+    )
 
     audits = (
         (

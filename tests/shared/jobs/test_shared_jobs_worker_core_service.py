@@ -15,11 +15,11 @@ from tests.shared.jobs.shared_jobs_worker_utils import _session_maker, create_jo
 
 @pytest.mark.asyncio
 async def test_compute_backoff_seconds():
-    assert worker.compute_backoff_seconds(0) == 1
-    assert worker.compute_backoff_seconds(1) == 1
-    assert worker.compute_backoff_seconds(2) == 2
-    assert worker.compute_backoff_seconds(3) == 4
-    assert worker.compute_backoff_seconds(20) == 60
+    assert worker.compute_backoff_seconds(0) == 60
+    assert worker.compute_backoff_seconds(1) == 60
+    assert worker.compute_backoff_seconds(2) == 300
+    assert worker.compute_backoff_seconds(3) == 1800
+    assert worker.compute_backoff_seconds(20) == 1800
 
 
 @pytest.mark.asyncio

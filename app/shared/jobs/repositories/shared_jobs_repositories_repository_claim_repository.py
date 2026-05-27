@@ -7,6 +7,12 @@ from datetime import timedelta
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_model import (
+    JOB_EVENT_STARTED,
+)
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_repository import (
+    record_job_event,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
     JOB_STATUS_QUEUED,
     JOB_STATUS_RUNNING,
@@ -70,6 +76,22 @@ async def claim_next_runnable(
         )
         if claimed.rowcount == 1:
             await db.commit()
-            return await get_by_id(db, candidate_row.id)
+            job = await get_by_id(db, candidate_row.id)
+            if job is not None:
+                await record_job_event(
+                    db,
+                    job_id=job.id,
+                    job_type=job.job_type,
+                    event_type=JOB_EVENT_STARTED,
+                    status=JOB_STATUS_RUNNING,
+                    correlation_id=job.correlation_id,
+                    metadata_json={
+                        "attempt": job.attempt,
+                        "workerId": worker_id,
+                    },
+                    created_at=now,
+                )
+                await db.commit()
+            return job
         await db.rollback()
     return None

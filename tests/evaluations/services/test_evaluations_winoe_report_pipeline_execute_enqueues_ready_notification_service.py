@@ -5,13 +5,26 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from sqlalchemy import select
 
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationState,
+    TrialEvaluationStateRecord,
+)
 from app.evaluations.services import (
     evaluations_services_evaluations_winoe_report_pipeline_execute_service as execute_service,
+)
+from app.evaluations.services.evaluations_services_evidence_trail_validator_service import (
+    ValidationResult,
 )
 from tests.evaluations.services.evaluations_winoe_report_fixtures_utils import (
     build_valid_winoe_report_json,
     build_winoe_report_validation_bundle,
+)
+from tests.shared.factories import (
+    create_candidate_session,
+    create_talent_partner,
+    create_trial,
 )
 
 
@@ -201,3 +214,100 @@ async def test_evaluate_and_finalize_run_allows_empty_evidence_lists(
     )
     upsert_marker.assert_awaited_once()
     db.commit.assert_awaited_once()
+
+
+def test_pipeline_execute_validation_error_classes_and_day_score_guards():
+    assert execute_service._validation_error_classes(
+        [
+            "Citation is missing for dimension",
+            "Citation locator is unsupported",
+            "Narrative paragraph is uncited",
+            "Unexpected structure",
+        ]
+    ) == [
+        "citation_coverage",
+        "citation_resolution",
+        "narrative_coverage",
+        "structure",
+    ]
+
+    with pytest.raises(ValueError, match="evidence must be a list"):
+        execute_service._build_day_scores(
+            SimpleNamespace(
+                day_results=[
+                    SimpleNamespace(
+                        day_index=1,
+                        score=0.8,
+                        rubric_breakdown={"signal": 0.8},
+                        evidence={"not": "a-list"},
+                    )
+                ]
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_mark_evaluation_state_report_finalized_creates_gate(async_session):
+    talent_partner = await create_talent_partner(
+        async_session, email="pipeline-finalized@test.com"
+    )
+    trial, _tasks = await create_trial(async_session, created_by=talent_partner)
+    candidate_session = await create_candidate_session(async_session, trial=trial)
+    await async_session.commit()
+
+    await execute_service._mark_evaluation_state_report_finalized(
+        db=async_session,
+        candidate_session_id=candidate_session.id,
+        trial_id=trial.id,
+        validation_result=ValidationResult(
+            passed=True,
+            errors=[],
+            warnings=["minor"],
+            metadata={"citationCount": 4},
+        ),
+    )
+    await async_session.commit()
+
+    record = await async_session.scalar(
+        select(TrialEvaluationStateRecord).where(
+            TrialEvaluationStateRecord.candidate_session_id == candidate_session.id
+        )
+    )
+
+    assert record is not None
+    assert record.state == TrialEvaluationState.REPORT_FINALIZED.value
+    assert record.winoe_synthesis_status == "complete"
+    assert record.evidence_trail_validation_status == "passed"
+    assert record.report_finalization_status == "finalized"
+    assert record.notification_status == "queued_or_pending"
+    assert record.failure_context_json == {
+        "validation": {
+            "passed": True,
+            "warnings": ["minor"],
+            "metadata": {"citationCount": 4},
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_mark_evaluation_state_report_finalized_skips_non_scalar_results():
+    db = SimpleNamespace(
+        execute=AsyncMock(return_value=SimpleNamespace()),
+        add=Mock(),
+        flush=AsyncMock(),
+    )
+
+    await execute_service._mark_evaluation_state_report_finalized(
+        db=db,
+        candidate_session_id=1,
+        trial_id=2,
+        validation_result=ValidationResult(
+            passed=True,
+            errors=[],
+            warnings=[],
+            metadata={},
+        ),
+    )
+
+    db.add.assert_not_called()
+    db.flush.assert_not_awaited()

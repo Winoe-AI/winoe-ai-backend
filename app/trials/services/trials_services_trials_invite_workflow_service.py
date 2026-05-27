@@ -27,6 +27,12 @@ async def _rollback_if_supported(db: AsyncSession) -> None:
         await rollback()
 
 
+async def _commit_if_supported(db: AsyncSession) -> None:
+    commit = getattr(db, "commit", None)
+    if callable(commit):
+        await commit()
+
+
 async def _cleanup_provisioned_repos(
     github_client: GithubClient, repo_full_names: tuple[str, ...] | list[str]
 ) -> None:
@@ -52,6 +58,7 @@ async def create_candidate_invite_workflow(
     email_service,
     github_client: GithubClient,
     now: datetime | None = None,
+    commit: bool = True,
 ):
     """Create candidate invite workflow."""
     try:
@@ -113,6 +120,8 @@ async def create_candidate_invite_workflow(
         provisioned_repo_full_names = tuple(provision_out.repo_full_names or ())
         workspace_provisioning_status = provision_out.workspace_provisioning_status
         invite_workspace = provision_out.workspace
+        if commit:
+            await _commit_if_supported(db)
         await notification_service.send_invite_email(
             db,
             candidate_session=cs,
@@ -133,6 +142,8 @@ async def create_candidate_invite_workflow(
                 trial_id=sim.id,
                 candidate_session_id=cs.id,
             )
+        if commit:
+            await _commit_if_supported(db)
     except Exception as exc:
         if fresh_candidate_session:
             cleanup_targets = getattr(exc, "provisioned_repo_full_names", ())

@@ -56,7 +56,7 @@ async def test_get_job_status_talent_partner_owner_returns_shape(
     assert body["jobType"] == "scenario_generation"
     assert body["status"] == "queued"
     assert body["attempt"] == 0
-    assert body["maxAttempts"] == 5
+    assert body["maxAttempts"] == 3
     assert body["pollAfterMs"] == 1500
     assert body["result"] is None
     assert body["error"] is None

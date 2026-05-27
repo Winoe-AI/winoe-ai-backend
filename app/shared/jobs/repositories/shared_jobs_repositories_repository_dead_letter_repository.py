@@ -1,4 +1,4 @@
-"""Application module for dead-letter job recovery repository workflows."""
+"""Dead-letter job recovery repository workflows."""
 
 from __future__ import annotations
 
@@ -7,22 +7,13 @@ from datetime import datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.jobs.repositories.shared_jobs_repositories_failed_jobs_repository import (
+    create_retry_job_from_failed_job,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
     JOB_STATUS_DEAD_LETTER,
-    JOB_STATUS_QUEUED,
     Job,
 )
-
-
-def _apply_dead_letter_requeue(job: Job, *, now: datetime) -> Job:
-    job.status = JOB_STATUS_QUEUED
-    job.next_run_at = now
-    job.locked_at = None
-    job.locked_by = None
-    job.last_error = None
-    job.result_json = None
-    job.updated_at = now
-    return job
 
 
 async def requeue_dead_letter_job(
@@ -46,12 +37,12 @@ async def requeue_dead_letter_job(
     ).scalar_one_or_none()
     if job is None:
         return None
-    _apply_dead_letter_requeue(job, now=now)
+    retry_job = await create_retry_job_from_failed_job(db, job=job, now=now)
     if commit:
         await db.commit()
     else:
         await db.flush()
-    return job
+    return retry_job
 
 
 async def requeue_dead_letter_jobs(
@@ -70,11 +61,14 @@ async def requeue_dead_letter_jobs(
     jobs = (await db.execute(stmt.order_by(Job.created_at.asc()))).scalars().all()
     if not jobs:
         return 0
+    created = 0
     for job in jobs:
-        _apply_dead_letter_requeue(job, now=now)
+        retry_job = await create_retry_job_from_failed_job(db, job=job, now=now)
+        if retry_job is not None:
+            created += 1
     await db.flush()
     await db.commit()
-    return len(jobs)
+    return created
 
 
 __all__ = ["requeue_dead_letter_job", "requeue_dead_letter_jobs"]

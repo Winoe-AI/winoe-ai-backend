@@ -88,8 +88,13 @@ async def test_request_scenario_regeneration_requeues_dead_letter_job(
     )
 
     assert updated_sim.active_scenario_version_id == regenerated.id
-    assert scenario_job.id == job.id
+    assert scenario_job.id != job.id
     assert scenario_job.status == JOB_STATUS_QUEUED
+    assert scenario_job.payload_json["originalJobId"] == job.id
+    assert scenario_job.payload_json["originalIdempotencyKey"] == job.idempotency_key
+    assert "retriedFromFailedJobId" in scenario_job.payload_json
+    await async_session.refresh(job)
+    assert job.status == JOB_STATUS_DEAD_LETTER
 
 
 @pytest.mark.asyncio

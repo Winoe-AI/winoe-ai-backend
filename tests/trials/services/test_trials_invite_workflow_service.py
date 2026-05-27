@@ -18,6 +18,10 @@ from app.trials.services import (
 class FakeDB:
     def __init__(self) -> None:
         self.rollback_calls = 0
+        self.commit_calls = 0
+
+    async def commit(self) -> None:
+        self.commit_calls += 1
 
     async def rollback(self) -> None:
         self.rollback_calls += 1
@@ -196,6 +200,80 @@ async def test_invite_workflow_cleans_up_created_repo_when_email_send_fails(
 
     assert db.rollback_calls == 1
     assert github_client.deleted_repos == ["winoe-ai-repos/winoe-ws-77"]
+
+
+@pytest.mark.asyncio
+async def test_invite_workflow_commits_invite_before_sending_email(monkeypatch):
+    db = FakeDB()
+    trial = SimpleNamespace(id=15, title="Trial", role="Engineer")
+    scenario_version = SimpleNamespace(id=16)
+    candidate_session = SimpleNamespace(
+        id=177,
+        token="tok-177",
+        _invite_newly_created=True,
+    )
+    send_observed_commit_calls: list[int] = []
+
+    async def _require_owned(*_args, **_kwargs):
+        return trial, [SimpleNamespace(id=1, day_index=1, type="design_doc")]
+
+    async def _lock_active(*_args, **_kwargs):
+        return scenario_version
+
+    async def _create_or_resend(*_args, **_kwargs):
+        return candidate_session, "created"
+
+    async def _preprovision(*_args, **_kwargs):
+        return invite_repo_bootstrap.InviteRepoProvisionResult((), None, None)
+
+    async def _send_invite_email(*_args, **_kwargs):
+        send_observed_commit_calls.append(db.commit_calls)
+        return None
+
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "require_owned_trial_with_tasks",
+        _require_owned,
+    )
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "require_trial_invitable",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "lock_active_scenario_for_invites",
+        _lock_active,
+    )
+    monkeypatch.setattr(
+        invite_workflow.trial_service,
+        "create_or_resend_invite",
+        _create_or_resend,
+    )
+    monkeypatch.setattr(
+        invite_workflow.invite_repo_bootstrap,
+        "provision_invite_candidate_repository",
+        _preprovision,
+    )
+    monkeypatch.setattr(
+        invite_workflow.notification_service,
+        "send_invite_email",
+        _send_invite_email,
+    )
+    monkeypatch.setattr(invite_workflow.trial_service, "invite_url", lambda _t: "u")
+
+    await invite_workflow.create_candidate_invite_workflow(
+        db=db,
+        trial_id=15,
+        payload=SimpleNamespace(inviteEmail="jane@example.com", candidateName="Jane"),
+        user_id=9,
+        email_service=object(),
+        github_client=object(),
+        now=datetime.now(UTC),
+    )
+
+    assert send_observed_commit_calls == [1]
+    assert db.commit_calls == 2
 
 
 @pytest.mark.asyncio

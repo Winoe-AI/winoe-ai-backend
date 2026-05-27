@@ -1,3 +1,4 @@
+# ruff: noqa: E402, I001
 from __future__ import annotations
 
 import argparse
@@ -8,6 +9,27 @@ import sys
 from pathlib import Path
 
 from sqlalchemy import func, select
+
+_DEMO_RUNTIME_ENV_VARS = (
+    "WINOE_AI_RUNTIME_MODE",
+    "WINOE_SCENARIO_GENERATION_RUNTIME_MODE",
+    "WINOE_REPORT_DAY1_RUNTIME_MODE",
+    "WINOE_REPORT_DAY23_RUNTIME_MODE",
+    "WINOE_REPORT_DAY4_RUNTIME_MODE",
+    "WINOE_REPORT_DAY5_RUNTIME_MODE",
+    "WINOE_REPORT_AGGREGATOR_RUNTIME_MODE",
+    "WINOE_TRANSCRIPTION_RUNTIME_MODE",
+)
+
+
+def _default_demo_runtime_environment() -> None:
+    for name in _DEMO_RUNTIME_ENV_VARS:
+        os.environ.setdefault(name, "demo")
+    os.environ.setdefault("GITHUB_PROVIDER", "fake")
+
+
+if __name__ == "__main__":
+    _default_demo_runtime_environment()
 
 from app.config import settings
 from app.demo.services.yc_demo_seed_service import (
@@ -220,6 +242,12 @@ async def _verify_seeded_dataset(summary, config: DemoSeedConfig) -> None:
             .join(WinoeReport, WinoeReport.id == WinoeReportCitation.report_id)
             .where(WinoeReport.candidate_session_id == completed_session.id)
         )
+        report_run = await db.scalar(
+            select(EvaluationRun).where(
+                EvaluationRun.candidate_session_id == completed_session.id,
+                EvaluationRun.status == EVALUATION_RUN_STATUS_COMPLETED,
+            )
+        )
 
     if company_count != 1:
         raise RuntimeError("YC demo verification failed: company count mismatch")
@@ -243,13 +271,6 @@ async def _verify_seeded_dataset(summary, config: DemoSeedConfig) -> None:
         )
     if citation_count is None or citation_count < 8:
         raise RuntimeError("YC demo verification failed: citation count mismatch")
-
-    report_run = await db.scalar(
-        select(EvaluationRun).where(
-            EvaluationRun.candidate_session_id == completed_session.id,
-            EvaluationRun.status == EVALUATION_RUN_STATUS_COMPLETED,
-        )
-    )
     if report_run is None or not isinstance(report_run.raw_report_json, dict):
         raise RuntimeError("YC demo verification failed: missing report payload")
     report_json = report_run.raw_report_json
@@ -291,6 +312,10 @@ async def _main_async(args: argparse.Namespace) -> None:
         "YC demo seed: using GitHub provider="
         f"{_resolve_github_provider_label(args.github_provider)}"
     )
+    print(
+        "YC demo seed: using AI runtime="
+        f"{os.getenv('WINOE_AI_RUNTIME_MODE', 'demo')}"
+    )
     async with async_session_maker() as db:
         summary = await seed_yc_demo_dataset(
             db,
@@ -309,9 +334,16 @@ async def _main_async(args: argparse.Namespace) -> None:
     )
 
 
+async def _main_with_cleanup(args: argparse.Namespace) -> None:
+    try:
+        await _main_async(args)
+    finally:
+        await engine.dispose()
+
+
 def main() -> None:
     args = _parse_args()
-    asyncio.run(_main_async(args))
+    asyncio.run(_main_with_cleanup(args))
 
 
 if __name__ == "__main__":

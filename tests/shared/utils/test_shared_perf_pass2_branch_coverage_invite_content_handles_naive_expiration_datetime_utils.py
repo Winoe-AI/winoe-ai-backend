@@ -14,7 +14,8 @@ async def test_invite_content_handles_naive_expiration_datetime():
         trial=trial,
         expires_at=datetime(2026, 3, 21, 12, 0, 0),  # intentionally naive
     )
-    assert "Backend Pass" in subject
+    assert "Engineer" in subject
+    assert "the hiring organization" in subject
     assert "2026-03-21" in text
     assert "2026-03-21" in html
 

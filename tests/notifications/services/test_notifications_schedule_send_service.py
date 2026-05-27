@@ -91,6 +91,12 @@ async def test_send_schedule_confirmation_emails_without_talent_partner(async_se
     assert audits[0].notification_type == "schedule_confirmation_candidate"
     assert audits[0].recipient_role == "candidate"
     assert audits[0].status == "sent"
+    assert audits[0].provider == "MemoryEmailProvider"
+    assert audits[0].payload_json == {"templateName": "start_date_confirmed.html"}
+    assert audits[0].idempotency_key == "schedule_confirmation_candidate:unknown"
+    assert audits[0].recipient_email == "candidate@test.com"
+    assert audits[0].attempted_at is not None
+    assert audits[0].sent_at is not None
 
 
 @pytest.mark.asyncio
@@ -141,6 +147,27 @@ async def test_send_schedule_confirmation_emails_candidate_and_talent_partner(
         "schedule_confirmation_candidate",
         "schedule_confirmation_talent_partner",
     }
+    by_role = {audit.recipient_role: audit for audit in audits}
+    assert by_role["candidate"].provider == "MemoryEmailProvider"
+    assert by_role["candidate"].payload_json == {
+        "templateName": "start_date_confirmed.html"
+    }
+    assert by_role["candidate"].correlation_id == "req-123"
+    assert by_role["candidate"].idempotency_key == (
+        f"schedule_confirmation_candidate:{candidate_session.id}"
+    )
+    assert by_role["talent_partner"].provider == "MemoryEmailProvider"
+    assert by_role["talent_partner"].payload_json == {
+        "templateName": "talent_partner_schedule_confirmation.inline"
+    }
+    assert by_role["talent_partner"].correlation_id == "req-123"
+    assert by_role["talent_partner"].idempotency_key == (
+        f"schedule_confirmation_talent_partner:{candidate_session.id}"
+    )
+    assert all(audit.recipient_email for audit in audits)
+    assert all(audit.subject for audit in audits)
+    assert all(audit.attempted_at is not None for audit in audits)
+    assert all(audit.sent_at is not None for audit in audits)
 
 
 @pytest.mark.asyncio

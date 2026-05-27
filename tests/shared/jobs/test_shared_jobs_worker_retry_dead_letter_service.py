@@ -43,13 +43,13 @@ async def test_run_once_retries_then_dead_letters(async_session):
     observed_next_run = first_refresh.next_run_at
     if observed_next_run.tzinfo is None:
         observed_next_run = observed_next_run.replace(tzinfo=UTC)
-    assert observed_next_run == first_now + timedelta(seconds=1)
+    assert observed_next_run == first_now + timedelta(seconds=60)
     assert "RuntimeError" in (first_refresh.last_error or "")
 
     second = await worker.run_once(
         session_maker=_session_maker(async_session),
         worker_id="worker-retry",
-        now=first_now + timedelta(seconds=1),
+        now=first_now + timedelta(seconds=60),
     )
     assert second is True
 
@@ -58,6 +58,11 @@ async def test_run_once_retries_then_dead_letters(async_session):
     assert second_refresh.status == JOB_STATUS_DEAD_LETTER
     assert second_refresh.attempt == 2
     assert second_refresh.next_run_at is None
+    failed_job = await jobs_repo.get_failed_job_by_original_job_id(
+        async_session, original_job_id=job.id
+    )
+    assert failed_job is not None
+    assert failed_job.attempt_count == 2
 
 
 @pytest.mark.asyncio

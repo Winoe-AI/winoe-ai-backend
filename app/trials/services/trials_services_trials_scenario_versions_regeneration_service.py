@@ -178,9 +178,14 @@ async def request_scenario_regeneration(
                 commit=False,
             )
         elif scenario_job.status == JOB_STATUS_DEAD_LETTER:
-            await jobs_repo.requeue_dead_letter_jobs(
-                db, now=regenerated_at, job_ids=[str(scenario_job.id)]
+            retry_job = await jobs_repo.requeue_dead_letter_job(
+                db,
+                now=regenerated_at,
+                job_id=str(scenario_job.id),
+                commit=False,
             )
+            if retry_job is not None:
+                scenario_job = retry_job
         await db.commit()
         await db.refresh(trial)
         await db.refresh(regenerated)

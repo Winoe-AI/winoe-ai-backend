@@ -131,10 +131,77 @@ async def test_build_invite_item_exposes_report_and_terminated_state(monkeypatch
         last_submitted_map={},
         tasks_loader=_tasks_loader,
         completed_ids={1, 2, 3},
+        evaluation_state=SimpleNamespace(
+            state="notification_sent",
+            evidence_trail_validation_status="passed",
+            report_finalization_status="finalized",
+        ),
     )
 
     assert item.status == "completed"
     assert item.reportReady is True
     assert item.hasReport is True
+    assert item.reportStatus == "finalized"
+    assert item.reportSharedWithTalentPartner is True
     assert item.terminatedAt == terminated_at
     assert item.isTerminated is True
+
+
+@pytest.mark.asyncio
+async def test_build_invite_item_keeps_report_pending_until_finalized(monkeypatch):
+    now = datetime(2026, 3, 26, 12, 0, tzinfo=UTC)
+    candidate_session = SimpleNamespace(
+        id=9,
+        trial_id=21,
+        trial=SimpleNamespace(
+            id=21,
+            title="Trial",
+            role="Engineer",
+            company=SimpleNamespace(name="Acme"),
+            terminated_at=None,
+            status="active",
+            created_by=None,
+        ),
+        winoe_report=SimpleNamespace(id=102, generated_at=now),
+        expires_at=None,
+        completed_at=now,
+        started_at=None,
+        created_at=now,
+        token="invite-token",
+        status="completed",
+        github_username=None,
+    )
+
+    async def _tasks_loader(_trial_id: int):
+        return [SimpleNamespace(id=1)]
+
+    monkeypatch.setattr(
+        invite_items_service,
+        "schedule_payload_for_candidate_session",
+        lambda _candidate_session, now_utc: {
+            "scheduledStartAt": None,
+            "candidateTimezone": "UTC",
+            "dayWindows": [],
+            "scheduleLockedAt": None,
+            "currentDayWindow": None,
+        },
+    )
+
+    item = await invite_items_service.build_invite_item(
+        db=object(),
+        candidate_session=candidate_session,
+        now=now,
+        last_submitted_map={},
+        tasks_loader=_tasks_loader,
+        completed_ids={1},
+        evaluation_state=SimpleNamespace(
+            state="evidence_trail_validating",
+            evidence_trail_validation_status="running",
+            report_finalization_status="blocked_waiting_for_evidence_trail",
+        ),
+    )
+
+    assert item.hasReport is True
+    assert item.reportReady is False
+    assert item.reportStatus == "pending"
+    assert item.reportSharedWithTalentPartner is False

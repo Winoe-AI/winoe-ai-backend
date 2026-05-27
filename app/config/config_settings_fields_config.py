@@ -42,6 +42,9 @@ class SettingsFields(BaseSettings):
         default_factory=list
     )
     DEMO_ADMIN_JOB_STALE_SECONDS: int = 900
+    JOB_HEALTH_MAX_STUCK_JOBS: int = 0
+    JOB_HEALTH_MAX_OLDEST_QUEUED_SECONDS: int = 1800
+    JOB_HEALTH_MAX_DLQ_COUNT: int = 0
     WORKER_HEARTBEAT_INTERVAL_SECONDS: int = 15
     WORKER_HEARTBEAT_STALE_SECONDS: int = 60
     AI_RUNTIME_MODE: str = "real"
@@ -168,5 +171,9 @@ class SettingsFields(BaseSettings):
     CANDIDATE_PORTAL_BASE_URL: str = ""
     ADMIN_API_KEY: str = Field(
         default="",
-        validation_alias=AliasChoices("WINOE_ADMIN_API_KEY", "ADMIN_API_KEY"),
+        validation_alias=AliasChoices(
+            "WINOE_ADMIN_API_KEY",
+            "ADMIN_API_TOKEN",
+            "ADMIN_API_KEY",
+        ),
     )

@@ -20,10 +20,44 @@ from app.candidates.schemas.candidates_schemas_candidates_candidate_sessions_cor
     CandidateInviteListItem,
     ProgressSummary,
 )
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationState,
+    TrialEvaluationStateRecord,
+)
 from app.shared.database.shared_database_models_model import Task, User
 from app.trials.repositories.trials_repositories_trials_trial_model import (
     TRIAL_STATUS_TERMINATED,
 )
+
+FINALIZED_REPORT_STATES = {
+    TrialEvaluationState.REPORT_FINALIZED.value,
+    TrialEvaluationState.NOTIFICATION_SENT.value,
+}
+
+
+def _is_finalized_report_state(
+    evaluation_state: TrialEvaluationStateRecord | None,
+) -> bool:
+    return bool(
+        evaluation_state
+        and evaluation_state.state in FINALIZED_REPORT_STATES
+        and evaluation_state.report_finalization_status == "finalized"
+        and evaluation_state.evidence_trail_validation_status == "passed"
+    )
+
+
+def _candidate_report_status(
+    *,
+    evaluation_state: TrialEvaluationStateRecord | None,
+    has_report: bool,
+) -> str:
+    if _is_finalized_report_state(evaluation_state):
+        return "finalized"
+    if evaluation_state and evaluation_state.state == TrialEvaluationState.FAILED.value:
+        return "failed"
+    if evaluation_state or has_report:
+        return "pending"
+    return "not_started"
 
 
 async def build_invite_item(
@@ -34,6 +68,7 @@ async def build_invite_item(
     last_submitted_map: dict[int, datetime | None],
     tasks_loader: Callable[[int], Awaitable[list[Task]]],
     completed_ids: set[int] | None = None,
+    evaluation_state: TrialEvaluationStateRecord | None = None,
 ) -> CandidateInviteListItem:
     """Build invite item."""
     expires_at = candidate_session.expires_at
@@ -69,7 +104,12 @@ async def build_invite_item(
             or terminated_at is not None
         )
     )
-    report_ready = bool(getattr(candidate_session, "winoe_report", None))
+    has_report = bool(getattr(candidate_session, "winoe_report", None))
+    report_ready = _is_finalized_report_state(evaluation_state)
+    report_status = _candidate_report_status(
+        evaluation_state=evaluation_state,
+        has_report=has_report,
+    )
     talent_partner_name = None
     talent_partner_email = None
     talent_partner_id = getattr(sim, "created_by", None) if sim else None
@@ -95,8 +135,10 @@ async def build_invite_item(
         expiresAt=candidate_session.expires_at,
         inviteToken=candidate_session.token,
         isExpired=is_expired,
-        hasReport=report_ready,
+        hasReport=has_report,
         reportReady=report_ready,
+        reportStatus=report_status,
+        reportSharedWithTalentPartner=report_ready,
         terminatedAt=terminated_at,
         isTerminated=is_terminated,
         scheduledStartAt=schedule_payload["scheduledStartAt"],

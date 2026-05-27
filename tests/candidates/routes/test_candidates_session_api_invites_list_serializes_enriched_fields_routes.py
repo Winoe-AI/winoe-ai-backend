@@ -4,6 +4,9 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationStateRecord,
+)
 from app.shared.database.shared_database_models_model import WinoeReport
 from tests.shared.factories import (
     create_candidate_session,
@@ -41,6 +44,15 @@ async def test_invites_list_serializes_canonical_status_and_derived_fields(
             generated_at=datetime.now(UTC),
         )
     )
+    async_session.add(
+        TrialEvaluationStateRecord(
+            trial_id=report_trial.id,
+            candidate_session_id=report_session.id,
+            state="notification_sent",
+            evidence_trail_validation_status="passed",
+            report_finalization_status="finalized",
+        )
+    )
 
     terminated_trial, _ = await create_trial(
         async_session,
@@ -75,6 +87,8 @@ async def test_invites_list_serializes_canonical_status_and_derived_fields(
     assert report_row["status"] == "in_progress"
     assert report_row["reportReady"] is True
     assert report_row["hasReport"] is True
+    assert report_row["reportStatus"] == "finalized"
+    assert report_row["reportSharedWithTalentPartner"] is True
     assert report_row["terminatedAt"] is None
     assert report_row["isTerminated"] is False
 

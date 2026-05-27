@@ -49,6 +49,12 @@ class TrialBackgroundFailures(BaseModel):
     latestFailure: TrialLatestFailureSummary | None = None
 
 
+class TrialDetailViewerCapabilities(BaseModel):
+    """Role-scoped UI capabilities for the current detail response."""
+
+    canManageInternalAiControls: bool = False
+
+
 class TrialDetailTask(BaseModel):
     """Task summary for Talent Partner trial detail view."""
 
@@ -90,6 +96,9 @@ class TrialDetailResponse(BaseModel):
     focus: str | list[str] | None = None
     companyContext: TrialCompanyContext | None = None
     ai: TrialAIConfig | None = None
+    viewerCapabilities: TrialDetailViewerCapabilities = Field(
+        default_factory=TrialDetailViewerCapabilities
+    )
     activeScenarioVersionId: int | None = None
     pendingScenarioVersionId: int | None = None
     scenario: TrialDetailScenario | None = None
@@ -124,4 +133,5 @@ __all__ = [
     "TrialGenerationFailure",
     "TrialBackgroundFailures",
     "TrialLatestFailureSummary",
+    "TrialDetailViewerCapabilities",
 ]
