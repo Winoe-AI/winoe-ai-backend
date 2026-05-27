@@ -14,6 +14,16 @@ from app.shared.jobs.repositories import (
 from app.shared.jobs.repositories import (
     shared_jobs_repositories_repository_create_update_repository as _create_update_module,
 )
+from app.shared.jobs.repositories.shared_jobs_repositories_failed_jobs_repository import (
+    count_failed_jobs,
+    get_failed_job_by_original_job_id,
+    get_failed_job_by_retry_job_id,
+    list_failed_job_history,
+)
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_repository import (
+    list_job_events,
+    record_job_event,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_claim_repository import (
     claim_next_runnable,
 )
@@ -22,6 +32,7 @@ from app.shared.jobs.repositories.shared_jobs_repositories_repository_dead_lette
     requeue_dead_letter_jobs,
 )
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_lookup_repository import (
+    find_successful_idempotent_job,
     get_by_id,
     get_by_id_for_principal,
 )
@@ -90,9 +101,15 @@ __all__ = [
     "create_or_get_idempotent",
     "create_or_update_idempotent",
     "create_or_update_many_idempotent",
+    "count_failed_jobs",
     "get_by_id",
     "get_by_id_for_principal",
+    "find_successful_idempotent_job",
+    "get_failed_job_by_original_job_id",
+    "get_failed_job_by_retry_job_id",
     "get_latest_worker_heartbeat",
+    "list_failed_job_history",
+    "list_job_events",
     "mark_dead_letter",
     "mark_failed_and_reschedule",
     "mark_worker_stopped",
@@ -100,6 +117,7 @@ __all__ = [
     "requeue_nonterminal_idempotent_job",
     "requeue_dead_letter_jobs",
     "requeue_dead_letter_job",
+    "record_job_event",
     "sanitize_error",
     "upsert_worker_heartbeat",
     "_job_from_spec",

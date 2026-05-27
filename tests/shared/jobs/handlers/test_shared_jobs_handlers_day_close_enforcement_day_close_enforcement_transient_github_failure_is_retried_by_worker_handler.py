@@ -70,7 +70,7 @@ async def test_day_close_enforcement_transient_github_failure_is_retried_by_work
     second_handled = await worker.run_once(
         session_maker=_session_maker(async_session),
         worker_id="worker-cutoff-2",
-        now=now + timedelta(seconds=1),
+        now=now + timedelta(seconds=60),
     )
     assert second_handled is True
     second_refresh = await jobs_repo.get_by_id(async_session, job.id)

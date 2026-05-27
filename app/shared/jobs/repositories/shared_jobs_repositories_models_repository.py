@@ -47,7 +47,7 @@ class Job(Base):
         Integer, nullable=False, default=0, server_default="0"
     )
     max_attempts: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=5, server_default="5"
+        Integer, nullable=False, default=3, server_default="3"
     )
     idempotency_key: Mapped[str] = mapped_column(String(255), nullable=False)
     payload_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)

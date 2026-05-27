@@ -5,6 +5,12 @@ from __future__ import annotations
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_model import (
+    JOB_EVENT_ENQUEUED,
+)
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_repository import (
+    record_job_event,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import Job
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_repository import (
     IdempotentJobSpec,
@@ -36,6 +42,16 @@ async def recover_bulk_insert_conflicts(
         company_id=company_id,
         keys=[(spec.job_type, spec.idempotency_key) for spec in new_specs],
     )
+    for job in created_map.values():
+        await record_job_event(
+            db,
+            job_id=job.id,
+            job_type=job.job_type,
+            event_type=JOB_EVENT_ENQUEUED,
+            status=job.status,
+            correlation_id=job.correlation_id,
+            metadata_json={"idempotencyKey": job.idempotency_key},
+        )
     existing_map.update(created_map)
 
 
@@ -88,4 +104,13 @@ async def _recover_per_key(
                 raise
             existing_map[key] = existing
             continue
+        await record_job_event(
+            db,
+            job_id=job.id,
+            job_type=job.job_type,
+            event_type=JOB_EVENT_ENQUEUED,
+            status=job.status,
+            correlation_id=job.correlation_id,
+            metadata_json={"idempotencyKey": job.idempotency_key},
+        )
         existing_map[key] = job

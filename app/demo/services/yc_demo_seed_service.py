@@ -26,6 +26,10 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_create_ru
 from app.evaluations.repositories.evaluations_repositories_evaluations_day_scores_repository import (
     add_day_scores,
 )
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationState,
+    TrialEvaluationStateRecord,
+)
 from app.integrations.github import FakeGithubClient, GithubClient
 from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_core_model import (
     NotificationDeliveryAudit,
@@ -36,6 +40,7 @@ from app.shared.database.shared_database_models_model import (
     RecordingAsset,
     Submission,
     Task,
+    TaskDraft,
     Transcript,
     Trial,
     User,
@@ -1518,6 +1523,16 @@ async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
             delete(EvaluationRun).where(EvaluationRun.id.in_(evaluation_run_ids))
         )
 
+    task_draft_filters = []
+    if candidate_session_ids:
+        task_draft_filters.append(
+            TaskDraft.candidate_session_id.in_(candidate_session_ids)
+        )
+    if task_ids:
+        task_draft_filters.append(TaskDraft.task_id.in_(task_ids))
+    if task_draft_filters:
+        await db.execute(delete(TaskDraft).where(or_(*task_draft_filters)))
+
     if candidate_session_ids:
         if job_ids:
             await db.execute(delete(Job).where(Job.id.in_(job_ids)))
@@ -1535,6 +1550,13 @@ async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
         await db.execute(
             delete(CandidateDayAudit).where(
                 CandidateDayAudit.candidate_session_id.in_(candidate_session_ids)
+            )
+        )
+        await db.execute(
+            delete(TrialEvaluationStateRecord).where(
+                TrialEvaluationStateRecord.candidate_session_id.in_(
+                    candidate_session_ids
+                )
             )
         )
         await db.execute(
@@ -2002,6 +2024,28 @@ async def seed_yc_demo_dataset(
             citations=report_citations,
             commit=False,
         )
+    db.add(
+        TrialEvaluationStateRecord(
+            trial_id=completed_trial.id,
+            candidate_session_id=candidate_session.id,
+            state=TrialEvaluationState.NOTIFICATION_SENT.value,
+            correlation_id=f"demo-seed-report-ready-{candidate_session.id}",
+            reviewer_status_json={
+                "status": "completed",
+                "reviewers": [
+                    "design_doc_reviewer",
+                    "code_implementation_reviewer",
+                    "demo_presentation_reviewer",
+                    "reflection_essay_reviewer",
+                    "winoe_report",
+                ],
+            },
+            winoe_synthesis_status="completed",
+            evidence_trail_validation_status="passed",
+            report_finalization_status="finalized",
+            notification_status="sent",
+        )
+    )
     candidate_session.completed_at = _now()
     candidate_session.status = "completed"
     completed_trial.completed_at = _now()

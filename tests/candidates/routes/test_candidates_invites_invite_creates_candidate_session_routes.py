@@ -55,7 +55,8 @@ async def test_invite_creates_candidate_session(
     assert body["inviteUrl"].endswith(f"/invite/{body['token']}")
     assert body["outcome"] == "created"
 
-    # Verify DB row
+    # Verify DB row survives a fresh transaction boundary.
+    await async_session.rollback()
     stmt = select(CandidateSession).where(
         CandidateSession.id == body["candidateSessionId"]
     )
@@ -68,3 +69,10 @@ async def test_invite_creates_candidate_session(
 
     # candidateName -> candidate_name
     assert cs.candidate_name == "Jane Doe"
+
+    claim = await async_client.post(
+        f"/api/candidate/session/{body['token']}/claim",
+        headers={"Authorization": "Bearer candidate:jane@example.com"},
+    )
+    assert claim.status_code == 200, claim.text
+    assert claim.json()["candidateSessionId"] == body["candidateSessionId"]

@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.shared.auth.dependencies import dev_bypass_user
 from app.shared.auth.principal import Principal, bearer_scheme, get_principal
 from app.shared.database import get_session
@@ -41,6 +42,30 @@ async def require_operator_admin(
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> DemoAdminActor:
     """Require an authenticated admin/operator principal."""
+    configured_admin_key = str(settings.ADMIN_API_KEY or "").strip()
+    presented_admin_key = str(request.headers.get("x-admin-key") or "").strip()
+    bearer_admin_key = ""
+    if credentials is not None and credentials.scheme.lower() == "bearer":
+        bearer_admin_key = str(credentials.credentials or "").strip()
+    if configured_admin_key and (
+        presented_admin_key == configured_admin_key
+        or bearer_admin_key == configured_admin_key
+    ):
+        principal = Principal(
+            sub="admin-api-key",
+            email="operator@winoe.ai",
+            name="Winoe AI Operator",
+            roles=["admin"],
+            permissions=[],
+            claims={
+                "sub": "admin-api-key",
+                "email": "operator@winoe.ai",
+                "roles": ["admin"],
+                "name": "Winoe AI Operator",
+            },
+        )
+        return build_actor(principal, None)
+
     dev_user = await dev_bypass_user(request, db)
     if dev_user is not None:
         if getattr(dev_user, "role", None) != "admin":

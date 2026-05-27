@@ -62,6 +62,26 @@ async def run_once(
 
     log_extra = build_log_extra(job)
     logger.info("job_claimed", extra=log_extra)
+    async with session_maker() as db:
+        successful_duplicate = await jobs_repo.find_successful_idempotent_job(
+            db, job=job
+        )
+    if successful_duplicate is not None:
+        await mark_succeeded(
+            session_maker,
+            job_id=job.id,
+            result={
+                "status": "skipped_idempotent",
+                "matchedJobId": successful_duplicate.id,
+            },
+            claim_time=claim_time,
+        )
+        logger.info(
+            "job_skipped_idempotent",
+            extra={**log_extra, "matchedJobId": successful_duplicate.id},
+        )
+        return True
+
     handler = get_handler(job.job_type)
     if handler is None:
         await dead_letter_missing_handler(

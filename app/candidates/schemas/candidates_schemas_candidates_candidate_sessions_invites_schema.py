@@ -70,6 +70,10 @@ class CandidateInviteListItem(APIModel):
     isExpired: bool
     hasReport: bool = False
     reportReady: bool | None = None
+    reportStatus: Literal[
+        "not_started", "pending", "finalized", "failed"
+    ] = "not_started"
+    reportSharedWithTalentPartner: bool = False
     terminatedAt: datetime | None = None
     isTerminated: bool = False
     scheduledStartAt: datetime | None = None

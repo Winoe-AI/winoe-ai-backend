@@ -35,12 +35,20 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(companies.router, prefix=f"{prefix}", tags=["companies"])
     app.include_router(jobs.router, prefix=f"{prefix}", tags=["jobs"])
     app.include_router(admin_routes.router, prefix=f"{prefix}/admin", tags=["admin"])
+    if f"{prefix}/admin" != "/api/v1/admin":
+        app.include_router(admin_routes.router, prefix="/api/v1/admin", tags=["admin"])
     if is_admin_key_configured():
         app.include_router(
             admin_routes.dev_session_controls.router,
             prefix=f"{prefix}/admin",
             tags=["admin"],
         )
+        if f"{prefix}/admin" != "/api/v1/admin":
+            app.include_router(
+                admin_routes.dev_session_controls.router,
+                prefix="/api/v1/admin",
+                tags=["admin"],
+            )
     app.include_router(trials.router, prefix=f"{prefix}", tags=["trials"])
     app.include_router(trials_v4_router, prefix=f"{prefix}", tags=["trials"])
     app.include_router(

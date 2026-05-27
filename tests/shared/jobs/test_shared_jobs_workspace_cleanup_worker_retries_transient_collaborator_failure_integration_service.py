@@ -82,7 +82,7 @@ async def test_workspace_cleanup_worker_retries_transient_collaborator_failure(
     second_handled = await worker.run_once(
         session_maker=session_maker,
         worker_id="workspace-cleanup-retry-2",
-        now=now + timedelta(seconds=1),
+        now=now + timedelta(seconds=60),
     )
     assert second_handled is True
 

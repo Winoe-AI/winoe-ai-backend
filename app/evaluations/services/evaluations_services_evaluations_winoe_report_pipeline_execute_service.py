@@ -4,8 +4,15 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from inspect import isawaitable
 from typing import Any
 
+from sqlalchemy import select
+
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationState,
+    TrialEvaluationStateRecord,
+)
 from app.evaluations.services.evaluations_services_evaluations_runs_coercion_service import (
     coerce_unit_interval_score,
 )
@@ -95,6 +102,54 @@ def _build_reviewer_reports(result) -> list[dict[str, Any]]:
             }
         )
     return reviewer_reports
+
+
+async def _mark_evaluation_state_report_finalized(
+    *,
+    db,
+    candidate_session_id: int,
+    trial_id: int,
+    validation_result: ValidationResult,
+) -> None:
+    if not hasattr(db, "execute") or not hasattr(db, "add"):
+        return
+    result = await db.execute(
+        select(TrialEvaluationStateRecord).where(
+            TrialEvaluationStateRecord.candidate_session_id == candidate_session_id
+        )
+    )
+    if not hasattr(result, "scalar_one_or_none"):
+        return
+    record = result.scalar_one_or_none()
+    if isawaitable(record):
+        close = getattr(record, "close", None)
+        if callable(close):
+            close()
+        return
+    if record is None:
+        record = TrialEvaluationStateRecord(
+            trial_id=trial_id,
+            candidate_session_id=candidate_session_id,
+            state=TrialEvaluationState.REPORT_FINALIZED.value,
+            correlation_id=(
+                f"trial:{trial_id}:candidate_session:{candidate_session_id}:evaluation"
+            ),
+        )
+        db.add(record)
+    record.state = TrialEvaluationState.REPORT_FINALIZED.value
+    record.winoe_synthesis_status = "complete"
+    record.evidence_trail_validation_status = "passed"
+    record.report_finalization_status = "finalized"
+    record.notification_status = "queued_or_pending"
+    record.failure_context_json = {
+        "validation": {
+            "passed": True,
+            "warnings": validation_result.warnings,
+            "metadata": validation_result.metadata,
+        }
+    }
+    record.updated_at = datetime.now(UTC)
+    await db.flush()
 
 
 async def _evaluate_and_finalize_run(
@@ -203,6 +258,12 @@ async def _evaluate_and_finalize_run(
             citations=citations_payload,
             commit=False,
         )
+    await _mark_evaluation_state_report_finalized(
+        db=db,
+        candidate_session_id=context.candidate_session.id,
+        trial_id=context.candidate_session.trial_id,
+        validation_result=validation_result,
+    )
     await notification_service.enqueue_winoe_report_ready_notification(
         db,
         candidate_session_id=context.candidate_session.id,

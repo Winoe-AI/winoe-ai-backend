@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.shared.database.shared_database_models_model import Company, Job, User
+from app.shared.jobs.repositories import repository as jobs_repo
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
     JOB_STATUS_DEAD_LETTER,
     JOB_STATUS_QUEUED,
@@ -208,17 +209,116 @@ async def test_admin_can_retry_dead_letter_job(async_client, async_session):
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["jobId"] == failed_id
+    assert body["originalJobId"] == failed_id
+    assert body["jobId"] != failed_id
     assert body["status"] == JOB_STATUS_QUEUED
     async_session.expire_all()
     refreshed = await async_session.get(Job, failed_id)
     assert refreshed is not None
-    assert refreshed.status == JOB_STATUS_QUEUED
-    assert refreshed.last_error is None
-    assert refreshed.locked_at is None
-    assert refreshed.locked_by is None
-    assert refreshed.result_json is None
-    assert refreshed.next_run_at is not None
+    assert refreshed.status == JOB_STATUS_DEAD_LETTER
+    retry_job = await async_session.get(Job, body["jobId"])
+    assert retry_job is not None
+    assert retry_job.status == JOB_STATUS_QUEUED
+    assert retry_job.payload_json["retriedFromFailedJobId"]
+    failed_job = await jobs_repo.get_failed_job_by_original_job_id(
+        async_session, original_job_id=failed_id
+    )
+    assert failed_job is not None
+    assert failed_job.retry_job_id == retry_job.id
+
+
+async def test_admin_can_list_inspect_and_view_job_health(async_client, async_session):
+    failed, trial, _candidate_session = await _failed_job_fixture(async_session)
+    admin = await _create_admin_user(async_session, email="operator-detail@test.com")
+    await async_session.commit()
+
+    list_response = await async_client.get(
+        "/api/admin/jobs?status=failed&limit=10",
+        headers=_admin_headers(admin.email),
+    )
+    detail_response = await async_client.get(
+        f"/api/admin/jobs/{failed.id}",
+        headers=_admin_headers(admin.email),
+    )
+    health_response = await async_client.get(
+        "/api/admin/health/jobs",
+        headers=_admin_headers(admin.email),
+    )
+    state_response = await async_client.get(
+        f"/api/admin/trials/{trial.id}/evaluation-state",
+        headers=_admin_headers(admin.email),
+    )
+    v1_list_response = await async_client.get(
+        "/api/v1/admin/jobs?status=failed&limit=10",
+        headers=_admin_headers(admin.email),
+    )
+    v1_detail_response = await async_client.get(
+        f"/api/v1/admin/jobs/{failed.id}",
+        headers=_admin_headers(admin.email),
+    )
+    v1_health_response = await async_client.get(
+        "/api/v1/admin/health/jobs",
+        headers=_admin_headers(admin.email),
+    )
+    v1_state_response = await async_client.get(
+        f"/api/v1/admin/trials/{trial.id}/evaluation-state",
+        headers=_admin_headers(admin.email),
+    )
+
+    assert list_response.status_code == 200, list_response.text
+    assert list_response.json()["items"][0]["jobId"] == failed.id
+    assert detail_response.status_code == 200, detail_response.text
+    assert detail_response.json()["payload"]["candidateSessionId"]
+    assert "events" in detail_response.json()
+    assert health_response.status_code == 200, health_response.text
+    assert "queueDepth" in health_response.json()
+    assert state_response.status_code == 200, state_response.text
+    assert state_response.json()["trialId"] == trial.id
+    assert v1_list_response.status_code == 200, v1_list_response.text
+    assert v1_detail_response.status_code == 200, v1_detail_response.text
+    assert v1_health_response.status_code == 200, v1_health_response.text
+    assert v1_state_response.status_code == 200, v1_state_response.text
+
+
+async def test_v1_admin_can_retry_dead_letter_job(async_client, async_session):
+    failed, _trial, _candidate_session = await _failed_job_fixture(async_session)
+    failed_id = failed.id
+    admin = await _create_admin_user(async_session, email="operator-v1-retry@test.com")
+    await async_session.commit()
+
+    response = await async_client.post(
+        f"/api/v1/admin/jobs/{failed_id}/retry",
+        headers=_admin_headers(admin.email),
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["originalJobId"] == failed_id
+    assert body["jobId"] != failed_id
+    assert body["status"] == JOB_STATUS_QUEUED
+
+
+async def test_admin_api_key_can_access_jobs(async_client, async_session, monkeypatch):
+    failed, _trial, _candidate_session = await _failed_job_fixture(async_session)
+    monkeypatch.setattr("app.config.settings.ADMIN_API_KEY", "secret-admin-key")
+
+    response = await async_client.get(
+        "/api/admin/jobs?status=failed",
+        headers={"x-admin-key": "secret-admin-key"},
+    )
+    invalid_response = await async_client.get(
+        "/api/admin/jobs?status=failed",
+        headers={"x-admin-key": "wrong-secret"},
+    )
+    bearer_response = await async_client.get(
+        "/api/admin/jobs?status=failed",
+        headers={"Authorization": "Bearer secret-admin-key"},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["items"][0]["jobId"] == failed.id
+    assert bearer_response.status_code == 200, bearer_response.text
+    assert invalid_response.status_code == 401
 
 
 async def test_retry_unknown_and_non_retryable_jobs(async_client, async_session):

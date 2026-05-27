@@ -24,6 +24,7 @@ from app.config import settings
 from app.shared.database import async_session_maker, engine
 from app.shared.jobs import shared_jobs_worker_heartbeat_service as heartbeat_service
 from app.shared.jobs.repositories import repository as jobs_repo
+from app.shared.jobs.shared_jobs_job_health_service import build_job_health_summary
 
 ReadinessStatus = Literal["ready", "not_ready", "skipped"]
 
@@ -39,10 +40,13 @@ _AI_FEATURE_RESOLVERS = {
 
 _REQUIRED_TABLES = {
     "candidate_sessions",
+    "failed_jobs",
+    "job_events",
     "jobs",
     "scenario_versions",
     "tasks",
     "trials",
+    "trial_evaluation_states",
     "worker_heartbeats",
 }
 
@@ -244,6 +248,37 @@ async def check_worker_readiness(
     )
 
 
+async def check_job_health_readiness(
+    *,
+    session_maker: async_sessionmaker[AsyncSession] = async_session_maker,
+    now: datetime | None = None,
+) -> ReadinessCheck:
+    """Validate durable job queue health under readiness semantics."""
+    resolved_now = _utc_now(now)
+    try:
+        async with session_maker() as db:
+            summary = await build_job_health_summary(db, now=resolved_now)
+    except Exception:
+        return _readiness_check(
+            status="not_ready",
+            code="jobs_health_unavailable",
+            detail="Durable job queue health could not be read.",
+        )
+    if summary["status"] == "healthy":
+        return _readiness_check(
+            status="ready",
+            code="jobs_healthy",
+            detail="Durable job queue health is within configured thresholds.",
+            data=summary,
+        )
+    return _readiness_check(
+        status="not_ready",
+        code="jobs_degraded",
+        detail="Durable job queue health exceeded configured thresholds.",
+        data=summary,
+    )
+
+
 def _check_ai_feature(name: str, config) -> ReadinessCheck:
     runtime_mode = str(getattr(config, "runtime_mode", "") or "").strip().lower()
     provider = str(getattr(config, "provider", "") or "").strip().lower()
@@ -299,9 +334,9 @@ async def check_ai_readiness() -> ReadinessCheck:
     status = _aggregate_status(list(checks.values()))
     return _readiness_check(
         status=status,
-        code="ai_providers_ready"
-        if status != "not_ready"
-        else "ai_providers_unhealthy",
+        code=(
+            "ai_providers_ready" if status != "not_ready" else "ai_providers_unhealthy"
+        ),
         detail="AI provider readiness validated.",
         data={"checks": {name: check.as_dict() for name, check in checks.items()}},
     )
@@ -460,6 +495,11 @@ async def build_readiness_payload(
     )
     checks["worker"] = worker_check.as_dict()
 
+    jobs_check = await check_job_health_readiness(
+        session_maker=session_maker, now=resolved_now
+    )
+    checks["jobs"] = jobs_check.as_dict()
+
     ai_check = await check_ai_readiness()
     checks["ai"] = ai_check.as_dict()
 
@@ -475,6 +515,7 @@ async def build_readiness_payload(
     statuses: list[ReadinessCheck] = [
         database_check,
         worker_check,
+        jobs_check,
         ai_check,
         github_check,
         email_check,
@@ -505,6 +546,7 @@ __all__ = [
     "check_database_readiness",
     "check_email_readiness",
     "check_github_readiness",
+    "check_job_health_readiness",
     "check_media_readiness",
     "check_worker_readiness",
 ]

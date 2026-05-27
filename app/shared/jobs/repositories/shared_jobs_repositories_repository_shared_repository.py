@@ -28,7 +28,7 @@ class IdempotentJobSpec:
     idempotency_key: str
     payload_json: dict[str, Any]
     candidate_session_id: int | None = None
-    max_attempts: int = 5
+    max_attempts: int = 3
     correlation_id: str | None = None
     next_run_at: datetime | None = None
 

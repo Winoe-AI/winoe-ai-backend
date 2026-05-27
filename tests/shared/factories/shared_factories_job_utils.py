@@ -23,7 +23,7 @@ async def create_job(
     result_json: dict | None = None,
     last_error: str | None = None,
     attempt: int = 0,
-    max_attempts: int = 5,
+    max_attempts: int = 3,
     candidate_session: CandidateSession | None = None,
     correlation_id: str | None = None,
     next_run_at: datetime | None = None,

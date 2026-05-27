@@ -8,12 +8,20 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationState,
+    TrialEvaluationStateRecord,
+)
 from app.notifications.repositories.notifications_repositories_notifications_delivery_audits_repository import (
     has_successful_notification_delivery,
     record_notification_delivery_audit,
 )
 from app.notifications.services.notifications_services_notifications_email_sender_service import (
     EmailService,
+)
+from app.notifications.services.notifications_services_notifications_templates_service import (
+    RenderedNotificationTemplate,
+    render_notification_template,
 )
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
@@ -23,11 +31,11 @@ from app.shared.database.shared_database_models_model import (
     WinoeReport,
 )
 from app.shared.jobs.repositories import repository as jobs_repo
-from app.shared.utils.shared_utils_brand_utils import APP_NAME
 from app.shared.utils.shared_utils_parsing_utils import parse_positive_int
 
 CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE = "candidate_completed_notification"
 WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE = "winoe_report_ready_notification"
+REPORT_READY_CANDIDATE_NOTIFICATION_TYPE = "report_ready_candidate_notification"
 
 
 def _utcnow() -> datetime:
@@ -180,6 +188,34 @@ async def _load_talent_partner_notification_row(
     )
 
 
+async def _is_report_finalized_for_notification(
+    db: AsyncSession, *, candidate_session_id: int
+) -> bool:
+    row = (
+        await db.execute(
+            select(
+                TrialEvaluationStateRecord.state,
+                TrialEvaluationStateRecord.report_finalization_status,
+                TrialEvaluationStateRecord.evidence_trail_validation_status,
+            ).where(
+                TrialEvaluationStateRecord.candidate_session_id == candidate_session_id
+            )
+        )
+    ).one_or_none()
+    if row is None:
+        return False
+    state, report_status, validation_status = row
+    return (
+        report_status == "finalized"
+        and validation_status == "passed"
+        and state
+        in {
+            TrialEvaluationState.REPORT_FINALIZED.value,
+            TrialEvaluationState.NOTIFICATION_SENT.value,
+        }
+    )
+
+
 def _fmt_dt(value: datetime | None) -> str:
     if value is None:
         return "Unavailable"
@@ -204,23 +240,17 @@ def _candidate_completed_email_content(
     trial: Trial,
     completed_at: datetime | None,
 ) -> tuple[str, str, str]:
-    completed_text = _fmt_dt(completed_at)
-    subject = f"Candidate completed: {candidate_name}"
-    text = (
-        f"{candidate_name} ({candidate_email}) completed all five days of the "
-        f"{trial.role} trial in {APP_NAME}.\n\n"
-        f"Trial: {trial.title}\n"
-        f"Completed at: {completed_text}\n\n"
-        "Open the Talent Partner dashboard to review submissions and compare results."
+    rendered = render_notification_template(
+        "trial_completed.html",
+        {
+            "candidate_name": candidate_name,
+            "candidate_email": candidate_email,
+            "role": trial.role,
+            "trial_title": trial.title,
+            "completed_at": _fmt_dt(completed_at),
+        },
     )
-    html = (
-        f"<p><strong>{candidate_name}</strong> ({candidate_email}) completed all five"
-        f" days of the <strong>{trial.role}</strong> trial in {APP_NAME}.</p>"
-        f"<p><strong>Trial:</strong> {trial.title}<br>"
-        f"<strong>Completed at:</strong> {completed_text}</p>"
-        "<p>Open the Talent Partner dashboard to review submissions and compare results.</p>"
-    )
-    return subject, text, html
+    return rendered.subject, rendered.text, rendered.html
 
 
 def _winoe_report_ready_email_content(
@@ -230,24 +260,119 @@ def _winoe_report_ready_email_content(
     trial: Trial,
     generated_at: datetime | None,
 ) -> tuple[str, str, str]:
-    generated_text = _fmt_dt(generated_at)
-    subject = f"Winoe Report ready: {candidate_name}"
-    text = (
-        f"The Winoe Report is ready for {candidate_name} ({candidate_email}).\n\n"
-        f"Trial: {trial.title}\n"
-        f"Role: {trial.role}\n"
-        f"Generated at: {generated_text}\n\n"
-        "Open the Talent Partner dashboard to review the final evaluation."
+    rendered = render_notification_template(
+        "report_ready_tp.html",
+        {
+            "candidate_name": candidate_name,
+            "candidate_email": candidate_email,
+            "role": trial.role,
+            "trial_title": trial.title,
+            "generated_at": _fmt_dt(generated_at),
+        },
     )
-    html = (
-        f"<p>The Winoe Report is ready for <strong>{candidate_name}</strong>"
-        f" ({candidate_email}).</p>"
-        f"<p><strong>Trial:</strong> {trial.title}<br>"
-        f"<strong>Role:</strong> {trial.role}<br>"
-        f"<strong>Generated at:</strong> {generated_text}</p>"
-        "<p>Open the Talent Partner dashboard to review the final evaluation.</p>"
+    return rendered.subject, rendered.text, rendered.html
+
+
+def _report_ready_candidate_email_content(
+    *,
+    trial: Trial,
+) -> tuple[str, str, str]:
+    rendered = render_notification_template(
+        "report_ready_candidate.html",
+        {
+            "role": trial.role,
+            "trial_title": trial.title,
+        },
     )
-    return subject, text, html
+    return rendered.subject, rendered.text, rendered.html
+
+
+def _provider_name(email_service: EmailService) -> str:
+    provider = getattr(email_service, "provider", None)
+    if provider is None:
+        return email_service.__class__.__name__
+    return provider.__class__.__name__
+
+
+def _delivery_idempotency_key(
+    *,
+    notification_type: str,
+    recipient_email: str,
+    trial_id: int,
+    candidate_session_id: int,
+) -> str:
+    return (
+        f"{notification_type}:{recipient_email.lower()}:"
+        f"{trial_id}:{candidate_session_id}"
+    )
+
+
+async def _send_one_notification(
+    *,
+    db: AsyncSession,
+    email_service: EmailService,
+    notification_type: str,
+    recipient_email: str,
+    recipient_role: str,
+    candidate_session_id: int,
+    trial_id: int,
+    correlation_id: str | None,
+    rendered: RenderedNotificationTemplate,
+) -> dict[str, Any]:
+    if await has_successful_notification_delivery(
+        db,
+        candidate_session_id=candidate_session_id,
+        notification_type=notification_type,
+        recipient_email=recipient_email,
+        recipient_role=recipient_role,
+    ):
+        return {
+            "status": "sent",
+            "to": recipient_email,
+            "recipientRole": recipient_role,
+            "messageId": None,
+            "skipped": True,
+        }
+    sent_at = _utcnow()
+    provider = _provider_name(email_service)
+    result = await email_service.send_email(
+        to=recipient_email,
+        subject=rendered.subject,
+        text=rendered.text,
+        html=rendered.html,
+    )
+    await record_notification_delivery_audit(
+        db,
+        notification_type=notification_type,
+        candidate_session_id=candidate_session_id,
+        trial_id=trial_id,
+        recipient_email=recipient_email,
+        recipient_role=recipient_role,
+        subject=rendered.subject,
+        status=result.status,
+        provider=provider,
+        provider_message_id=result.message_id,
+        error=result.error,
+        correlation_id=correlation_id,
+        attempted_at=sent_at,
+        sent_at=sent_at if result.status == "sent" else None,
+        idempotency_key=_delivery_idempotency_key(
+            notification_type=notification_type,
+            recipient_email=recipient_email,
+            trial_id=trial_id,
+            candidate_session_id=candidate_session_id,
+        ),
+        payload_json={"templateName": rendered.template_name},
+    )
+    await db.commit()
+    if result.status != "sent":
+        raise RuntimeError(result.error or f"{notification_type}_send_failed")
+    return {
+        "status": "sent",
+        "to": recipient_email,
+        "recipientRole": recipient_role,
+        "messageId": result.message_id,
+    }
 
 
 async def _send_talent_partner_update_email(
@@ -278,6 +403,13 @@ async def _send_talent_partner_update_email(
             completed_at=getattr(candidate_session, "completed_at", None),
         )
     else:
+        if winoe_report_generated_at is None:
+            raise RuntimeError("winoe_report_not_finalized")
+        if not await _is_report_finalized_for_notification(
+            db,
+            candidate_session_id=candidate_session_id,
+        ):
+            raise RuntimeError("winoe_report_not_finalized")
         notification_type = WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE
         subject, text, html = _winoe_report_ready_email_content(
             candidate_name=candidate_name,
@@ -285,54 +417,62 @@ async def _send_talent_partner_update_email(
             trial=trial,
             generated_at=winoe_report_generated_at,
         )
-
-    if await has_successful_notification_delivery(
-        db,
-        candidate_session_id=candidate_session_id,
-        notification_type=notification_type,
-        recipient_email=talent_partner_email,
-        recipient_role="talent_partner",
-    ):
-        return {
-            "status": "sent",
-            "candidateSessionId": candidate_session_id,
-            "to": talent_partner_email,
-            "messageId": None,
-            "mode": mode,
-            "skipped": True,
-        }
-
-    sent_at = _utcnow()
-    result = await email_service.send_email(
-        to=talent_partner_email,
+    rendered = RenderedNotificationTemplate(
+        template_name=(
+            "trial_completed.html"
+            if mode == "candidate_completed"
+            else "report_ready_tp.html"
+        ),
         subject=subject,
         text=text,
         html=html,
     )
-    await record_notification_delivery_audit(
-        db,
-        notification_type=notification_type,
-        candidate_session_id=candidate_session_id,
-        trial_id=trial.id,
-        recipient_email=talent_partner_email,
-        recipient_role="talent_partner",
-        subject=subject,
-        status=result.status,
-        provider_message_id=result.message_id,
-        error=result.error,
-        attempted_at=sent_at,
-        sent_at=sent_at if result.status == "sent" else None,
-        idempotency_key=f"{notification_type}:{candidate_session_id}",
-    )
+    deliveries = [
+        await _send_one_notification(
+            db=db,
+            email_service=email_service,
+            notification_type=notification_type,
+            recipient_email=talent_partner_email,
+            recipient_role="talent_partner",
+            candidate_session_id=candidate_session_id,
+            trial_id=trial.id,
+            correlation_id=f"candidate_session:{candidate_session_id}:{notification_type}",
+            rendered=rendered,
+        )
+    ]
+    if mode == "winoe_report_ready" and candidate_email != "Unavailable":
+        (
+            candidate_subject,
+            candidate_text,
+            candidate_html,
+        ) = _report_ready_candidate_email_content(trial=trial)
+        deliveries.append(
+            await _send_one_notification(
+                db=db,
+                email_service=email_service,
+                notification_type=REPORT_READY_CANDIDATE_NOTIFICATION_TYPE,
+                recipient_email=candidate_email,
+                recipient_role="candidate",
+                candidate_session_id=candidate_session_id,
+                trial_id=trial.id,
+                correlation_id=(
+                    f"candidate_session:{candidate_session_id}:"
+                    f"{REPORT_READY_CANDIDATE_NOTIFICATION_TYPE}"
+                ),
+                rendered=RenderedNotificationTemplate(
+                    template_name="report_ready_candidate.html",
+                    subject=candidate_subject,
+                    text=candidate_text,
+                    html=candidate_html,
+                ),
+            )
+        )
     await db.commit()
-    if result.status != "sent":
-        raise RuntimeError(result.error or "talent_partner_notification_send_failed")
     return {
         "status": "sent",
         "candidateSessionId": candidate_session_id,
-        "to": talent_partner_email,
-        "messageId": result.message_id,
         "mode": mode,
+        "deliveries": deliveries,
     }
 
 
@@ -379,6 +519,7 @@ async def process_winoe_report_ready_notification_job(
 
 __all__ = [
     "CANDIDATE_COMPLETED_NOTIFICATION_JOB_TYPE",
+    "REPORT_READY_CANDIDATE_NOTIFICATION_TYPE",
     "WINOE_REPORT_READY_NOTIFICATION_JOB_TYPE",
     "build_candidate_completed_notification_idempotency_key",
     "build_winoe_report_ready_notification_idempotency_key",

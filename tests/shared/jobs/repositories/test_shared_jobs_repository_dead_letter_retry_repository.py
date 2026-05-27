@@ -47,12 +47,24 @@ async def test_requeue_dead_letter_jobs_only_targets_dead_letters(async_session)
 
     refreshed_dead = await jobs_repo.get_by_id(async_session, dead_letter_job.id)
     assert refreshed_dead is not None
-    assert refreshed_dead.status == JOB_STATUS_QUEUED
-    assert _to_utc(refreshed_dead.next_run_at) == now
-    assert refreshed_dead.locked_at is None
-    assert refreshed_dead.locked_by is None
-    assert refreshed_dead.last_error is None
-    assert refreshed_dead.result_json is None
+    assert refreshed_dead.status == JOB_STATUS_DEAD_LETTER
+
+    failed_job = await jobs_repo.get_failed_job_by_original_job_id(
+        async_session,
+        original_job_id=dead_letter_job.id,
+    )
+    assert failed_job is not None
+    assert failed_job.retry_job_id is not None
+    retry_job = await jobs_repo.get_by_id(async_session, failed_job.retry_job_id)
+    assert retry_job is not None
+    assert retry_job.status == JOB_STATUS_QUEUED
+    assert _to_utc(retry_job.next_run_at) == now
+    assert retry_job.locked_at is None
+    assert retry_job.locked_by is None
+    assert retry_job.last_error is None
+    assert retry_job.result_json is None
+    assert retry_job.payload_json["originalJobId"] == dead_letter_job.id
+    assert retry_job.payload_json["retriedFromFailedJobId"] == failed_job.id
 
     refreshed_queued = await jobs_repo.get_by_id(async_session, queued_job.id)
     assert refreshed_queued is not None
@@ -88,7 +100,16 @@ async def test_requeue_dead_letter_jobs_can_target_specific_ids(async_session):
     refreshed_first = await jobs_repo.get_by_id(async_session, first.id)
     refreshed_second = await jobs_repo.get_by_id(async_session, second.id)
     assert refreshed_first is not None
-    assert refreshed_first.status == JOB_STATUS_QUEUED
+    assert refreshed_first.status == JOB_STATUS_DEAD_LETTER
+    failed_job = await jobs_repo.get_failed_job_by_original_job_id(
+        async_session,
+        original_job_id=first.id,
+    )
+    assert failed_job is not None
+    assert failed_job.retry_job_id is not None
+    retry_job = await jobs_repo.get_by_id(async_session, failed_job.retry_job_id)
+    assert retry_job is not None
+    assert retry_job.status == JOB_STATUS_QUEUED
     assert refreshed_second is not None
     assert refreshed_second.status == JOB_STATUS_DEAD_LETTER
 

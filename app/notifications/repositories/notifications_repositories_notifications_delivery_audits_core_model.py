@@ -43,6 +43,7 @@ class NotificationDeliveryAudit(Base):
     recipient_role: Mapped[str] = mapped_column(String(50), nullable=False)
     subject: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
+    provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
     provider_message_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     error: Mapped[str | None] = mapped_column(String(500), nullable=True)
     correlation_id: Mapped[str | None] = mapped_column(String(255), nullable=True)

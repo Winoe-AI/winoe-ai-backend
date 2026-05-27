@@ -66,9 +66,9 @@ async def test_worker_run_once_retry_then_success_with_new_sessions(async_sessio
         observed_next_run = after_first.next_run_at
         if observed_next_run.tzinfo is None:
             observed_next_run = observed_next_run.replace(tzinfo=UTC)
-        assert observed_next_run == first_now + timedelta(seconds=1)
+        assert observed_next_run == first_now + timedelta(seconds=60)
 
-    second_now = first_now + timedelta(seconds=1)
+    second_now = first_now + timedelta(seconds=60)
     second_handled = await worker.run_once(
         session_maker=session_maker,
         worker_id="worker-int-2",

@@ -88,5 +88,5 @@ async def test_jobs_create_or_update_many_integrity_recovery_paths(monkeypatch):
     )
     assert len(resolved) == 3
     assert db.nested_flush_calls == 2
-    assert db.final_flush_calls == 1
-    assert len(db.added) == 2
+    assert db.final_flush_calls == 2
+    assert len(db.added) == 3

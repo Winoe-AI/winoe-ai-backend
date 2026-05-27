@@ -24,6 +24,7 @@ async def test_invite_sends_email_and_tracks_status(
 
     assert res.status_code == 200, res.text
 
+    await async_session.rollback()
     cs = (await async_session.execute(select(CandidateSession))).scalar_one()
     assert cs.invite_email_status == "sent"
     assert cs.invite_email_sent_at is not None

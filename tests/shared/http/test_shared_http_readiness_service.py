@@ -43,10 +43,13 @@ def test_inspect_schema_reports_ready_when_tables_and_fks_exist(monkeypatch):
     inspector = _FakeSchemaInspector(
         [
             "candidate_sessions",
+            "failed_jobs",
+            "job_events",
             "jobs",
             "scenario_versions",
             "tasks",
             "trials",
+            "trial_evaluation_states",
             "worker_heartbeats",
         ],
         {
@@ -114,10 +117,13 @@ def test_inspect_schema_reports_missing_foreign_keys_when_tables_exist(monkeypat
     inspector = _FakeSchemaInspector(
         [
             "candidate_sessions",
+            "failed_jobs",
+            "job_events",
             "jobs",
             "scenario_versions",
             "tasks",
             "trials",
+            "trial_evaluation_states",
             "worker_heartbeats",
         ],
         {
@@ -523,8 +529,14 @@ async def test_build_readiness_payload_aggregates_status_and_checked_at(monkeypa
             status="ready", code="ai_providers_ready", detail="ok"
         )
 
+    async def ready_jobs(**_kwargs):
+        return readiness_service._readiness_check(
+            status="ready", code="jobs_healthy", detail="ok"
+        )
+
     monkeypatch.setattr(readiness_service, "check_database_readiness", ready_db)
     monkeypatch.setattr(readiness_service, "check_worker_readiness", not_ready_worker)
+    monkeypatch.setattr(readiness_service, "check_job_health_readiness", ready_jobs)
     monkeypatch.setattr(readiness_service, "check_ai_readiness", ready_ai)
     monkeypatch.setattr(
         readiness_service,
@@ -569,6 +581,7 @@ async def test_build_readiness_payload_returns_ready_when_all_checks_ready(monke
 
     monkeypatch.setattr(readiness_service, "check_database_readiness", ready_check)
     monkeypatch.setattr(readiness_service, "check_worker_readiness", ready_check)
+    monkeypatch.setattr(readiness_service, "check_job_health_readiness", ready_check)
     monkeypatch.setattr(readiness_service, "check_ai_readiness", ready_check)
     monkeypatch.setattr(
         readiness_service,
@@ -601,6 +614,7 @@ async def test_build_readiness_payload_returns_ready_when_all_checks_ready(monke
     assert set(payload["checks"]) == {
         "database",
         "worker",
+        "jobs",
         "ai",
         "github",
         "email",

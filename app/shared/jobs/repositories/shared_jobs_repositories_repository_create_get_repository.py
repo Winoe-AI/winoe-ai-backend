@@ -8,6 +8,12 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_model import (
+    JOB_EVENT_ENQUEUED,
+)
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_repository import (
+    record_job_event,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
     JOB_STATUS_QUEUED,
     Job,
@@ -27,7 +33,7 @@ async def create_or_get_idempotent(
     payload_json: dict[str, Any],
     company_id: int,
     candidate_session_id: int | None = None,
-    max_attempts: int = 5,
+    max_attempts: int = 3,
     correlation_id: str | None = None,
     next_run_at: datetime | None = None,
     commit: bool = True,
@@ -87,6 +93,15 @@ async def _insert_nested_or_get_existing(
         if existing is None:
             raise
         return existing
+    await record_job_event(
+        db,
+        job_id=job.id,
+        job_type=job.job_type,
+        event_type=JOB_EVENT_ENQUEUED,
+        status=job.status,
+        correlation_id=job.correlation_id,
+        metadata_json={"idempotencyKey": job.idempotency_key},
+    )
     return job
 
 
@@ -100,6 +115,16 @@ async def _insert_commit_or_get_existing(
         return existing
     db.add(job)
     try:
+        await db.flush()
+        await record_job_event(
+            db,
+            job_id=job.id,
+            job_type=job.job_type,
+            event_type=JOB_EVENT_ENQUEUED,
+            status=job.status,
+            correlation_id=job.correlation_id,
+            metadata_json={"idempotencyKey": job.idempotency_key},
+        )
         await db.commit()
     except IntegrityError:
         await db.rollback()

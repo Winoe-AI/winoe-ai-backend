@@ -7,7 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.shared.auth.principal import Principal
 from app.shared.database.shared_database_models_model import CandidateSession, User
-from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import Job
+from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import (
+    JOB_STATUS_SUCCEEDED,
+    Job,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_repository_shared_repository import (
     normalize_email,
 )
@@ -22,6 +25,34 @@ async def get_by_id(db: AsyncSession, job_id: str) -> Job | None:
             .execution_options(populate_existing=True)
         )
     ).scalar_one_or_none()
+
+
+async def find_successful_idempotent_job(db: AsyncSession, *, job: Job) -> Job | None:
+    """Return an earlier successful job for the same logical idempotency key."""
+    payload = job.payload_json if isinstance(job.payload_json, dict) else {}
+    logical_key = str(payload.get("originalIdempotencyKey") or job.idempotency_key)
+    if not logical_key:
+        return None
+    rows = (
+        await db.execute(
+            select(Job).where(
+                Job.id != job.id,
+                Job.company_id == job.company_id,
+                Job.job_type == job.job_type,
+                Job.status == JOB_STATUS_SUCCEEDED,
+            )
+        )
+    ).scalars()
+    for candidate in rows.all():
+        candidate_payload = (
+            candidate.payload_json if isinstance(candidate.payload_json, dict) else {}
+        )
+        candidate_key = str(
+            candidate_payload.get("originalIdempotencyKey") or candidate.idempotency_key
+        )
+        if candidate_key == logical_key:
+            return candidate
+    return None
 
 
 async def get_by_id_for_principal(

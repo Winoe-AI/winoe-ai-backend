@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, time
 from zoneinfo import ZoneInfo
 
-from app.shared.utils.shared_utils_brand_utils import APP_NAME
+from app.notifications.services.notifications_services_notifications_templates_service import (
+    render_notification_template,
+)
 
 
 def _fmt_local_window(start_local: time, end_local: time) -> str:
@@ -35,24 +37,18 @@ def candidate_schedule_confirmation_content(
     )
     start_local_text = _fmt_start_local(start_utc, timezone_name)
     window_text = _fmt_local_window(day_window_start_local, day_window_end_local)
-    subject = f"Schedule confirmed: {trial_title}"
-    text = (
-        f"Hi {candidate_name},\n\n"
-        f"Your schedule for the {role} trial in {APP_NAME} is confirmed.\n"
-        f"Trial: {trial_title}\n"
-        f"Start: {start_local_text} ({timezone_name})\n"
-        f"Daily window: {window_text} ({timezone_name})\n\n"
-        "Your schedule is now locked."
+    rendered = render_notification_template(
+        "start_date_confirmed.html",
+        {
+            "candidate_name": candidate_name,
+            "role": role,
+            "date": start_local_text,
+            "daily_window": window_text,
+            "trial_title": trial_title,
+            "timezone": timezone_name,
+        },
     )
-    html = (
-        f"<p>Hi {candidate_name},</p>"
-        f"<p>Your schedule for the <strong>{role}</strong> trial in {APP_NAME} is confirmed.</p>"
-        f"<p><strong>Trial:</strong> {trial_title}<br>"
-        f"<strong>Start:</strong> {start_local_text} ({timezone_name})<br>"
-        f"<strong>Daily window:</strong> {window_text} ({timezone_name})</p>"
-        "<p>Your schedule is now locked.</p>"
-    )
-    return subject, text, html
+    return rendered.subject, rendered.text, rendered.html
 
 
 def talent_partner_schedule_confirmation_content(

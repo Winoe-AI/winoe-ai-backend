@@ -13,6 +13,9 @@ from app.evaluations.repositories.evaluations_repositories_evaluations_rubric_sn
 from app.evaluations.repositories.evaluations_repositories_trial_agent_snapshot_model import (
     TrialAgentSnapshot,
 )
+from app.evaluations.repositories.evaluations_repositories_trial_evaluation_state_model import (
+    TrialEvaluationStateRecord,
+)
 from app.media.repositories.purge_audits.media_repositories_purge_audits_core_model import (
     MediaPurgeAudit,
 )
@@ -26,6 +29,12 @@ from app.notifications.repositories.notifications_repositories_notifications_del
     NotificationDeliveryAudit,
 )
 from app.shared.database.shared_database_base_model import Base, TimestampMixin
+from app.shared.jobs.repositories.shared_jobs_repositories_failed_jobs_model import (
+    FailedJob,
+)
+from app.shared.jobs.repositories.shared_jobs_repositories_job_events_model import (
+    JobEvent,
+)
 from app.shared.jobs.repositories.shared_jobs_repositories_models_repository import Job
 from app.shared.jobs.repositories.shared_jobs_repositories_worker_heartbeats_repository_model import (
     WorkerHeartbeat,
@@ -78,7 +87,10 @@ __all__ = [
     "EvaluationReviewerReport",
     "WinoeRubricSnapshot",
     "TrialAgentSnapshot",
+    "TrialEvaluationStateRecord",
+    "FailedJob",
     "Job",
+    "JobEvent",
     "MediaPurgeAudit",
     "NotificationDeliveryAudit",
     "WorkerHeartbeat",

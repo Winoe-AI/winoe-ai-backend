@@ -16,8 +16,11 @@ async def test_jobs_create_or_get_commit_integrity_reraises_when_not_recoverable
         def add(self, _obj):
             return None
 
-        async def commit(self):
+        async def flush(self):
             raise IntegrityError("insert", {}, RuntimeError("duplicate"))
+
+        async def commit(self):
+            raise AssertionError("commit should not run on failed flush")
 
         async def rollback(self):
             return None

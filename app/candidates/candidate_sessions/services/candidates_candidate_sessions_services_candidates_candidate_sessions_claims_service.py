@@ -84,4 +84,7 @@ async def claim_invite_with_principal(
     if changed:
         await db.commit()
         await db.refresh(cs, attribute_names=["trial", "scenario_version"])
+        trial = getattr(cs, "trial", None)
+        if trial is not None:
+            await db.refresh(trial, attribute_names=["company"])
     return cs
