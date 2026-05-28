@@ -64,11 +64,103 @@ allow_globs=(
   --glob '!tests/evaluations/services/test_evaluations_evidence_trail_validator_service.py'
 )
 
+normalize_path() {
+  local path="$1"
+  path="${path#./}"
+  printf "%s" "$path"
+}
+
+is_excluded_scan_file() {
+  local path
+  path="$(normalize_path "$1")"
+
+  case "$path" in
+    */__pycache__/* | __pycache__/* | \
+      alembic/* | migrations/* | docs/archive/* | \
+      app/core/db/migrations/* | tests/core/db/migrations/* | \
+      app/shared/utils/shared_utils_brand_utils.py | \
+      app/shared/branding/legacy_github_reference_sanitizer.py | \
+      tests/shared/branding/test_shared_branding_legacy_github_reference_sanitizer.py | \
+      tests/submissions/presentation/test_submissions_detail_presenter_utils.py | \
+      tests/submissions/presentation/test_submissions_list_presenter_utils.py | \
+      tests/evaluations/services/test_evaluations_winoe_report_composer_service.py | \
+      tests/candidates/candidate_sessions/services/test_candidates_candidate_sessions_review_service.py | \
+      tests/integrations/github/test_integrations_github_fake_provider_client.py | \
+      tests/shared/utils/test_shared_project_brief_service.py | \
+      tests/**/test_*legacy*_*.py | tests/**/*legacy*_utils.py | \
+      tests/scripts/test_check_no_legacy_demo_refs_sh.py | \
+      scripts/check_no_legacy_active_refs.sh | scripts/check_no_legacy_demo_refs.sh | \
+      app/evaluations/services/evaluations_services_evidence_trail_validator_service.py | \
+      tests/evaluations/services/test_evaluations_evidence_trail_validator_service.py)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
+grep_file_for_pattern() {
+  local file="$1"
+  local pattern="$2"
+  local output
+
+  if output="$(grep -n -i -F -- "$pattern" "$file" 2>/dev/null)"; then
+    while IFS= read -r line; do
+      printf "%s:%s\n" "$file" "$line"
+    done <<<"$output"
+    return 0
+  fi
+
+  return 1
+}
+
+grep_fallback_target() {
+  local target="$1"
+  local pattern="$2"
+  local file
+  local found=1
+
+  if [[ ! -e "$target" ]]; then
+    return "$found"
+  fi
+
+  if [[ -f "$target" ]]; then
+    if ! is_excluded_scan_file "$target" &&
+      grep_file_for_pattern "$target" "$pattern"; then
+      found=0
+    fi
+    return "$found"
+  fi
+
+  while IFS= read -r -d "" file; do
+    if is_excluded_scan_file "$file"; then
+      continue
+    fi
+    if grep_file_for_pattern "$file" "$pattern"; then
+      found=0
+    fi
+  done < <(find "$target" -type d -name "__pycache__" -prune -o -type f -print0)
+
+  return "$found"
+}
+
+search_pattern() {
+  local pattern="$1"
+  local target
+
+  if command -v rg >/dev/null 2>&1; then
+    rg -n -i --hidden --fixed-strings -e "$pattern" "${targets[@]}" "${allow_globs[@]}" || true
+    return 0
+  fi
+
+  for target in "${targets[@]}"; do
+    grep_fallback_target "$target" "$pattern" || true
+  done
+}
+
 matches=0
 for pattern in "${patterns[@]}"; do
-  result="$(
-    rg -n -i --hidden --fixed-strings -e "$pattern" "${targets[@]}" "${allow_globs[@]}" || true
-  )"
+  result="$(search_pattern "$pattern")"
   if [[ -n "$result" ]]; then
     filtered="$(
       printf '%s\n' "$result" |

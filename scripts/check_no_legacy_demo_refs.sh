@@ -99,6 +99,7 @@ is_excluded_scan_file() {
 
   case "$path" in
     scripts/check_no_legacy_demo_refs.sh | \
+      scripts/check_no_legacy_active_refs.sh | \
       scripts/compare_contract_smoke_test.py | \
       tests/scripts/test_check_no_legacy_demo_refs_sh.py | \
       app/ai/prompt_assets/v4/winoe_soul.md | \
@@ -162,6 +163,7 @@ scan_fixed_string() {
       rg -n -i --hidden --no-messages \
         --glob '!**/__pycache__/**' \
         --glob '!scripts/check_no_legacy_demo_refs.sh' \
+        --glob '!scripts/check_no_legacy_active_refs.sh' \
         --glob '!scripts/compare_contract_smoke_test.py' \
         --glob '!tests/scripts/test_check_no_legacy_demo_refs_sh.py' \
         --glob '!app/ai/prompt_assets/v4/winoe_soul.md' \
