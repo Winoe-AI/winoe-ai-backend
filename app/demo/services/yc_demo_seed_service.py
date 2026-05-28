@@ -99,6 +99,7 @@ class DemoSeedConfig:
     repo_prefix: str = "winoe-ws-"
     codespace_workspace_key: str = "coding"
     timezone: str = "America/New_York"
+    qa_candidate_email: str = "winoecandidate@gmail.com"
     reset_db: bool = False
 
 
@@ -1384,7 +1385,11 @@ async def _seed_trial_scaffold(
 
 async def _clear_demo_scope(db: AsyncSession, config: DemoSeedConfig) -> None:
     """Remove any existing demo-scoped rows before reseeding."""
-    candidate_emails = [config.talent_partner_email, *DEMO_INVITE_EMAILS]
+    candidate_emails = [
+        config.talent_partner_email,
+        getattr(config, "qa_candidate_email", "winoecandidate@gmail.com"),
+        *DEMO_INVITE_EMAILS,
+    ]
     demo_trial_rows = (
         await db.execute(
             select(Trial.id, Trial.company_id).where(
@@ -2068,16 +2073,17 @@ async def seed_yc_demo_dataset(
         trial_focus_note="Go-oriented staff level work with an invite still pending.",
     )
     awaiting_candidate = invite_groups["awaiting_candidate"][0]
+    awaiting_candidate_email = config.qa_candidate_email.strip().lower()
     awaiting_session = CandidateSession(
         trial_id=awaiting_trial.id,
         scenario_version_id=awaiting_scenario.id,
         candidate_user_id=None,
         candidate_name=awaiting_candidate.name,
-        invite_email=awaiting_candidate.email,
-        candidate_email=awaiting_candidate.email,
-        candidate_auth0_email=awaiting_candidate.email,
+        invite_email=awaiting_candidate_email,
+        candidate_email=awaiting_candidate_email,
+        candidate_auth0_email=awaiting_candidate_email,
         token=_stable_hex(
-            config.company_name, awaiting_candidate.email, "invite", length=32
+            config.company_name, awaiting_candidate_email, "invite", length=32
         ),
         status="not_started",
         claimed_at=None,

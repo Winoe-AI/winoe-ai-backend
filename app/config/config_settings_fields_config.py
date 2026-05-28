@@ -143,6 +143,9 @@ class SettingsFields(BaseSettings):
     AUTH0_JWKS_URL: str | None = None
     AUTH0_API_AUDIENCE: str | None = None
     AUTH0_ALGORITHMS: str | None = None
+    AUTH0_CLIENT_ID: str | None = None
+    AUTH0_CLIENT_SECRET: str | None = None
+    AUTH0_SESSION_SECRET: str | None = None
     CORS_ALLOW_ORIGINS: str | list[str] | None = None
     CORS_ALLOW_ORIGIN_REGEX: str | None = None
     CSRF_ALLOWED_ORIGINS: list[str] | str = Field(default_factory=list)

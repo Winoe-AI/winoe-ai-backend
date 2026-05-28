@@ -17,6 +17,9 @@ class AuthSettings(BaseSettings):
     AUTH0_JWKS_URL: str | None = None
     AUTH0_API_AUDIENCE: str = ""
     AUTH0_ALGORITHMS: str = "RS256"
+    AUTH0_CLIENT_ID: str = ""
+    AUTH0_CLIENT_SECRET: str = ""
+    AUTH0_SESSION_SECRET: str = ""
     AUTH0_LEEWAY_SECONDS: int = 60
     AUTH0_JWKS_CACHE_TTL_SECONDS: int = 3600
     AUTH0_CLAIM_NAMESPACE: str = DEFAULT_CLAIM_NAMESPACE

@@ -92,6 +92,7 @@ def _seed_args(
     talent_partner_email: str = "demo@winoe.ai",
     talent_partner_name: str = "Demo Partner",
     company_name: str = "Acme",
+    qa_candidate_email: str = "winoecandidate@gmail.com",
     github_provider: str = "fake",
     allow_production_write: bool = False,
 ) -> SimpleNamespace:
@@ -100,6 +101,7 @@ def _seed_args(
         talent_partner_email=talent_partner_email,
         talent_partner_name=talent_partner_name,
         company_name=company_name,
+        qa_candidate_email=qa_candidate_email,
         github_provider=github_provider,
         allow_production_write=allow_production_write,
     )
@@ -341,6 +343,8 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     assert awaiting_trial is not None
     assert awaiting_trial.status == "active_inviting"
     assert candidate_sessions[3].status == "not_started"
+    assert candidate_sessions[3].invite_email == "winoecandidate@gmail.com"
+    assert candidate_sessions[3].candidate_auth0_email == "winoecandidate@gmail.com"
     assert candidate_sessions[3].completed_at is None
     assert [day["status"] for day in candidate_sessions[2].day_windows_json or []] == [
         "submitted",

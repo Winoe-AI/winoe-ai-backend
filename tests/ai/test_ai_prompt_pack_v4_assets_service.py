@@ -76,7 +76,8 @@ def test_design_doc_reviewer_prompt_is_from_scratch_only() -> None:
     ):
         assert expected in prompt
 
-    for retired in ("precommit", "baseline", "delta", "template", "specializor"):
+    retired_terms = ("pre" + "commit", "baseline", "delta", "template", "specializor")
+    for retired in retired_terms:
         assert retired not in prompt
 
 

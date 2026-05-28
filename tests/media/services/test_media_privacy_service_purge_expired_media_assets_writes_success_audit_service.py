@@ -15,6 +15,7 @@ async def test_purge_expired_media_assets_writes_success_audit(async_session):
     candidate_session = await create_candidate_session(async_session, trial=trial)
 
     now = datetime.now(UTC).replace(microsecond=0)
+    candidate_session.completed_at = now - timedelta(days=91)
     recording = await recordings_repo.create_recording_asset(
         async_session,
         candidate_session_id=candidate_session.id,

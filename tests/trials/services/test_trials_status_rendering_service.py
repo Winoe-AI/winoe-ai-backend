@@ -54,6 +54,7 @@ async def test_create_route_rejects_invalid_status(monkeypatch):
 
     with pytest.raises(ApiError) as excinfo:
         await sim_create_route.create_trial(
+            request=SimpleNamespace(),
             payload=SimpleNamespace(),
             db=object(),
             user=SimpleNamespace(id=1, role="talent_partner"),

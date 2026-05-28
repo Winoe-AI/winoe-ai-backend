@@ -6,9 +6,17 @@ from fastapi import Request
 
 from app.shared.auth import rate_limit
 
-INVITE_CREATE_RATE_LIMIT = rate_limit.RateLimitRule(limit=20, window_seconds=60.0)
+TRIAL_CREATE_RATE_LIMIT = rate_limit.RateLimitRule(limit=10, window_seconds=3600.0)
+INVITE_CREATE_RATE_LIMIT = rate_limit.RateLimitRule(limit=3, window_seconds=3600.0)
 INVITE_RESEND_RATE_LIMIT = rate_limit.RateLimitRule(limit=10, window_seconds=60.0)
 SCENARIO_REGENERATE_RATE_LIMIT = rate_limit.RateLimitRule(limit=5, window_seconds=60.0)
+
+
+def _trial_create_rule():
+    # Allow tests to override the rate limit via the aggregated trials module.
+    from app.shared.http.routes import trials as sim_routes
+
+    return getattr(sim_routes, "TRIAL_CREATE_RATE_LIMIT", TRIAL_CREATE_RATE_LIMIT)
 
 
 def _invite_create_rule():
@@ -36,17 +44,24 @@ def _scenario_regenerate_rule():
     )
 
 
-def enforce_invite_create_limit(
-    request: Request, user_id: int, invite_email: str
-) -> None:
-    """Execute enforce invite create limit."""
+def enforce_trial_create_limit(_request: Request, user_id: int) -> None:
+    """Rate-limit Trial creation per Talent Partner account."""
     if not rate_limit.rate_limit_enabled():
         return
+    key = rate_limit.rate_limit_key("trial_create", str(user_id))
+    rate_limit.limiter.allow(key, _trial_create_rule())
+
+
+def enforce_invite_create_limit(
+    _request: Request, _user_id: int, invite_email: str
+) -> None:
+    """Rate-limit invite/magic-link email sends by normalized recipient email."""
+    if not rate_limit.rate_limit_enabled():
+        return
+    normalized_email = " ".join(str(invite_email or "").split()).lower()
     key = rate_limit.rate_limit_key(
         "invite_create",
-        str(user_id),
-        rate_limit.client_id(request),
-        rate_limit.hash_value(str(invite_email)),
+        rate_limit.hash_value(normalized_email),
     )
     rate_limit.limiter.allow(key, _invite_create_rule())
 

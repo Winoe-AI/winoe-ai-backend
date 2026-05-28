@@ -183,6 +183,7 @@ async def test_trial_routes_execute_service_calls(monkeypatch):
     db = _DbStub()
 
     created = await sim_create_route.create_trial(
+        request=SimpleNamespace(),
         payload=SimpleNamespace(),
         db=db,
         user=user,

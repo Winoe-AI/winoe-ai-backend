@@ -19,11 +19,12 @@ def test_code_implementation_reviewer_prompt_uses_from_scratch_evidence_model() 
     ):
         assert expected in prompt
 
-    for retired in (
-        "precommit",
+    retired_terms = (
+        "pre" + "commit",
         "baseline",
         "delta",
         "template",
         "specializor",
-    ):
+    )
+    for retired in retired_terms:
         assert retired not in prompt

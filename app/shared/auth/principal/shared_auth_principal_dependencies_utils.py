@@ -30,6 +30,13 @@ def _is_local_client(request: Request) -> bool:
     )
 
 
+def _is_local_qa_bff_request(request: Request, token_email: str) -> bool:
+    if (request.headers.get("x-winoe-dev-qa-auth") or "").strip() != "1":
+        return False
+    dev_email = (request.headers.get("x-dev-user-email") or "").strip().lower()
+    return bool(dev_email and dev_email == token_email and _is_local_client(request))
+
+
 async def get_principal(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     request: Request,
@@ -64,15 +71,21 @@ async def get_principal(
             if dev_principal:
                 return dev_principal
         elif (
-            env == "local"
-            and settings.dev_auth_bypass_enabled
-            and (
-                _is_local_client(request)
-                or (
-                    not (getattr(request.client, "host", "") or "").strip()
-                    and bool((request.headers.get("x-dev-user-email") or "").strip())
+            (
+                env == "local"
+                and settings.dev_auth_bypass_enabled
+                and (
+                    _is_local_client(request)
+                    or (
+                        not (getattr(request.client, "host", "") or "").strip()
+                        and bool(
+                            (request.headers.get("x-dev-user-email") or "").strip()
+                        )
+                    )
                 )
             )
+            or env == "local"
+            and _is_local_qa_bff_request(request, parsed_dev[1])
         ):
             prefix, email = parsed_dev
             claims = {

@@ -7,6 +7,39 @@ from pydantic import field_validator, model_validator
 from .config_merge_config import merge_nested_settings
 from .config_parsers_config import parse_env_list
 
+_PLACEHOLDER_SECRET_VALUES = {
+    "admin",
+    "changeme",
+    "demo",
+    "password",
+    "replace-me",
+    "secret",
+    "test",
+}
+_MIN_PRODUCTION_SECRET_LENGTH = 32
+
+
+def _is_placeholder_secret(value: str | None) -> bool:
+    normalized = str(value or "").strip()
+    return (
+        not normalized
+        or normalized.lower() in _PLACEHOLDER_SECRET_VALUES
+        or normalized.lower().startswith("replace-")
+    )
+
+
+def _require_production_secret(
+    value: str | None,
+    *,
+    field_name: str,
+    min_length: int = _MIN_PRODUCTION_SECRET_LENGTH,
+) -> None:
+    normalized = str(value or "").strip()
+    if _is_placeholder_secret(normalized) or len(normalized) < min_length:
+        raise ValueError(
+            f"{field_name} must be a non-placeholder value at least {min_length} characters long in production"
+        )
+
 
 class SettingsValidationMixin:
     """Represent settings validation mixin data and behavior."""
@@ -106,4 +139,31 @@ class SettingsValidationMixin:
             raise ValueError(
                 "DEMO_MODE/WINOE_DEMO_MODE cannot be enabled in production."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_production_secrets(self):
+        if not self.is_production_environment():
+            return self
+        _require_production_secret(self.ADMIN_API_KEY, field_name="ADMIN_API_KEY")
+        auth = self.auth
+        auth_fields = {
+            "AUTH0_DOMAIN": auth.AUTH0_DOMAIN,
+            "AUTH0_ISSUER": auth.AUTH0_ISSUER or auth.issuer,
+            "AUTH0_API_AUDIENCE": auth.AUTH0_API_AUDIENCE,
+            "AUTH0_CLIENT_ID": auth.AUTH0_CLIENT_ID,
+            "AUTH0_CLIENT_SECRET": auth.AUTH0_CLIENT_SECRET,
+            "AUTH0_SESSION_SECRET": auth.AUTH0_SESSION_SECRET,
+        }
+        for field_name, value in auth_fields.items():
+            if _is_placeholder_secret(value):
+                raise ValueError(
+                    f"{field_name} must be configured with a non-placeholder production value"
+                )
+        _require_production_secret(
+            auth.AUTH0_CLIENT_SECRET, field_name="AUTH0_CLIENT_SECRET"
+        )
+        _require_production_secret(
+            auth.AUTH0_SESSION_SECRET, field_name="AUTH0_SESSION_SECRET"
+        )
         return self

@@ -136,6 +136,58 @@ async def test_get_principal_allows_local_dev_bypass_for_local_client(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_get_principal_allows_local_qa_bff_candidate_token_without_global_bypass(
+    monkeypatch,
+):
+    monkeypatch.setattr(settings, "ENV", "local")
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "0")
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="candidate:winoecandidate@gmail.com"
+    )
+    request = Request(
+        {
+            "type": "http",
+            "headers": [
+                (b"x-winoe-dev-qa-auth", b"1"),
+                (b"x-dev-user-email", b"winoecandidate@gmail.com"),
+            ],
+            "client": ("127.0.0.1", 3000),
+        }
+    )
+
+    resolved = await principal.get_principal(credentials, request)
+
+    assert resolved.sub == "candidate:winoecandidate@gmail.com"
+    assert resolved.email == "winoecandidate@gmail.com"
+    assert "candidate:access" in resolved.permissions
+
+
+@pytest.mark.asyncio
+async def test_get_principal_rejects_local_qa_bff_candidate_token_email_mismatch(
+    monkeypatch,
+):
+    monkeypatch.setattr(settings, "ENV", "local")
+    monkeypatch.setenv("DEV_AUTH_BYPASS", "0")
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="candidate:winoecandidate@gmail.com"
+    )
+    request = Request(
+        {
+            "type": "http",
+            "headers": [
+                (b"x-winoe-dev-qa-auth", b"1"),
+                (b"x-dev-user-email", b"other@example.com"),
+            ],
+            "client": ("127.0.0.1", 3000),
+        }
+    )
+
+    with pytest.raises(HTTPException) as excinfo:
+        await principal.get_principal(credentials, request)
+    assert excinfo.value.status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_get_principal_direct_dev_principal_fallback_short_circuits_decoder(
     monkeypatch,
 ):

@@ -47,6 +47,9 @@ jobs:
       - name: Ruff lint
         run: poetry run ruff check . --output-format=github
 
+      - name: Check active-code legacy terminology
+        run: bash scripts/check_no_legacy_active_refs.sh
+
       - name: Ruff format check
         run: poetry run ruff format --check .
 
@@ -182,6 +185,9 @@ jobs:
 
       - name: Check demo-visible legacy GitHub refs
         run: bash scripts/check_no_legacy_demo_refs.sh
+
+      - name: Check active-code legacy terminology
+        run: bash scripts/check_no_legacy_active_refs.sh
 
       - name: Run Alembic migrations
         run: poetry run alembic upgrade heads

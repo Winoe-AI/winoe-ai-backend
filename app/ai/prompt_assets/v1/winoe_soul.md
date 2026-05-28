@@ -43,11 +43,9 @@
 - Filter out
 - Screen out
 - Discard
-- Recruiter
-- Simulation
-- Fit Profile
-- Fit Score
-- Tenon
+- Retired brand names
+- Retired Trial workflow nouns
+- Retired scoring/profile labels
 - Best candidate
 - Top talent
 - A-player

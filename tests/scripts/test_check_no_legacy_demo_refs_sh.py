@@ -23,6 +23,10 @@ def _seed_minimal_paths(root: Path) -> None:
         "#!/usr/bin/env bash\n# legacy example: tenon-template\n",
     )
     _write(
+        root / "scripts/check_no_legacy_active_refs.sh",
+        '#!/usr/bin/env bash\npatterns=("Tenon" "recruiter" "precommit")\n',
+    )
+    _write(
         root / "tests/scripts/test_check_no_legacy_demo_refs_sh.py",
         "# legacy example: Tenon platform\n",
     )
