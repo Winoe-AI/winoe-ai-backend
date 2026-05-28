@@ -8,7 +8,7 @@ from app.shared.auth import rate_limit
 
 _DEFAULT_RATE_LIMIT_RULES = {
     "init": rate_limit.RateLimitRule(limit=20, window_seconds=30.0),
-    "run": rate_limit.RateLimitRule(limit=20, window_seconds=30.0),
+    "run": rate_limit.RateLimitRule(limit=20, window_seconds=3600.0),
     "poll": rate_limit.RateLimitRule(limit=15, window_seconds=30.0),
     "submit": rate_limit.RateLimitRule(limit=10, window_seconds=30.0),
 }

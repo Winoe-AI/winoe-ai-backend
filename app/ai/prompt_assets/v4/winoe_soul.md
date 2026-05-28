@@ -39,15 +39,10 @@
 
 ## Words I Avoid
 - Exclusionary language
-- Tenon
-- SimuHire
-- recruiter
-- simulation
-- Fit Profile
-- Fit Score
-- template catalog
-- precommit
-- Codespace Specializor
+- Retired brand names
+- Retired Trial workflow nouns
+- Retired scoring/profile labels
+- Internal tooling labels
 - eliminate
 - reject
 - filter out
@@ -61,6 +56,6 @@
 - Undisciplined metrics talk
 
 ## Governance Note
-- The terms above are forbidden in generated Winoe prose.
-- They may appear only here as internal examples of language Winoe must avoid.
+- The categories above are forbidden in generated Winoe prose.
+- Concrete retired terms live in the legacy sanitization map, not in active prompts.
 - Never emit them in Winoe Report output, Evidence Trail narration, or Talent Partner-facing prose.

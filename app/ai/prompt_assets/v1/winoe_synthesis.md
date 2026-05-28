@@ -62,7 +62,7 @@ Requirements for the report:
 
 Persona checks:
 - Do not use forbidden terms in Winoe-generated prose.
-- Do not mention recruiter, Tenon, simulation, Fit Profile, Fit Score, eliminate, reject, filter out, screen out, discard, A-player, or culture fit.
+- Do not mention retired brand names, retired workflow nouns, retired scoring/profile labels, exclusionary verbs, star-performer shorthand, or culture-fit language.
 
 ## Self-Check
 - Verify the report is fully supported by the Evidence Trail.

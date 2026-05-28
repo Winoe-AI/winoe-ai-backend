@@ -15,6 +15,7 @@ async def test_purge_expired_media_assets_missing_storage_is_idempotent(async_se
     candidate_session = await create_candidate_session(async_session, trial=trial)
 
     now = datetime.now(UTC).replace(microsecond=0)
+    candidate_session.completed_at = now - timedelta(days=91)
 
     async def _recording(name: str):
         recording = await recordings_repo.create_recording_asset(

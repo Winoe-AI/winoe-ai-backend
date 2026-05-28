@@ -7,6 +7,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.candidates.candidate_sessions.repositories.candidates_candidate_sessions_repositories_candidates_candidate_sessions_candidate_session_model import (
+    CandidateSession,
+)
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
     RECORDING_ASSET_KIND_RECORDING,
     RECORDING_ASSET_STATUS_DELETED,
@@ -111,7 +114,12 @@ async def get_expired_for_retention(
     cutoff = resolved_now - timedelta(days=max(1, int(retention_days)))
     stmt = (
         select(RecordingAsset)
+        .join(
+            CandidateSession, CandidateSession.id == RecordingAsset.candidate_session_id
+        )
         .where(
+            CandidateSession.completed_at.is_not(None),
+            CandidateSession.completed_at <= cutoff,
             RecordingAsset.purged_at.is_(None),
             RecordingAsset.status.in_(
                 (

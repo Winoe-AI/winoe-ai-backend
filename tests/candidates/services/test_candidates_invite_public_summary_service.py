@@ -79,7 +79,10 @@ async def test_public_invite_summary_error_variants(async_session):
         await public_invite_summary(async_session, expired.token)
     assert expired_exc.value.status_code == 410
     assert expired_exc.value.error_code == INVITE_TOKEN_EXPIRED
-    assert expired_exc.value.details == {"talentPartnerName": "Expired Sender"}
+    assert expired_exc.value.details == {
+        "talentPartnerName": "Expired Sender",
+        "expiresAt": expired.expires_at.isoformat(),
+    }
 
     with pytest.raises(ApiError) as claimed_exc:
         await public_invite_summary(async_session, claimed.token)

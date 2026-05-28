@@ -13,6 +13,7 @@ async def test_recordings_repository_retention_helpers(async_session):
     sim, tasks = await create_trial(async_session, created_by=talent_partner)
     task = _handoff_task(tasks)
     candidate_session = await create_candidate_session(async_session, trial=sim)
+    candidate_session.completed_at = datetime.now(UTC) - timedelta(days=10)
 
     old_recording = await recordings_repo.create_recording_asset(
         async_session,

@@ -27,6 +27,7 @@ def test_demo_mode_env_values_parse_as_expected(monkeypatch, env_value, expected
     [
         ("WINOE_ENV", "production"),
         ("ENV", "production"),
+        ("ENVIRONMENT", "production"),
     ],
 )
 def test_demo_mode_is_disabled_in_production_even_when_requested(
@@ -35,8 +36,7 @@ def test_demo_mode_is_disabled_in_production_even_when_requested(
     settings = Settings(
         _env_file=None,
         ENV="test",
-        AUTH0_DOMAIN="example.auth0.com",
-        AUTH0_API_AUDIENCE="https://api.example.com",
+        **production_secret_kwargs(),
         CORS_ALLOW_ORIGINS=["https://frontend.winoe.ai"],
     )
     object.__setattr__(settings, "DEMO_MODE", True)
@@ -52,6 +52,7 @@ def test_demo_mode_is_disabled_in_production_even_when_requested(
     [
         ("WINOE_ENV", "production"),
         ("ENV", "production"),
+        ("ENVIRONMENT", "production"),
     ],
 )
 def test_demo_mode_rejected_during_settings_validation_in_production(
@@ -63,8 +64,7 @@ def test_demo_mode_rejected_during_settings_validation_in_production(
     with pytest.raises(ValueError, match="DEMO_MODE/WINOE_DEMO_MODE"):
         Settings(
             _env_file=None,
-            AUTH0_DOMAIN="example.auth0.com",
-            AUTH0_API_AUDIENCE="https://api.example.com",
+            **production_secret_kwargs(),
             CORS_ALLOW_ORIGINS=["https://frontend.winoe.ai"],
         )
 
@@ -74,8 +74,7 @@ def test_demo_mode_enabled_rejects_stringy_falsey_overrides(raw_value):
     settings = Settings(
         _env_file=None,
         ENV="test",
-        AUTH0_DOMAIN="example.auth0.com",
-        AUTH0_API_AUDIENCE="https://api.example.com",
+        **production_secret_kwargs(),
         CORS_ALLOW_ORIGINS=["https://frontend.winoe.ai"],
     )
     object.__setattr__(settings, "DEMO_MODE", raw_value)

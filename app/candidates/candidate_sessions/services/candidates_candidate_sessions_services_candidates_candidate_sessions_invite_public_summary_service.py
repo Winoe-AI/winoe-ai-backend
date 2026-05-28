@@ -66,7 +66,12 @@ async def public_invite_summary(
                 detail="Invite token expired",
                 error_code=INVITE_TOKEN_EXPIRED,
                 retryable=False,
-                details={"talentPartnerName": tp_name},
+                details={
+                    "talentPartnerName": tp_name,
+                    "expiresAt": cs.expires_at.isoformat()
+                    if cs.expires_at is not None
+                    else None,
+                },
             ) from exc
         raise
     stored_sub = getattr(cs, "candidate_auth0_sub", None)

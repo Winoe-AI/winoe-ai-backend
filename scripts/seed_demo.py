@@ -81,6 +81,10 @@ def _parse_args() -> argparse.Namespace:
         default=os.getenv("DEMO_COMPANY_NAME", "Acme"),
     )
     parser.add_argument(
+        "--qa-candidate-email",
+        default=os.getenv("DEMO_QA_CANDIDATE_EMAIL", "winoecandidate@gmail.com"),
+    )
+    parser.add_argument(
         "--github-provider",
         choices=("auto", "fake", "real"),
         default=os.getenv("GITHUB_PROVIDER", "auto"),
@@ -306,6 +310,7 @@ async def _main_async(args: argparse.Namespace) -> None:
         talent_partner_email=args.talent_partner_email,
         talent_partner_name=args.talent_partner_name,
         company_name=args.company_name,
+        qa_candidate_email=args.qa_candidate_email,
         reset_db=args.reset_db,
     )
     print(

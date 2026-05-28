@@ -24,3 +24,27 @@ async def test_default_protected_prefix_covers_real_backend_route(monkeypatch):
         "error": "CSRF_ORIGIN_MISMATCH",
         "message": "Request origin not allowed.",
     }
+
+
+@pytest.mark.asyncio
+async def test_default_protected_prefix_covers_winoe_report_generation_route(
+    monkeypatch,
+):
+    _configure_security_settings(monkeypatch)
+    app = create_app()
+
+    async with AsyncClient(app=app, base_url="http://testserver") as client:
+        response = await client.post(
+            "/api/candidate_trials/1/winoe_report/generate",
+            headers={
+                "Authorization": "Bearer talent_partner:test@example.com",
+                "Origin": "https://evil.example",
+                "Cookie": "session=abc",
+            },
+        )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "error": "CSRF_ORIGIN_MISMATCH",
+        "message": "Request origin not allowed.",
+    }

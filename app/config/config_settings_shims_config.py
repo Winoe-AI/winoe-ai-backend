@@ -67,6 +67,7 @@ class SettingsShimMixin:
         env_candidates = (
             os.getenv("WINOE_ENV"),
             os.getenv("ENV"),
+            os.getenv("ENVIRONMENT"),
             getattr(self, "ENV", None),
         )
         return any(

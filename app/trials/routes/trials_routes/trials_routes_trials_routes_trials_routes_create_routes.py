@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.shared.auth.shared_auth_current_user_utils import get_current_user
 from app.shared.auth.shared_auth_roles_utils import ensure_talent_partner_or_none
 from app.shared.database import get_session
 from app.trials import services as trial_service
+from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_rate_limits_routes import (
+    enforce_trial_create_limit,
+)
 from app.trials.schemas.trials_schemas_trials_core_schema import (
     TaskOut,
     TrialCreate,
@@ -27,12 +30,14 @@ router = APIRouter(prefix="/trials")
     "", response_model=TrialCreateResponse, status_code=status.HTTP_201_CREATED
 )
 async def create_trial(
+    request: Request,
     payload: TrialCreate,
     db: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[Any, Depends(get_current_user)],
 ):
     """Create a trial and seed default tasks."""
     ensure_talent_partner_or_none(user)
+    enforce_trial_create_limit(request, int(getattr(user, "id", 0)))
     sim, created_tasks, scenario_job = await trial_service.create_trial_with_tasks(
         db, payload, user
     )

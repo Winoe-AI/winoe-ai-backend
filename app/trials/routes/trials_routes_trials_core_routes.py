@@ -49,6 +49,7 @@ from app.trials.routes.trials_routes.trials_routes_trials_routes_trials_routes_u
 INVITE_CREATE_RATE_LIMIT = rate_limits.INVITE_CREATE_RATE_LIMIT
 INVITE_RESEND_RATE_LIMIT = rate_limits.INVITE_RESEND_RATE_LIMIT
 SCENARIO_REGENERATE_RATE_LIMIT = rate_limits.SCENARIO_REGENERATE_RATE_LIMIT
+TRIAL_CREATE_RATE_LIMIT = rate_limits.TRIAL_CREATE_RATE_LIMIT
 rate_limit = rate_limits.rate_limit
 
 __all__ = [
@@ -73,6 +74,7 @@ __all__ = [
     "trial_service",
     "ensure_talent_partner_or_none",
     "rate_limit",
+    "TRIAL_CREATE_RATE_LIMIT",
     "INVITE_CREATE_RATE_LIMIT",
     "INVITE_RESEND_RATE_LIMIT",
     "SCENARIO_REGENERATE_RATE_LIMIT",
