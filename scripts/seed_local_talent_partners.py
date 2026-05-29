@@ -51,8 +51,8 @@ async def main(*, reset: bool = False):
             ("Local TalentPartner 2", "talent_partner2@local.test"),
         ]
         verification_talent_partner = (
-            "talentPartner",
-            "robel.kebede@bison.howard.edu",
+            "TalentPartner",
+            "winoetalentpartner@gmail.com",
         )
 
         created = []
