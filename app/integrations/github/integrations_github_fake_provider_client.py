@@ -187,23 +187,29 @@ def _fake_detection_payload(full_name: str, seq: int) -> dict[str, Any]:
     }
 
 
-def _fake_test_results(full_name: str, seq: int) -> dict[str, Any]:
+def _fake_test_results(
+    full_name: str, seq: int, *, failed: bool = False
+) -> dict[str, Any]:
     passed = 14 + _stable_int(full_name, seq, "passed", start=0, stop=7)
-    failed = 0 if seq % 3 else 1
-    total = passed + failed
+    failed_count = 0 if not failed else 1 + (seq % 2)
+    total = passed + failed_count
     return {
         "passed": passed,
-        "failed": failed,
+        "failed": failed_count,
         "total": total,
         "stdout": (
             "Collected deterministic demo results.\n"
             f"Workspace: {full_name}\n"
             "All core provisioning checks completed."
         ),
-        "stderr": "" if failed == 0 else "1 test failed in demo rehearsal mode.",
+        "stderr": (
+            ""
+            if failed_count == 0
+            else "Deterministic demo failure reproduced in run-tests rehearsal mode."
+        ),
         "summary": {
             "suite": "demo-rehearsal",
-            "status": "passed" if failed == 0 else "failed",
+            "status": "passed" if failed_count == 0 else "failed",
             "filesTouched": [
                 "README.md",
                 "src/app.py",
@@ -275,6 +281,10 @@ class _RunState:
     conclusion: str | None
     created_at: str
     html_url: str
+    should_fail: bool = False
+    poll_count: int = 0
+    completed: bool = False
+    workflow_inputs: dict[str, str] = field(default_factory=dict)
     artifacts: list[dict[str, Any]] = field(default_factory=list)
     artifact_zip_by_id: dict[int, bytes] = field(default_factory=dict)
     compare_payload: dict[str, Any] = field(default_factory=dict)
@@ -299,6 +309,21 @@ class _RepoState:
     codespace_state: str | None = None
     codespace_url: str | None = None
     next_run_seq: int = 1
+
+
+def _run_should_fail(workflow_id_or_file: str, inputs: dict[str, Any] | None) -> bool:
+    """Return whether a workflow dispatch should deterministically fail."""
+    if "fail" in workflow_id_or_file.lower():
+        return True
+    normalized_inputs = {
+        str(key).strip().lower(): str(value or "").strip().lower()
+        for key, value in (inputs or {}).items()
+    }
+    for key in ("result", "status", "demo_result", "outcome"):
+        value = normalized_inputs.get(key)
+        if value in {"failure", "failed", "fail", "error"}:
+            return True
+    return False
 
 
 class FakeGithubClient:
@@ -558,11 +583,18 @@ class FakeGithubClient:
     ) -> dict[str, Any]:
         """Create a fake git commit."""
         state = self._ensure_repo_state_from_full_name(repo_full_name)
-        files = [
-            entry.get("path")
-            for entry in self._tree_by_sha.get(tree, [])
-            if entry.get("path")
-        ]
+        files: list[str] = []
+        for entry in self._tree_by_sha.get(tree, []):
+            path = str(entry.get("path") or "").strip()
+            if not path:
+                continue
+            content = entry.get("content")
+            blob_sha = str(entry.get("sha") or "").strip()
+            if content is None and blob_sha:
+                content = self._blob_by_sha.get(blob_sha)
+            if isinstance(content, str):
+                state.files[path] = content
+            files.append(path)
         commit_sha = _stable_hex(
             repo_full_name, message, tree, json.dumps(parents, sort_keys=True)
         )
@@ -679,26 +711,28 @@ class FakeGithubClient:
             key: "" if value is None else str(value)
             for key, value in sorted((inputs or {}).items())
         }
+        should_fail = _run_should_fail(workflow_id_or_file, inputs)
         compare_payload = {
             "ahead_by": len(_fake_compare_files(repo_full_name, run_seq)),
             "behind_by": 0,
             "total_commits": 3,
             "files": _fake_compare_files(repo_full_name, run_seq),
             "requested_inputs": requested_inputs,
+            "workflow_file": workflow_id_or_file,
+            "result": "failure" if should_fail else "success",
         }
-        artifacts = self._build_run_artifacts(repo_full_name, run_seq)
         run = _RunState(
             run_id=run_id,
             workflow_file=workflow_id_or_file,
             ref=_strip_ref(ref),
             seq=run_seq,
             head_sha=head_sha,
-            status="completed",
-            conclusion="success" if run_seq % 3 else "failure",
+            status="queued",
+            conclusion=None,
             created_at=_stable_time(repo_full_name, run_seq, "workflow-run"),
             html_url=f"https://github.com/{repo_full_name}/actions/runs/{run_id}",
-            artifacts=artifacts[0],
-            artifact_zip_by_id=artifacts[1],
+            should_fail=should_fail,
+            workflow_inputs=requested_inputs,
             compare_payload=compare_payload,
         )
         state.runs[run_id] = run
@@ -721,6 +755,8 @@ class FakeGithubClient:
             if run.workflow_file == workflow_id_or_file
             and (branch is None or _strip_ref(branch) == run.ref)
         ]
+        for run in runs:
+            self._advance_run_state(run)
         runs.sort(key=lambda item: item.run_id, reverse=True)
         return [self._workflow_run_payload(run) for run in runs]
 
@@ -730,6 +766,7 @@ class FakeGithubClient:
         run = state.runs.get(run_id)
         if run is None:
             raise GithubError("Workflow run not found", status_code=404)
+        self._advance_run_state(run)
         return self._workflow_run_payload(run)
 
     async def list_artifacts(
@@ -740,6 +777,8 @@ class FakeGithubClient:
         run = state.runs.get(run_id)
         if run is None:
             return []
+        if not run.completed:
+            return []
         return list(run.artifacts)
 
     async def download_artifact_zip(
@@ -748,6 +787,8 @@ class FakeGithubClient:
         """Return fake artifact zip bytes."""
         state = self._ensure_repo_state_from_full_name(repo_full_name)
         for run in state.runs.values():
+            if not run.completed:
+                continue
             if artifact_id in run.artifact_zip_by_id:
                 return run.artifact_zip_by_id[artifact_id]
         raise GithubError("Artifact not found", status_code=404)
@@ -840,21 +881,50 @@ class FakeGithubClient:
             "owner": {"login": state.owner},
         }
 
+    def _advance_run_state(self, run: _RunState) -> None:
+        """Advance a workflow run deterministically on each poll."""
+        if run.completed:
+            return
+        run.poll_count += 1
+        if run.poll_count <= 1:
+            run.status = "queued"
+            run.conclusion = None
+            return
+        if run.poll_count == 2:
+            run.status = "running"
+            run.conclusion = None
+            return
+        run.status = "completed"
+        run.conclusion = "failure" if run.should_fail else "success"
+        run.completed = True
+        if not run.artifacts:
+            artifacts, artifact_zip_by_id = self._build_run_artifacts(
+                run=run,
+                failed=run.should_fail,
+            )
+            run.artifacts = artifacts
+            run.artifact_zip_by_id = artifact_zip_by_id
+
     def _workflow_run_payload(self, run: _RunState) -> WorkflowRun:
+        artifact_count = len(run.artifacts) if run.completed else 0
         return WorkflowRun(
             id=run.run_id,
             status=run.status,
             conclusion=run.conclusion,
             html_url=run.html_url,
             head_sha=run.head_sha,
-            artifact_count=len(run.artifacts),
+            artifact_count=artifact_count,
             event="workflow_dispatch",
             created_at=run.created_at,
         )
 
     def _build_run_artifacts(
-        self, repo_full_name: str, seq: int
+        self, *, run: _RunState, failed: bool
     ) -> tuple[list[dict[str, Any]], dict[int, bytes]]:
+        repo_full_name = run.html_url.rsplit("/actions/runs/", 1)[0].replace(
+            "https://github.com/", ""
+        )
+        seq = run.seq
         base_id = _stable_int(
             repo_full_name, seq, "artifact-base", start=1_000, stop=9_999
         )
@@ -932,7 +1002,9 @@ class FakeGithubClient:
             },
             "winoe-dependency-manifests": _fake_manifest_payload(repo_full_name, seq),
             "winoe-test-detection": _fake_detection_payload(repo_full_name, seq),
-            "winoe-test-results": _fake_test_results(repo_full_name, seq),
+            "winoe-test-results": _fake_test_results(
+                repo_full_name, seq, failed=failed
+            ),
             "winoe-lint-detection": {
                 "detected": True,
                 "tool": "ruff",
@@ -943,11 +1015,17 @@ class FakeGithubClient:
             "winoe-lint-results": _fake_lint_results(repo_full_name, seq),
             "winoe-evidence-manifest": {
                 "artifacts": [
-                    {"name": name, "status": "success"}
+                    {
+                        "name": name,
+                        "status": "failure"
+                        if failed and name == "winoe-test-results"
+                        else "success",
+                    }
                     for name in _EVIDENCE_ARTIFACT_NAMES
                 ],
                 "generated_artifacts": list(_EVIDENCE_ARTIFACT_NAMES),
-                "best_effort": True,
+                "best_effort": not failed,
+                "result": "failure" if failed else "success",
             },
         }
         artifacts: list[dict[str, Any]] = []

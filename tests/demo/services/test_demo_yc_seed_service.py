@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.orm import selectinload
 
 from app.candidates.candidate_sessions.repositories.candidates_candidate_sessions_repositories_candidates_candidate_sessions_day_audit_model import (
     CandidateDayAudit,
@@ -26,7 +27,10 @@ from app.evaluations.repositories.evaluations_repositories_trial_evaluation_stat
 from app.evaluations.services.evaluations_services_evaluations_winoe_report_api_service import (
     fetch_winoe_report,
 )
-from app.integrations.github import FakeGithubClient
+from app.evaluations.services.evaluations_services_evaluations_winoe_report_citations_service import (
+    get_report_citations,
+)
+from app.integrations.github import FakeGithubClient, GithubActionsRunner
 from app.media.repositories.recordings.media_repositories_recordings_media_recordings_core_model import (
     RecordingAsset,
 )
@@ -53,6 +57,12 @@ from app.submissions.repositories.submissions_repositories_submissions_winoe_rep
 )
 from app.submissions.repositories.submissions_repositories_submissions_winoe_report_repository import (
     upsert_marker,
+)
+from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_codespace_status_service import (
+    codespace_status,
+)
+from app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_run_tests_service import (
+    run_task_tests,
 )
 from scripts import seed_demo as seed_demo_script
 from tests.shared.factories import (
@@ -89,9 +99,9 @@ def _session_maker(async_session):
 def _seed_args(
     *,
     reset_db: bool = False,
-    talent_partner_email: str = "demo@winoe.ai",
-    talent_partner_name: str = "Demo Partner",
-    company_name: str = "Acme",
+    talent_partner_email: str = "winoetalentpartner@gmail.com",
+    talent_partner_name: str = "TalentPartner",
+    company_name: str = "Northstar Labs",
     qa_candidate_email: str = "winoecandidate@gmail.com",
     github_provider: str = "fake",
     allow_production_write: bool = False,
@@ -131,6 +141,11 @@ def _assert_no_retired_terms(text: str) -> None:
         assert term not in lowered
 
 
+def _line_slice(text: str, start_line: int, end_line: int) -> str:
+    lines = text.splitlines()
+    return "\n".join(lines[start_line - 1 : end_line])
+
+
 async def _assert_evidence_links(
     *,
     reviewer_reports: list[dict[str, object]],
@@ -159,7 +174,7 @@ async def _assert_evidence_links(
                 assert ref == "day2-tests.txt:L1-L4"
                 continue
             if kind == "transcript":
-                assert ref.endswith("02:14-02:48")
+                assert ref == "[00:00-02:00]"
                 continue
             raise AssertionError(f"unexpected evidence citation kind: {kind}")
 
@@ -240,15 +255,15 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     assert company_count == 1
     assert user_count == 1
     assert trial_count == 3
-    assert candidate_session_count == 4
-    assert submission_count == 5
+    assert candidate_session_count == 3
+    assert submission_count == 6
     assert report_count == 1
     assert run_count == 1
     assert day_score_count == 5
     assert reviewer_count == 5
     assert evaluation_state_count == 1
-    assert workspace_count == 1
-    assert workspace_group_count == 1
+    assert workspace_count == 2
+    assert workspace_group_count == 2
     assert recording_count == 1
     assert transcript_count == 1
     assert audit_count == 2
@@ -257,7 +272,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     assert task_count == 15
 
     talent_partner = await async_session.scalar(
-        select(User).where(User.email == "demo@winoe.ai")
+        select(User).where(User.email == "winoetalentpartner@gmail.com")
     )
     assert talent_partner is not None
 
@@ -269,7 +284,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     assert trial.status == "completed"
     assert "from-scratch product surface" in trial.focus
     assert trial.company_context == {
-        "companyName": "Acme",
+        "companyName": "Northstar Labs",
         "preferredLanguageFramework": "TypeScript + React",
         "demoMode": "yc-demo",
     }
@@ -314,45 +329,55 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
         .all()
     )
     assert [row.candidate_name for row in candidate_sessions] == [
-        "Marcus Okonjo",
-        "Priya Patel",
         "Sarah Chen",
         "Nina Alvarez",
+        "Priya Patel",
     ]
     assert [row.status for row in candidate_sessions] == [
-        "not_started",
-        "not_started",
         "completed",
+        "in_progress",
         "not_started",
     ]
     assert [row.completed_at is not None for row in candidate_sessions] == [
-        False,
-        False,
         True,
+        False,
         False,
     ]
     assert [len(row.day_windows_json or []) for row in candidate_sessions] == [
-        0,
-        0,
+        5,
         5,
         0,
     ]
     awaiting_trial = await async_session.scalar(
-        select(Trial).where(Trial.id == candidate_sessions[3].trial_id)
+        select(Trial).where(Trial.id == candidate_sessions[2].trial_id)
     )
     assert awaiting_trial is not None
     assert awaiting_trial.status == "active_inviting"
-    assert candidate_sessions[3].status == "not_started"
-    assert candidate_sessions[3].invite_email == "winoecandidate@gmail.com"
-    assert candidate_sessions[3].candidate_auth0_email == "winoecandidate@gmail.com"
-    assert candidate_sessions[3].completed_at is None
-    assert [day["status"] for day in candidate_sessions[2].day_windows_json or []] == [
+    assert candidate_sessions[1].invite_email == "winoecandidate@gmail.com"
+    assert candidate_sessions[1].candidate_auth0_email == "winoecandidate@gmail.com"
+    assert candidate_sessions[1].completed_at is None
+    assert [day["status"] for day in candidate_sessions[0].day_windows_json or []] == [
         "submitted",
         "submitted",
         "submitted",
         "submitted",
         "submitted",
     ]
+    assert [day["status"] for day in candidate_sessions[1].day_windows_json or []] == [
+        "submitted",
+        "in_progress",
+        "locked",
+        "locked",
+        "locked",
+    ]
+    active_trial = await async_session.scalar(
+        select(Trial).where(Trial.id == candidate_sessions[1].trial_id)
+    )
+    assert active_trial is not None
+    assert active_trial.status == "active_inviting"
+    assert candidate_sessions[1].candidate_email == "winoecandidate@gmail.com"
+    assert candidate_sessions[1].status == "in_progress"
+    assert candidate_sessions[1].started_at is not None
 
     submission_rows = (
         await async_session.execute(
@@ -361,7 +386,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
             .order_by(Submission.candidate_session_id, Task.day_index)
         )
     ).all()
-    assert len(submission_rows) == 5
+    assert len(submission_rows) == 6
     expected_artifacts = {
         1: "design_document",
         2: "implementation_kickoff",
@@ -381,7 +406,8 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
                 submission.content_json["transcriptRecordingId"]
                 == submission.recording_id
             )
-    assert all(days == [1, 2, 3, 4, 5] for days in per_candidate_day_indexes.values())
+    assert [1, 2, 3, 4, 5] in per_candidate_day_indexes.values()
+    assert [1] in per_candidate_day_indexes.values()
 
     recording_rows = (
         (
@@ -412,7 +438,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     assert len(reports) == 1
     evaluation_state = await async_session.scalar(
         select(TrialEvaluationStateRecord).where(
-            TrialEvaluationStateRecord.candidate_session_id == candidate_sessions[2].id
+            TrialEvaluationStateRecord.candidate_session_id == candidate_sessions[0].id
         )
     )
     assert evaluation_state is not None
@@ -422,7 +448,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
 
     first_report = await fetch_winoe_report(
         async_session,
-        candidate_session_id=candidate_sessions[2].id,
+        candidate_session_id=candidate_sessions[0].id,
         user=talent_partner,
     )
 
@@ -432,7 +458,7 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
     assert len(report["dayScores"]) == 5
     assert len(report["reviewerReports"]) == 5
     assert len(report["dimensions"]) == 8
-    assert len(report["citations"]) == 16
+    assert len(report["citations"]) == 15
     assert report["verdictOneLiner"]
     assert report["narrativeAssessment"]
     assert report["cohortContext"]
@@ -480,6 +506,14 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
             "growth_orientation",
         }
     )
+    assert any(
+        citation.get("artifact_ref") == "day1-design-doc.md:L1-L20"
+        for citation in report["citations"]
+    )
+    assert any(
+        citation.get("artifact_ref") == "[00:00-02:00]"
+        for citation in report["citations"]
+    )
     for reviewer_report in report["reviewerReports"]:
         assert reviewer_report["dimensionalScores"]
         assert len(reviewer_report["dimensionalScores"]) >= 8
@@ -500,6 +534,253 @@ async def test_seed_demo_cli_creates_complete_dataset_and_is_idempotent(
         Path(__file__).resolve().parents[3] / "YC_DEMO_CHECKLIST.md"
     ).read_text(encoding="utf-8")
     _assert_no_retired_terms(checklist_text)
+
+
+@pytest.mark.asyncio
+async def test_seed_demo_citation_refs_resolve_to_seeded_artifacts(
+    async_session, monkeypatch
+):
+    fake_github_client = FakeGithubClient()
+    monkeypatch.setattr(seed_demo_script, "_run_migrations", lambda _root: None)
+    monkeypatch.setattr(
+        seed_demo_script,
+        "async_session_maker",
+        _session_maker(async_session),
+    )
+    monkeypatch.setattr(
+        seed_demo_script,
+        "_build_github_client",
+        lambda _mode: fake_github_client,
+    )
+
+    await seed_demo_script._main_async(_seed_args())
+
+    talent_partner = await async_session.scalar(
+        select(User).where(User.email == "winoetalentpartner@gmail.com")
+    )
+    candidate_session = await async_session.scalar(
+        select(CandidateSession).where(CandidateSession.candidate_name == "Sarah Chen")
+    )
+    report = await async_session.scalar(
+        select(WinoeReport).where(
+            WinoeReport.candidate_session_id == candidate_session.id
+        )
+    )
+    assert talent_partner is not None
+    assert candidate_session is not None
+    assert report is not None
+
+    citation_payload = await get_report_citations(
+        async_session,
+        report_id=report.id,
+        user=talent_partner,
+    )
+    citations = citation_payload["citations"]
+    citation_by_ref = {citation["artifact_ref"]: citation for citation in citations}
+
+    day1_submission = await async_session.scalar(
+        select(Submission)
+        .join(Task, Task.id == Submission.task_id)
+        .where(
+            Submission.candidate_session_id == candidate_session.id,
+            Task.day_index == 1,
+        )
+    )
+    day5_submission = await async_session.scalar(
+        select(Submission)
+        .join(Task, Task.id == Submission.task_id)
+        .where(
+            Submission.candidate_session_id == candidate_session.id,
+            Task.day_index == 5,
+        )
+    )
+    day4_submission = await async_session.scalar(
+        select(Submission)
+        .join(Task, Task.id == Submission.task_id)
+        .where(
+            Submission.candidate_session_id == candidate_session.id,
+            Task.day_index == 4,
+        )
+    )
+    recording = await async_session.scalar(
+        select(RecordingAsset).where(
+            RecordingAsset.candidate_session_id == candidate_session.id
+        )
+    )
+    transcript = await async_session.scalar(
+        select(Transcript).where(Transcript.recording_id == recording.id)
+    )
+    workspace = await async_session.scalar(
+        select(Workspace).where(Workspace.candidate_session_id == candidate_session.id)
+    )
+    assert day1_submission is not None
+    assert day4_submission is not None
+    assert day5_submission is not None
+    assert recording is not None
+    assert transcript is not None
+    assert workspace is not None
+
+    day1_ref = next(
+        ref for ref in citation_by_ref if ref.startswith("day1-design-doc.md")
+    )
+    day5_ref = next(
+        ref for ref in citation_by_ref if ref.startswith("day5-reflection.md")
+    )
+    day1_citation = citation_by_ref[day1_ref]
+    day5_citation = citation_by_ref[day5_ref]
+    day4_citation = citation_by_ref["[00:00-02:00]"]
+    assert str(day1_submission.id) in day1_citation["view_url"]
+    assert str(day4_submission.id) in day4_citation["view_url"]
+    assert str(day5_submission.id) in day5_citation["view_url"]
+    day1_range = re.search(r":L(\d+)-L(\d+)$", day1_ref)
+    day5_range = re.search(r":L(\d+)-L(\d+)$", day5_ref)
+    assert day1_range is not None
+    assert day5_range is not None
+    assert day1_citation["view_url"].endswith(
+        f"range={day1_range.group(1)}-{day1_range.group(2)}"
+    )
+    assert day4_citation["view_url"].endswith("range=00:00-02:00")
+    assert day5_citation["view_url"].endswith(
+        f"range={day5_range.group(1)}-{day5_range.group(2)}"
+    )
+
+    day1_text = day1_submission.content_text or ""
+    day5_text = day5_submission.content_text or ""
+    assert "Use a small FastAPI service" in _line_slice(
+        day1_text, int(day1_range.group(1)), int(day1_range.group(2))
+    )
+    assert "I used automation to accelerate the repetitive parts" in day5_text
+    assert "## What Went Well" in _line_slice(
+        day5_text, int(day5_range.group(1)), int(day5_range.group(2))
+    )
+
+    assert recording.id == day4_submission.content_json["transcriptRecordingId"]
+    assert transcript.text
+    assert transcript.segments_json
+    assert any(
+        isinstance(segment, dict) and segment.get("text")
+        for segment in transcript.segments_json
+    )
+
+    repo_full_name = workspace.repo_full_name
+    day2_code_ref = next(
+        ref
+        for ref in citation_by_ref
+        if ref.startswith(tuple("0123456789abcdef")) and ":src/api/trials.ts:" in ref
+    )
+    day3_code_ref = next(
+        ref
+        for ref in citation_by_ref
+        if ref.startswith(tuple("0123456789abcdef"))
+        and ":src/services/reporting.py:" in ref
+    )
+    for ref in (day2_code_ref, day3_code_ref):
+        commit_sha, path_and_range = ref.split(":", 1)
+        path = path_and_range.split(":L", 1)[0]
+        commit = await fake_github_client.get_commit(repo_full_name, commit_sha)
+        assert commit["message"] != "demo commit"
+        assert commit["parents"]
+        compare = await fake_github_client.get_compare(
+            repo_full_name, commit["parents"][0]["sha"], commit_sha
+        )
+        assert any(file["filename"] == path for file in compare["files"])
+
+
+@pytest.mark.asyncio
+async def test_seed_demo_active_candidate_day_two_path_dispatches_and_resolves(
+    async_session, monkeypatch
+):
+    fake_github_client = FakeGithubClient()
+    monkeypatch.setattr(seed_demo_script, "_run_migrations", lambda _root: None)
+    monkeypatch.setattr(
+        seed_demo_script,
+        "async_session_maker",
+        _session_maker(async_session),
+    )
+    monkeypatch.setattr(
+        seed_demo_script,
+        "_build_github_client",
+        lambda _mode: fake_github_client,
+    )
+
+    await seed_demo_script._main_async(_seed_args())
+
+    nina = await async_session.scalar(
+        select(CandidateSession)
+        .options(selectinload(CandidateSession.trial))
+        .where(CandidateSession.candidate_name == "Nina Alvarez")
+    )
+    assert nina is not None
+    day2_task = await async_session.scalar(
+        select(Task)
+        .join(Trial, Trial.id == Task.trial_id)
+        .where(Trial.id == nina.trial_id, Task.day_index == 2)
+    )
+    assert day2_task is not None
+    workspace = await async_session.scalar(
+        select(Workspace).where(
+            Workspace.candidate_session_id == nina.id, Workspace.task_id == day2_task.id
+        )
+    )
+    assert workspace is not None
+
+    async def _noop_async(*_a, **_k):
+        return None
+
+    monkeypatch.setattr(
+        "app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_codespace_status_service.cs_service.require_active_window",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        "app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_codespace_status_service.ensure_day_flow_open",
+        _noop_async,
+    )
+    monkeypatch.setattr(
+        "app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_run_tests_service.cs_service.require_active_window",
+        lambda *_a, **_k: None,
+    )
+    monkeypatch.setattr(
+        "app.submissions.services.use_cases.submissions_services_use_cases_submissions_use_cases_run_tests_service.ensure_day_flow_open",
+        _noop_async,
+    )
+
+    (
+        codespace_workspace,
+        last_test_summary,
+        codespace_url,
+        task,
+    ) = await codespace_status(
+        async_session,
+        candidate_session=nina,
+        task_id=day2_task.id,
+        github_client=fake_github_client,
+    )
+    assert task.id == day2_task.id
+    assert codespace_workspace.repo_full_name == workspace.repo_full_name
+    assert codespace_workspace.codespace_state == "available"
+    assert codespace_url
+    assert last_test_summary is None
+
+    runner = GithubActionsRunner(
+        fake_github_client,
+        workflow_file="winoe-evidence-capture.yml",
+        poll_interval_seconds=0.0,
+        max_poll_seconds=1.0,
+    )
+    dispatch_task, dispatch_workspace, run_result = await run_task_tests(
+        async_session,
+        candidate_session=nina,
+        task_id=day2_task.id,
+        runner=runner,
+        branch=None,
+        workflow_inputs={"candidateSessionId": str(nina.id)},
+    )
+    assert dispatch_task.id == day2_task.id
+    assert dispatch_workspace.repo_full_name == workspace.repo_full_name
+    assert run_result.status == "passed"
+    assert run_result.raw and run_result.raw.get("status") == "completed"
+    assert run_result.raw.get("conclusion") == "success"
+    assert run_result.run_id > 0
 
 
 @pytest.mark.asyncio
@@ -542,7 +823,7 @@ async def test_seed_demo_rerun_clears_finalized_task_drafts_before_submissions(
         select(func.count()).select_from(Submission)
     )
     assert task_draft_count == 0
-    assert submission_count == 5
+    assert submission_count == 6
 
 
 @pytest.mark.asyncio
@@ -564,7 +845,7 @@ async def test_seed_demo_cli_accepts_custom_talent_partner_email_and_lists_trial
         _seed_args(
             talent_partner_email=custom_email,
             talent_partner_name="TalentPartner",
-            company_name="Acme",
+            company_name="Northstar Labs",
         )
     )
 
@@ -599,7 +880,7 @@ async def test_seed_demo_cli_accepts_custom_talent_partner_email_and_lists_trial
     awaiting_rows = awaiting_res.json()
     assert active_rows
     assert awaiting_rows
-    assert {row["status"] for row in active_rows} == {"not_started"}
+    assert {row["status"] for row in active_rows} == {"in_progress"}
     assert {row["status"] for row in awaiting_rows} == {"not_started"}
     assert all(row["status"] in allowed_statuses for row in active_rows)
     assert all(row["status"] in allowed_statuses for row in awaiting_rows)
@@ -693,10 +974,14 @@ async def test_demo_rerun_preserves_non_demo_rows(async_session, monkeypatch):
         .where(User.email == "operator@acme.example")
     )
     demo_company_count = await async_session.scalar(
-        select(func.count()).select_from(Company).where(Company.name == "Acme")
+        select(func.count())
+        .select_from(Company)
+        .where(Company.name == "Northstar Labs")
     )
     demo_user_count = await async_session.scalar(
-        select(func.count()).select_from(User).where(User.email == "demo@winoe.ai")
+        select(func.count())
+        .select_from(User)
+        .where(User.email == "winoetalentpartner@gmail.com")
     )
 
     assert other_company_count == 1
@@ -936,8 +1221,8 @@ async def test_clear_demo_scope_nulls_trial_fk_before_scenario_version_delete(
     session = _RecordingSession()
     config = SimpleNamespace(
         trial_title="Senior Frontend Engineer Trial",
-        company_name="Acme",
-        talent_partner_email="demo@winoe.ai",
+        company_name="Northstar Labs",
+        talent_partner_email="winoetalentpartner@gmail.com",
     )
     await _clear_demo_scope(session, config)
 

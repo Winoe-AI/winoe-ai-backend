@@ -53,4 +53,4 @@ async def test_dispatch_and_wait_returns_running_when_run_is_queued(monkeypatch)
     assert result.status == "running"
     assert result.run_id == 101
     assert runner.client.dispatched == 1
-    assert runner.client.list_calls == 2
+    assert runner.client.list_calls >= 2

@@ -96,13 +96,13 @@ async def dispatch_and_wait(
             apply_backoff(ctx.cache, cache_key, result, ctx.poll_interval_seconds)
             ctx.cache.cache_run(cache_key, result)
             logger.info(
-                "github_actions_run_returning_running",
+                "github_actions_run_observed_non_terminal_state",
                 extra={
                     "repo_full_name": repo_full_name,
                     "run_id": getattr(candidate_run, "id", None),
+                    "status": status,
                 },
             )
-            return result
         await asyncio.sleep(ctx.poll_interval_seconds)
     if candidate_run:
         cache_key = run_cache_key(repo_full_name, candidate_run.id)
