@@ -86,7 +86,7 @@ async def test_process_evaluation_run_job_uses_persisted_rubric_snapshots(
             SimpleNamespace(
                 id=9001,
                 basis_fingerprint="basis-9001",
-                model_version="gpt-5.2",
+                model_version="gpt-5.5",
                 prompt_version="winoe-ai-pack-v4:winoeReport",
                 rubric_version="winoe-ai-pack-v4:winoeReport:rubric",
             ),
@@ -176,8 +176,8 @@ async def test_process_evaluation_run_job_uses_persisted_rubric_snapshots(
         bundle.ai_policy_snapshot_json["agents"]["winoeReport"]["rubricVersion"]
         == "winoe-ai-pack-v4:winoeReport:rubric"
     )
-    assert bundle.model_name == "gpt-5.2"
-    assert bundle.model_version == "gpt-5.2"
+    assert bundle.model_name == "gpt-5.5"
+    assert bundle.model_version == "gpt-5.5"
     assert bundle.prompt_version == "winoe-ai-pack-v4:winoeReport"
     assert {
         item["snapshotId"] for item in bundle.ai_policy_snapshot_json["rubricSnapshots"]
@@ -185,8 +185,8 @@ async def test_process_evaluation_run_job_uses_persisted_rubric_snapshots(
     assert {
         item["snapshotId"] for item in captured["run_metadata"]["rubricSnapshots"]
     } == {item["snapshotId"] for item in materialized["rubricSnapshots"]}
-    assert captured["start_kwargs"]["model_name"] == "gpt-5.2"
-    assert captured["start_kwargs"]["model_version"] == "gpt-5.2"
+    assert captured["start_kwargs"]["model_name"] == "gpt-5.5"
+    assert captured["start_kwargs"]["model_version"] == "gpt-5.5"
     assert captured["start_kwargs"]["prompt_version"] == "winoe-ai-pack-v4:winoeReport"
     assert (
         captured["start_kwargs"]["rubric_version"]

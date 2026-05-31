@@ -680,8 +680,8 @@ def test_winoe_report_run_identity_uses_frozen_snapshot_values(monkeypatch):
         prompt_pack_version,
     ) = winoe_report_runner._resolve_winoe_report_run_identity(snapshot)
 
-    assert model_name == "gpt-5.2"
-    assert model_version == "gpt-5.2"
+    assert model_name == "gpt-5.5"
+    assert model_version == "gpt-5.5"
     assert prompt_version == "winoe-ai-pack-v4:winoeReport"
     assert rubric_version == "winoe-ai-pack-v4:winoeReport:rubric"
     assert prompt_pack_version == "winoe-ai-pack-v4"

@@ -1,73 +1,193 @@
-# Task 12: Final YC Demo Polish, Security Gates, and Release QA Closure
+# Task 2 — Demo Seed + FakeGitHubProvider Hardening
 
 ## Summary
 
-This backend PR finalizes Task 12 from the backend side. Final QA status is PASS, the backend implementation remained stable in Iteration 16, and this `pr.md` records the final QA closure for review.
+Task 2 hardens the Winoe AI demo foundation by making the seed deterministic, idempotent, and centered on the canonical Talent Partner and candidate credentials. It also hardens the fake GitHub layer so demo workflow dispatch, Codespace state, and artifact progression are reproducible without real GitHub access.
 
-Local backend server health was verified, backend security, lifecycle, and media-retention gates were verified, the legacy terminology guard passed, and the backend quality gate passed. Backend evidence aligns with the final Winoe AI Trial review vocabulary: Winoe Report, Winoe Score, Evidence Trail, Project Brief, Calibration, Benchmarks, and Handoff + Demo.
+## Why This Matters
 
-Approved Iteration 16 backend SHA: `3b8566f485e53ba70f06ee1e22a52270398a8b16`.
+This gives the YC demo a stable, repeatable baseline:
+
+- the Talent Partner path starts from `winoetalentpartner@gmail.com`
+- the active candidate path starts from `winoecandidate@gmail.com`
+- the seeded data is consistent across reruns
+- fake workflow state progression can be verified without external dependencies
+- production remains protected from demo-only execution
 
 ## Scope
 
-- Auth isolation and security regression verification.
-- CSRF and security hardening verification.
-- Rate-limit verification.
-- Day 5 cutoff verification.
-- Media retention and purge verification.
-- Production safety guard verification.
-- Final local demo seed and server verification.
-- Final QA evidence references for the Winoe AI Trial flow, Talent Partner review path, candidate lifecycle, and Winoe Report surfaces.
+- Recenter the demo seed around the canonical Talent Partner credential.
+- Recenter the active candidate demo path around the canonical candidate credential.
+- Produce a deterministic and idempotent demo dataset.
+- Hardcode the demo-critical evaluator and Winoe Report output so seed execution does not depend on live LLM calls.
+- Harden `FakeGitHubProvider` / `FakeGithubClient` for deterministic repo creation, from-scratch workspace bootstrap, Codespace state, run-tests workflow dispatch, queued -> running -> completed progression, success and failure paths, artifact zip availability after completion, and commit/compare/file evidence.
+- Preserve terminal `dispatch_and_wait` behavior.
+- Confirm `DEMO_MODE` refuses production.
+- Confirm no real GitHub or Codespace calls occur in `DEMO_MODE`.
 
-## Backend Validation
+## Backend Changes
 
-- `./precommit.sh` PASS: 2199 tests passed, 96.10% coverage.
-- `./scripts/check_no_legacy_active_refs.sh` PASS.
-- Backend health `/health` PASS 200.
-- Focused security and lifecycle tests PASS.
-- Media retention tests PASS.
-- Day 5 cutoff test PASS.
-- Production safety guard checks PASS.
+### Demo Seed
 
-## End-to-End QA Evidence
+- The seed now produces a single, canonical demo story instead of a loose or partially populated dataset.
+- The seed is deterministic and idempotent: reruns clear stale demo rows and reseed the same final identities and artifacts.
+- The active candidate path is anchored on `winoecandidate@gmail.com` and reaches Nina Alvarez's Day 2 state.
+- The Talent Partner path is anchored on `winoetalentpartner@gmail.com` and reaches the populated dashboard plus the completed hero Trial.
 
-- Local backend and frontend servers ran together.
-- Demo seed reset succeeded for the local QA pass.
-- Talent Partner and candidate browser flows passed with the documented QA identities.
-- Release-clean console and network pass completed with zero browser errors and zero non-aborted failed resources.
-- Screenshot evidence passed: 50/50 required screenshots and 12/12 edge screenshots.
-- Timed dry runs passed: Talent Partner in 12 seconds and candidate in 34 seconds.
+### Demo Dataset Inventory
 
-## Security Notes
+The final seeded inventory contains exactly:
 
-- Talent Partner isolation passed.
-- Candidate isolation passed.
-- Admin endpoints reject missing, invalid, and non-admin access.
-- CSRF protections validated.
-- Rate limits validated.
-- Day 5 cutoff enforced server-side.
-- Media retention purge validated.
-- `DEMO_MODE` production guard validated.
-- Admin token and Auth0 placeholder guards validated.
+- 1 Talent Partner
+- 3 Trials
+- 3 candidate sessions
+- 6 submissions
+- 2 workspaces
+- 2 workspace groups
+- 1 recording asset
+- 1 transcript
+- 1 evaluation run
+- 5 day scores
+- 5 reviewer reports
+- 1 Winoe Report
+- 15 Evidence Trail citations
 
-## Risks / Known Limitations
+### Credential Story
 
-- Local Auth0 username/password submission was unavailable locally; dev QA login was used and documented with `winoetalentpartner@gmail.com` and `winoecandidate@gmail.com`.
-- Final release tag must wait until both PRs are merged and CI is green.
-- No backend implementation changes were made in Iteration 16 beyond `pr.md`.
+- Talent Partner: `winoetalentpartner@gmail.com`
+- Candidate: `winoecandidate@gmail.com`
+- Candidate path resolves to Nina Alvarez on Day 2
 
-## Review Checklist
+### Completed Hero Trial
 
-- [x] `./precommit.sh` PASS.
-- [x] Legacy guard PASS.
-- [x] Security tests PASS.
-- [x] Production safety PASS.
-- [x] Media retention PASS.
-- [x] Task 12 full QA PASS.
-- [x] Release tag not created yet.
+The completed hero Trial is the Sarah Chen path:
 
-## Final Status
+- completed Trial state
+- finished Winoe Report
+- deterministic evaluation output
+- evidence-backed narrative and score artifacts
 
-Task 12 QA status: PASS
+### Evidence Trail
 
-Manual local QA verified both backend and frontend servers, browser flows for Talent Partner and candidate credentials, legacy terminology guards, security boundaries, production safety guards, branded edge states, media retention, and the v4-final screenshot audit. This PR is ready for final review and release-tag preparation.
+The seed includes realistic five-day artifacts:
+
+- Day 1 Design Doc
+- Day 2 Implementation Kickoff
+- Day 3 Implementation Wrap-Up
+- Day 4 Handoff/Demo recording plus transcript
+- Day 5 Reflection
+
+The Evidence Trail citations resolve against seeded rows and payloads, not just citation-shaped strings. The proof includes:
+
+- `day1-design-doc.md:L1-L20`
+- `day1-design-doc.md:L21-L36`
+- Day 2 and Day 3 repo commit/file/test evidence
+- Day 4 transcript and recording evidence
+- `day5-reflection.md:L1-L18`
+- `day5-reflection.md:L19-L34`
+
+### FakeGitHubProvider / FakeGithubClient
+
+The fake GitHub layer now behaves deterministically for the demo-critical path:
+
+- repository creation is stable
+- from-scratch workspace bootstrap is stable
+- Codespace state is stable
+- `run-tests` workflow dispatch is stable
+- workflow progression is `queued -> running -> completed`
+- success and failure paths are covered
+- artifact zips become available after completion
+- commit, compare, and file evidence are available to the seed and report pipeline
+
+Terminal `dispatch_and_wait` behavior is preserved. It now waits through terminal completion and returns parsed terminal results instead of stopping at the first running observation.
+
+### DEMO_MODE Production Safety
+
+- `DEMO_MODE` is refused in production.
+- The production guard fails closed with `ValidationError: DEMO_MODE/WINOE_DEMO_MODE cannot be enabled in production.`
+- The demo seed path uses the fake provider only in `DEMO_MODE`.
+- No real GitHub or Codespace calls occur in `DEMO_MODE`.
+
+## What Did Not Change
+
+- No frontend UI implementation was added in this task.
+- No live LLM dependency was introduced into the seed path.
+- No production behavior was loosened.
+- No unrelated product areas were changed.
+
+## Verification
+
+### Seed Commands
+
+```bash
+WINOE_ENV=local \
+WINOE_DEMO_MODE=true \
+WINOE_AI_RUNTIME_MODE=demo \
+GITHUB_PROVIDER=fake \
+DEMO_RESET_DB=1 \
+./scripts/seed_demo.sh --reset-db
+```
+
+### Seed Timing
+
+- Seed run 1: `elapsed_seconds=2.56`
+- Seed run 2: `elapsed_seconds=2.41`
+
+### Idempotency
+
+- Seed run 1: PASS
+- Seed run 2 / idempotency: PASS
+- Both runs completed successfully with exit code `0`
+- The second run reproduced the same identities, Trial structure, and inventory counts
+- Demo-scoped cleanup removed stale demo rows before reseeding
+
+### Automated Checks
+
+- Backend local checks: PASS
+- `2205 passed`
+- `96.16%` coverage
+- Backend terminology guard: PASS
+- Fake-provider focused test: PASS
+
+### Real Local QA
+
+- Real local QA: PASS after Iteration 4
+- Task 2 QA evidence folder: `qa_artifacts/task2_demo_seed_fakegithub_qa/qa_report.md`
+- The browser-visible queued/running state is non-blocking for this task and is deferred to Task 8 candidate UI polish
+
+### Production Guard
+
+```bash
+env WINOE_ENV=production WINOE_DEMO_MODE=true WINOE_AI_RUNTIME_MODE=demo GITHUB_PROVIDER=fake ./scripts/seed_demo.sh --reset-db
+```
+
+- Result: PASS expected failure
+- Failure reason: `ValidationError: DEMO_MODE/WINOE_DEMO_MODE cannot be enabled in production.`
+
+### Terminology Guard
+
+- Backend terminology guard: PASS
+
+## QA Result
+
+PASS
+
+Task 2 implementation is accepted and QA is accepted.
+
+## Known Limitations / Follow-ups
+
+- Browser-visible queued/running affordance is deferred to Task 8 candidate UI polish.
+- The fake provider covers the demo-critical path, not the full GitHub API surface.
+- The seed uses pre-baked deterministic evaluator and Winoe Report output by design.
+
+## Reviewer Checklist
+
+- [ ] Seed creates one Talent Partner and three Trials
+- [ ] Talent Partner credential reaches populated dashboard
+- [ ] Candidate credential reaches Nina Alvarez Day 2
+- [ ] Sarah Chen Winoe Report is ready
+- [ ] Evidence Trail citations resolve
+- [ ] Fake run-tests reaches terminal completion without real GitHub
+- [ ] DEMO_MODE refuses production
+- [ ] Local checks pass
+- [ ] Terminology guard passes

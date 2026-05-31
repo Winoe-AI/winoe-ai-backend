@@ -99,8 +99,8 @@ async def test_winoe_report_worker_completion_returns_ready_and_evidence(
     assert run.basis_fingerprint is not None
     assert run.generated_at is not None
     assert run.job_id is not None
-    assert run.model_name == "gpt-5.2"
-    assert run.model_version == "gpt-5.2"
+    assert run.model_name == "gpt-5.5"
+    assert run.model_version == "gpt-5.5"
     assert run.prompt_version == "winoe-ai-pack-v4:winoeReport"
     assert run.rubric_version == "winoe-ai-pack-v4:winoeReport:rubric"
     assert run.day2_checkpoint_sha == "cutoff-day2-fixed"

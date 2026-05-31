@@ -42,6 +42,7 @@ async def test_provider_selection_defaults_to_real_provider_outside_demo_mode(
 ):
     monkeypatch.setattr(settings, "ENV", "local")
     monkeypatch.setattr(settings, "DEMO_MODE", False)
+    monkeypatch.setenv("GITHUB_PROVIDER", "fake")
 
     fake_called = {"count": 0}
 
@@ -111,6 +112,55 @@ async def test_provider_selection_honors_demo_mode_and_production_override(monke
     with pytest.raises(RuntimeError, match="forbidden in production"):
         get_github_provisioning_client()
     assert fake_called["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_workflow_state_machine_advances_to_completion():
+    client = FakeGithubClient()
+    repo_full_name = "winoe-ai-demo/demo-workspace"
+
+    await client.create_empty_repo(
+        owner="winoe-ai-demo",
+        repo_name="demo-workspace",
+        private=True,
+    )
+    await client.trigger_workflow_dispatch(
+        repo_full_name,
+        "winoe-evidence-capture.yml",
+        ref="main",
+        inputs={"candidateSessionId": 11},
+    )
+
+    queued_runs = await client.list_workflow_runs(
+        repo_full_name,
+        "winoe-evidence-capture.yml",
+        branch="main",
+    )
+    assert len(queued_runs) == 1
+    assert queued_runs[0].status == "queued"
+
+    running_run = await client.get_workflow_run(repo_full_name, queued_runs[0].id)
+    assert running_run.status == "running"
+    assert running_run.conclusion is None
+
+    completed_run = await client.get_workflow_run(repo_full_name, queued_runs[0].id)
+    assert completed_run.status == "completed"
+    assert completed_run.conclusion == "success"
+
+    artifacts = await client.list_artifacts(repo_full_name, completed_run.id)
+    assert len(artifacts) == 9
+    test_results_artifact = next(
+        artifact for artifact in artifacts if artifact["name"] == "winoe-test-results"
+    )
+    zip_bytes = await client.download_artifact_zip(
+        repo_full_name, test_results_artifact["id"]
+    )
+    with ZipFile(io.BytesIO(zip_bytes)) as archive:
+        names = archive.namelist()
+        assert names == ["test_results.json"]
+        payload = json.loads(archive.read("test_results.json").decode("utf-8"))
+    assert payload["summary"]["status"] == "passed"
+    assert payload["total"] >= payload["passed"]
 
 
 @pytest.mark.asyncio
@@ -250,9 +300,14 @@ async def test_fake_provider_covers_workspace_branch_and_artifact_state():
         branch="main",
     )
     assert len(runs) == 1
+    assert runs[0].status == "queued"
     run = await client.get_workflow_run(repo_full_name, runs[0].id)
     assert run.head_sha
+    assert run.status == "running"
+
+    run = await client.get_workflow_run(repo_full_name, runs[0].id)
     assert run.status == "completed"
+    assert run.conclusion == "success"
 
     with pytest.raises(GithubError, match="Workflow run not found"):
         await client.get_workflow_run(repo_full_name, run.id + 1)
@@ -317,6 +372,44 @@ async def test_fake_provider_covers_workspace_branch_and_artifact_state():
         "winoe-lint-results",
         "winoe-evidence-manifest",
     ]
+
+    failure_client = FakeGithubClient()
+    await failure_client.create_empty_repo(
+        owner="winoe-ai-demo",
+        repo_name="failed-workspace",
+        private=True,
+    )
+    await failure_client.trigger_workflow_dispatch(
+        "winoe-ai-demo/failed-workspace",
+        "winoe-evidence-capture.yml",
+        ref="main",
+        inputs={"result": "failure"},
+    )
+    failed_runs = await failure_client.list_workflow_runs(
+        "winoe-ai-demo/failed-workspace",
+        "winoe-evidence-capture.yml",
+        branch="main",
+    )
+    assert failed_runs[0].status == "queued"
+    await failure_client.get_workflow_run(
+        "winoe-ai-demo/failed-workspace", failed_runs[0].id
+    )
+    failed_run = await failure_client.get_workflow_run(
+        "winoe-ai-demo/failed-workspace", failed_runs[0].id
+    )
+    assert failed_run.status == "completed"
+    assert failed_run.conclusion == "failure"
+    failed_artifacts = await failure_client.list_artifacts(
+        "winoe-ai-demo/failed-workspace", failed_run.id
+    )
+    assert failed_artifacts
+    failed_zip = await failure_client.download_artifact_zip(
+        "winoe-ai-demo/failed-workspace", failed_artifacts[5]["id"]
+    )
+    with ZipFile(io.BytesIO(failed_zip)) as archive:
+        payload = json.loads(archive.read("test_results.json"))
+    assert payload["summary"]["status"] == "failed"
+    assert payload["failed"] >= 1
 
     with pytest.raises(GithubError, match="This path is not supported in demo mode"):
         await client.generate_repo_from_template(
@@ -391,7 +484,7 @@ async def test_fake_provider_supports_offline_workspace_and_actions_flow(monkeyp
         client,
         workflow_file="winoe-evidence-capture.yml",
         poll_interval_seconds=0.0,
-        max_poll_seconds=0.1,
+        max_poll_seconds=1.0,
     )
     run_result = await runner.dispatch_and_wait(
         repo_full_name=result.repo_full_name,
@@ -407,13 +500,61 @@ async def test_fake_provider_supports_offline_workspace_and_actions_flow(monkeyp
     )
     compare = json.loads(compare_json or "{}")
 
-    assert run_result.status in {"passed", "failed"}
+    assert run_result.status == "passed"
     assert run_result.run_id > 0
     assert run_result.html_url and "/actions/runs/" in run_result.html_url
-    assert run_result.raw and isinstance(run_result.raw.get("summary"), dict)
-    assert "evidenceArtifacts" in (run_result.raw.get("summary") or {})
+    assert run_result.failed == 0
+    assert run_result.raw and run_result.raw.get("status") == "completed"
+    assert run_result.raw.get("conclusion") == "success"
+
+    completed_run = await client.get_workflow_run(
+        result.repo_full_name, run_result.run_id
+    )
+    completed_run = await client.get_workflow_run(
+        result.repo_full_name, run_result.run_id
+    )
+    assert completed_run.status == "completed"
+    assert completed_run.conclusion == "success"
+
+    artifacts = await client.list_artifacts(result.repo_full_name, completed_run.id)
+    assert len(artifacts) == 9
+    assert artifacts[0]["workflow_run"]["id"] == completed_run.id
+
     assert compare["files"]
     assert any(file["filename"] == "src/app.py" for file in compare["files"])
     assert "template_catalog" not in compare_json.lower()
     assert "precommit" not in compare_json.lower()
     assert "specializor" not in compare_json.lower()
+
+
+@pytest.mark.asyncio
+async def test_fake_provider_failure_path_returns_terminal_failure_and_artifacts():
+    client = FakeGithubClient()
+    repo_full_name = "winoe-ai-demo/demo-workspace"
+
+    await client.create_empty_repo(
+        owner="winoe-ai-demo",
+        repo_name="demo-workspace",
+        private=True,
+    )
+
+    runner = GithubActionsRunner(
+        client,
+        workflow_file="winoe-evidence-capture.yml",
+        poll_interval_seconds=0.0,
+        max_poll_seconds=1.0,
+    )
+    run_result = await runner.dispatch_and_wait(
+        repo_full_name=repo_full_name,
+        ref="main",
+        inputs={"result": "failure"},
+    )
+
+    assert run_result.status == "failed"
+    assert run_result.failed and run_result.failed > 0
+    assert run_result.stderr and "Deterministic demo failure" in run_result.stderr
+    assert run_result.raw and run_result.raw.get("status") == "completed"
+    assert run_result.raw.get("conclusion") == "failure"
+
+    artifacts = await client.list_artifacts(repo_full_name, run_result.run_id)
+    assert len(artifacts) == 9

@@ -6,6 +6,7 @@ import asyncio
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from sqlalchemy import func, select
@@ -45,11 +46,21 @@ from app.shared.database import async_session_maker, engine
 from app.shared.database.shared_database_models_model import (
     CandidateSession,
     Company,
+    RecordingAsset,
+    ScenarioVersion,
     EvaluationRun,
     Submission,
+    Task,
+    Transcript,
     Trial,
     User,
+    Workspace,
+    WorkspaceGroup,
     WinoeReport,
+)
+from app.evaluations.repositories.evaluations_repositories_evaluations_core_model import (
+    EvaluationDayScore,
+    EvaluationReviewerReport,
 )
 from app.submissions.repositories.submissions_repositories_submissions_winoe_report_citation_model import (
     WinoeReportCitation,
@@ -70,15 +81,15 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--talent-partner-email",
-        default=os.getenv("DEMO_TALENT_PARTNER_EMAIL", "demo@winoe.ai"),
+        default=os.getenv("DEMO_TALENT_PARTNER_EMAIL", "winoetalentpartner@gmail.com"),
     )
     parser.add_argument(
         "--talent-partner-name",
-        default=os.getenv("DEMO_TALENT_PARTNER_NAME", "Demo Partner"),
+        default=os.getenv("DEMO_TALENT_PARTNER_NAME", "TalentPartner"),
     )
     parser.add_argument(
         "--company-name",
-        default=os.getenv("DEMO_COMPANY_NAME", "Acme"),
+        default=os.getenv("DEMO_COMPANY_NAME", "Northstar Labs"),
     )
     parser.add_argument(
         "--qa-candidate-email",
@@ -252,6 +263,25 @@ async def _verify_seeded_dataset(summary, config: DemoSeedConfig) -> None:
                 EvaluationRun.status == EVALUATION_RUN_STATUS_COMPLETED,
             )
         )
+        active_session = next(
+            (
+                session
+                for session in candidate_sessions
+                if session.candidate_name == "Nina Alvarez"
+                and session.candidate_email == "winoecandidate@gmail.com"
+                and session.status == "in_progress"
+            ),
+            None,
+        )
+        awaiting_session = next(
+            (
+                session
+                for session in candidate_sessions
+                if session.candidate_name == "Priya Patel"
+                and session.status == "not_started"
+            ),
+            None,
+        )
 
     if company_count != 1:
         raise RuntimeError("YC demo verification failed: company count mismatch")
@@ -261,7 +291,7 @@ async def _verify_seeded_dataset(summary, config: DemoSeedConfig) -> None:
         )
     if len(demo_trials) != 3:
         raise RuntimeError("YC demo verification failed: demo trial count mismatch")
-    if len(candidate_sessions) != 4:
+    if len(candidate_sessions) != 3:
         raise RuntimeError(
             "YC demo verification failed: seeded candidate session count mismatch"
         )
@@ -282,10 +312,19 @@ async def _verify_seeded_dataset(summary, config: DemoSeedConfig) -> None:
         raise RuntimeError("YC demo verification failed: report dimension count")
     if not report_json.get("citations"):
         raise RuntimeError("YC demo verification failed: report citations missing")
+    if active_session is None or awaiting_session is None:
+        raise RuntimeError("YC demo verification failed: candidate story mismatch")
+    if any(
+        session.candidate_email == "winoecandidate@gmail.com"
+        and session.status != "in_progress"
+        for session in candidate_sessions
+    ):
+        raise RuntimeError("YC demo verification failed: candidate credential state")
 
 
 async def _main_async(args: argparse.Namespace) -> None:
     project_root = Path(__file__).resolve().parents[1]
+    started_at = time.perf_counter()
     _ensure_safe_environment(
         reset_requested=args.reset_db,
         allow_production_write=args.allow_production_write,
@@ -330,6 +369,49 @@ async def _main_async(args: argparse.Namespace) -> None:
 
     await _verify_seeded_dataset(summary, config)
 
+    async with async_session_maker() as db:
+        inventory = {
+            "companies": await db.scalar(select(func.count()).select_from(Company)),
+            "users": await db.scalar(select(func.count()).select_from(User)),
+            "trials": await db.scalar(select(func.count()).select_from(Trial)),
+            "scenario_versions": await db.scalar(
+                select(func.count()).select_from(ScenarioVersion)
+            ),
+            "tasks": await db.scalar(select(func.count()).select_from(Task)),
+            "candidate_sessions": await db.scalar(
+                select(func.count()).select_from(CandidateSession)
+            ),
+            "submissions": await db.scalar(
+                select(func.count()).select_from(Submission)
+            ),
+            "workspaces": await db.scalar(select(func.count()).select_from(Workspace)),
+            "workspace_groups": await db.scalar(
+                select(func.count()).select_from(WorkspaceGroup)
+            ),
+            "recording_assets": await db.scalar(
+                select(func.count()).select_from(RecordingAsset)
+            ),
+            "transcripts": await db.scalar(
+                select(func.count()).select_from(Transcript)
+            ),
+            "evaluation_runs": await db.scalar(
+                select(func.count()).select_from(EvaluationRun)
+            ),
+            "day_scores": await db.scalar(
+                select(func.count()).select_from(EvaluationDayScore)
+            ),
+            "reviewer_reports": await db.scalar(
+                select(func.count()).select_from(EvaluationReviewerReport)
+            ),
+            "winoe_reports": await db.scalar(
+                select(func.count()).select_from(WinoeReport)
+            ),
+            "citations": await db.scalar(
+                select(func.count()).select_from(WinoeReportCitation)
+            ),
+        }
+    elapsed_seconds = time.perf_counter() - started_at
+
     print(
         "YC demo seed verified: "
         f"company_id={summary.company_id}, "
@@ -337,6 +419,11 @@ async def _main_async(args: argparse.Namespace) -> None:
         f"candidate_session_ids={summary.candidate_session_ids}, "
         f"repos={summary.repo_full_names}"
     )
+    print(
+        "YC demo seed inventory: "
+        + ", ".join(f"{name}={value}" for name, value in inventory.items())
+    )
+    print(f"YC demo seed timing: elapsed_seconds={elapsed_seconds:.2f}")
 
 
 async def _main_with_cleanup(args: argparse.Namespace) -> None:
