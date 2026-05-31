@@ -88,7 +88,7 @@ class SettingsFields(BaseSettings):
         ),
     )
     WINOE_REPORT_DAY23_PROVIDER: str = "openai"
-    WINOE_REPORT_DAY23_MODEL: str = "gpt-5.2-codex"
+    WINOE_REPORT_DAY23_MODEL: str = "gpt-5.5"
     WINOE_REPORT_DAY23_TIMEOUT_SECONDS: int = 120
     WINOE_REPORT_DAY23_MAX_RETRIES: int = 2
 
@@ -124,7 +124,7 @@ class SettingsFields(BaseSettings):
         ),
     )
     WINOE_REPORT_AGGREGATOR_PROVIDER: str = "openai"
-    WINOE_REPORT_AGGREGATOR_MODEL: str = "gpt-5.2"
+    WINOE_REPORT_AGGREGATOR_MODEL: str = "gpt-5.5"
     WINOE_REPORT_AGGREGATOR_TIMEOUT_SECONDS: int = 90
     WINOE_REPORT_AGGREGATOR_MAX_RETRIES: int = 2
     WINOE_REPORT_ANTHROPIC_FALLBACK_DAY_MODEL: str = "claude-sonnet-4-6"
